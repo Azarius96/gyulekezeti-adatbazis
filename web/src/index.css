@@ -1,0 +1,615 @@
+:root {
+  /* icloud.com-stílusú sötét, üveges alap - mély kék háttéren lebegő,
+     enyhén áttetsző ("glass") felületek. */
+  --color-bg: #0e1a38;
+  --color-surface: rgba(255, 255, 255, 0.055);
+  --color-surface-alt: rgba(255, 255, 255, 0.095);
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.26);
+  --color-text: #f5f7fb;
+  --color-text-muted: #a9b8dd;
+
+  /* Nagy "üvegpanelek" (kártyák, oldalsáv, felső sáv, menük) - ezek külön,
+     a --color-surface-nél sötétebb/telítettebb alapon úsznak, backdrop-blurral.
+     Elég átlátszatlan, hogy hosszú, görgetett listákban ne "szűrődjön át" foltosan
+     a rögzített (fixed) háttér színes verőfénye kártyáról kártyára. */
+  --glass-bg: rgba(17, 26, 51, 0.88);
+  --glass-blur: blur(20px) saturate(1.4);
+
+  /* iOS/iCloud rendszerkék. */
+  --color-primary: #0a84ff;
+  --color-primary-dark: #5ac8ff;
+  --color-primary-light: rgba(10, 132, 255, 0.22);
+  --color-primary-contrast: #ffffff;
+
+  --color-danger: #ff453a;
+  --color-danger-light: rgba(255, 69, 58, 0.18);
+  --color-accent: #ff9f0a;
+  --color-accent-light: rgba(255, 159, 10, 0.18);
+
+  /* iOS-stílusú ikoncsempe-gradiensek (app-ikon jellegű, fényes highlighttal). */
+  --icon-blue-grad: linear-gradient(150deg, #4fa8ff 0%, #0a5fd6 100%);
+  --icon-teal-grad: linear-gradient(150deg, #6fd8ff 0%, #0091b8 100%);
+  --icon-green-grad: linear-gradient(150deg, #4ade7e 0%, #1a9c46 100%);
+  --icon-orange-grad: linear-gradient(150deg, #ffb75d 0%, #ff8a00 100%);
+  --icon-pink-grad: linear-gradient(150deg, #ff7a9c 0%, #e0114f 100%);
+  --icon-purple-grad: linear-gradient(150deg, #cd7dfa 0%, #8a3dd4 100%);
+  --icon-indigo-grad: linear-gradient(150deg, #8b89ff 0%, #4b47d6 100%);
+  --icon-red-grad: linear-gradient(150deg, #ff8a80 0%, #d70015 100%);
+  --icon-graphite-grad: linear-gradient(150deg, #b7b7bd 0%, #86868b 100%);
+
+  --font-base: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Manrope", "Inter", "Segoe UI", Arial, sans-serif;
+  --font-size-base: 20px;
+  --font-size-lg: 26px;
+  --font-size-xl: 36px;
+  --font-size-sm: 17px;
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 48px;
+
+  --radius-sm: 12px;
+  --radius: 20px;
+  --radius-lg: 28px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 1px rgba(0, 0, 0, 0.14);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.45), 0 8px 20px rgba(0, 0, 0, 0.28);
+
+  /* Apple-jellegű rugós/lecsengő easingek az animációkhoz. */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Validált kategorikus paletta (dataviz skill, adjacent-pair rendben) - kizárólag
+     diagramokhoz, sosem szöveghez. iOS rendszerszínekre igazítva. */
+  --chart-1: #0a84ff;
+  --chart-2: #ff9500;
+  --chart-3: #34c759;
+  --chart-4: #ff375f;
+  --chart-5: #af52de;
+
+  color-scheme: dark;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  background-image: radial-gradient(circle at 15% 8%, rgba(90, 160, 255, 0.35), transparent 42%),
+    radial-gradient(circle at 88% 0%, rgba(120, 90, 230, 0.28), transparent 45%),
+    radial-gradient(circle at 50% 100%, rgba(10, 60, 150, 0.4), transparent 60%),
+    linear-gradient(160deg, #142b5c 0%, #0b1730 55%, #0a1128 100%);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: var(--font-base);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+a {
+  color: var(--color-primary-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}
+
+/* Minden gomb, input és select ugyanazt az alap-magasságot használja,
+   hogy egy soron belül (.row) sose csússzanak el egymáshoz képest. */
+input, select, textarea {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: 1;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+input, select {
+  height: 40px;
+}
+
+textarea {
+  min-height: 40px;
+  line-height: 1.5;
+}
+
+input:hover, select:hover, textarea:hover {
+  border-color: var(--color-border-strong);
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-light);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.25s var(--ease-spring);
+}
+
+/* A natív <select> figyelmen kívül hagyja a line-height-ot, és a saját belső
+   szövegközpontosítási logikája szerint jeleníti meg a szöveget - a fix 40px-es
+   magasságunkkal ez azt eredményezte, hogy a szöveg alja levágódott/kilógott a
+   keretből. Ezért teljesen levesszük a natív megjelenést, és egy saját, a
+   gombokéval megegyező stílusú nyilat rajzolunk háttérképként - így a <select>
+   szövege ugyanúgy, pontosan középre igazítva viselkedik, mint egy <input>-é. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b8dd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+}
+
+/* A natív szám-input léptető nyilai eltérő magasságot kényszerítenének ki
+   a böngészőben - levéve pontosan illeszkedik a gombok/select-ek sorával. */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 16px 28px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  min-height: 56px;
+  line-height: 1;
+  background: linear-gradient(180deg, #3d9bff 0%, var(--color-primary) 55%, #0060df 100%);
+  color: var(--color-primary-contrast);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s var(--ease-out), box-shadow 0.3s var(--ease-spring), transform 0.3s var(--ease-spring);
+}
+
+.btn:hover {
+  background: linear-gradient(180deg, #4fa8ff 0%, #0a74e6 55%, #0060df 100%);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px) scale(1.01);
+}
+
+.btn:active {
+  transform: scale(0.97);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s var(--ease-out);
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px) scale(1.01);
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, #ff6259 0%, var(--color-danger) 55%, #c40012 100%);
+}
+
+.btn-danger:hover {
+  background: linear-gradient(180deg, #ff756c 0%, #f42d20 55%, #b0000f 100%);
+}
+
+/* Kompakt gombváltozat listasorokhoz, táblázat-szerű nézetekhez
+   (pl. "Szerkesztés", "Törlés" egy soron belül) - mindig 40px magas,
+   így a mellette álló input/select mezőkkel egy vonalba esik. */
+.btn-sm {
+  min-height: 40px;
+  padding: 8px 18px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* Kompakt ikongomb listasorokhoz (pl. lezárás, törlés egy sírhely-soron),
+   ahol egy teljes szöveges .btn túl nagy lenne. Négyzet alakú, az input/select
+   sorokéval megegyező 40px-es magassággal. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out), color 0.2s var(--ease-out),
+    transform 0.25s var(--ease-spring);
+}
+
+.btn-icon:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+  transform: scale(1.06);
+}
+
+.btn-icon:active {
+  transform: scale(0.92);
+}
+
+.btn-icon.btn-icon-danger:hover {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Kerek ikongomb (felső sáv: értesítés, felhasználó-avatar) - rugós tapintható
+   visszajelzéssel, iOS-stílusban. */
+.icon-btn-round {
+  transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-spring), background 0.2s var(--ease-out);
+}
+
+.icon-btn-round:hover {
+  transform: scale(1.07);
+  box-shadow: var(--shadow-sm);
+}
+
+.icon-btn-round:active {
+  transform: scale(0.9);
+  transition: transform 0.15s var(--ease-out);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+/* Kompakt jelvényváltozat sűrű listasorokhoz (pl. sírhely-státuszjelzők egymás
+   mellett), ahol a teljes .badge magassága túl domináns lenne. */
+.badge-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 0;
+  padding: 4px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: box-shadow 0.35s var(--ease-spring), transform 0.35s var(--ease-spring), border-color 0.35s var(--ease-out);
+  animation: fadeInUp 0.4s var(--ease-out) backwards;
+}
+
+a.card:hover {
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: var(--color-border-strong);
+  transform: translateY(-3px) scale(1.005);
+}
+
+a.card:active {
+  transform: translateY(-1px) scale(0.99);
+  transition: transform 0.15s var(--ease-out);
+}
+
+/* iOS-stílusú, gradiensalapú ikoncsempe (kártyafejlécek, statisztikák) -
+   a szín a `.icon-tile--<tone>` módosítóból jön, a csempe maga csak a
+   közös méretet/animációt adja. */
+.icon-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform 0.35s var(--ease-spring), box-shadow 0.35s var(--ease-spring);
+}
+
+a.card:hover .icon-tile,
+button:hover .icon-tile,
+a:hover .icon-tile,
+.nav-link:hover .icon-tile,
+.list-row:hover .icon-tile {
+  transform: scale(1.08) rotate(-2deg);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Oldalsáv navigációs elem - egérrel fölé állva üveges kiemelés, aktívan
+   kékes háttér; mindkettő rugós animációval simul be. */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out), transform 0.25s var(--ease-spring);
+}
+
+.nav-link:hover {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  transform: translateX(2px);
+}
+
+.nav-link:active {
+  transform: translateX(2px) scale(0.98);
+}
+
+.nav-link.active {
+  background: var(--color-primary-light);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+/* Kártyának/gombnak nem számító, de kattintható lista-sor (pl. gyors
+   műveletek, legutóbbi aktivitás, összecsukható évjárat-fejléc) - egységes,
+   halvány üveges hover-kiemelés minden ilyen soron. */
+a.row:hover,
+.list-row:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  cursor: pointer;
+}
+
+a.row,
+.list-row {
+  transition: background 0.2s var(--ease-out), transform 0.25s var(--ease-spring);
+}
+
+a.row:active,
+.list-row:active {
+  transform: scale(0.99);
+}
+
+.icon-tile--blue { background: var(--icon-blue-grad); }
+.icon-tile--teal { background: var(--icon-teal-grad); }
+.icon-tile--green { background: var(--icon-green-grad); }
+.icon-tile--orange { background: var(--icon-orange-grad); }
+.icon-tile--pink { background: var(--icon-pink-grad); }
+.icon-tile--purple { background: var(--icon-purple-grad); }
+.icon-tile--indigo { background: var(--icon-indigo-grad); }
+.icon-tile--red { background: var(--icon-red-grad); }
+.icon-tile--graphite { background: var(--icon-graphite-grad); }
+.icon-tile--muted {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-2);
+}
+
+.field label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.field input, .field select, .field textarea {
+  padding: 14px 16px;
+}
+
+.field input, .field select {
+  height: 52px;
+}
+
+.field textarea {
+  min-height: 52px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Egyenletes magasságú kártyarács (pl. az áttekintő statisztikakártyái).
+   A .row-tól eltérően (flex + wrap, ahol a sorok magassága a tartalomtól függően
+   véletlenszerűen eltérhet) a grid minden cellája ugyanabban a sorban egyenlő
+   magasságú, a kártyák belső elrendezése pedig (ld. Dashboard.tsx StatCard) gondoskodik róla,
+   hogy különböző sorok között is egységes maradjon a magasság. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+/* Lebegő menü/dropdown panel (kereső találatok, felhasználói menü) - macOS/iCloud-
+   stílusú "üveg" panel: enyhén áttetsző, elmosott háttérrel. */
+.menu-panel {
+  position: absolute;
+  z-index: 40;
+  background: rgba(22, 34, 61, 0.85);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  overflow: hidden;
+  animation: popIn 0.2s var(--ease-spring);
+  transform-origin: top center;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  text-align: left;
+  text-decoration: none;
+  transition: background 0.15s var(--ease-out);
+}
+
+.menu-item:hover {
+  background: var(--color-surface-alt);
+}
+
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--color-bg);
+}
+
+/* Nyomtatható hivatalos irat (pl. választói névjegyzék) - a sötét téma alkalmazásfelületén
+   belül is fehér "papírlapként" jelenik meg, hogy pontosan azt lássa a felhasználó, ami majd
+   nyomtatásban/PDF-ben is megjelenik. */
+.print-document {
+  background: #ffffff;
+  color: #1a1a1a;
+  padding: 40px;
+  border-radius: var(--radius);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.5;
+}
+
+@page {
+  size: A4;
+  margin: 2cm;
+}
+
+@media print {
+  nav, header, .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .print-document {
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+}

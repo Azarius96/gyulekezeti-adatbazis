@@ -1,0 +1,14 @@
+{
+  "name": "gyulekezeti-adatbazis",
+  "private": true,
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:web": "npm run dev --workspace=web",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down"
+  }
+}

@@ -1,0 +1,547 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Szervezeti hierarchia ----------
+
+model Kerulet {
+  id          String       @id @default(cuid())
+  nev         String
+  egyhazmegyek Egyhazmegye[]
+  userRoles   UserRole[]
+  events      Event[]
+  createdAt   DateTime     @default(now())
+}
+
+model Egyhazmegye {
+  id          String       @id @default(cuid())
+  nev         String
+  kerulet     Kerulet      @relation(fields: [keruletId], references: [id])
+  keruletId   String
+  gyulekezetek Gyulekezet[]
+  userRoles   UserRole[]
+  events      Event[]
+  createdAt   DateTime     @default(now())
+}
+
+model Gyulekezet {
+  id            String       @id @default(cuid())
+  nev           String
+  egyhazmegye   Egyhazmegye  @relation(fields: [egyhazmegyeId], references: [id])
+  egyhazmegyeId String
+
+  userRoles         UserRole[]
+  households        Household[]
+  persons           Person[]
+  cemeteries        Cemetery[]
+  duesConfigs       ChurchDuesConfig[]
+  gravePriceConfigs GravePriceConfig[]
+  positions         Position[]
+  events            Event[]
+  movingRequestsTo  MovingRequest[] @relation("MovingRequestTargetGyulekezet")
+  movingRequestsFrom MovingRequest[] @relation("MovingRequestSourceGyulekezet")
+  teendoTeljesitesek TeendoTeljesites[]
+
+  // publikus profil
+  publicSlug        String?  @unique
+  publicDescription String?
+  publicAddress     String?
+  publicContact     String?
+  publicServiceInfo String?
+
+  // Hivatalos iratokhoz (levélfejléc): adószám, román nyelvű cím (a román nyelvű dokumentumok
+  // helyes településnevéhez/címéhez, pl. Búzásbocsárd -> Bucerdea Grânoasă) és a hivatalos postacím.
+  codFiscal String?
+  romanCim  String?
+  postaiCim String?
+
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+}
+
+// ---------- Felhasználók és jogosultságok ----------
+
+enum SzerepKor {
+  ADMIN
+  PUSPOK
+  ESPERES
+  LELKESZ
+  DELEGALT // pl. presbiter, akinek a lelkész jogot adott
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  nev          String
+  passwordHash String
+
+  // egy felhasználónak több szerepköre és több gyülekezete/egyhazmegyéje/kerülete is lehet egyszerre
+  // (pl. egy lelkész saját gyülekezete mellett esperesként is felügyelhet egy egyházmegyét)
+  roles        UserRole[]
+
+  personId     String?    @unique
+  person       Person?    @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  capabilities UserCapability[]
+  auditLogs    AuditLog[]
+
+  createdAt DateTime @default(now())
+  active    Boolean  @default(true)
+
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+}
+
+model UserRole {
+  id            String       @id @default(cuid())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  szerepKor     SzerepKor
+
+  kerulet       Kerulet?     @relation(fields: [keruletId], references: [id])
+  keruletId     String?
+  egyhazmegye   Egyhazmegye? @relation(fields: [egyhazmegyeId], references: [id])
+  egyhazmegyeId String?
+  gyulekezet    Gyulekezet?  @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId  String?
+
+  createdAt     DateTime     @default(now())
+
+  @@unique([userId, szerepKor, gyulekezetId, egyhazmegyeId, keruletId])
+}
+
+// Delegálható, granuláris jogok (pl. körüzenet küldés, esemény létrehozás)
+model UserCapability {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  kod    String // pl. "KORUZENET_KULDES", "ESEMENY_LETREHOZAS_HELYI", "PUBLIKUS_PROFIL_SZERKESZTES"
+
+  @@unique([userId, kod])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  // A felhasználó nevének pillanatfelvétele az esemény idejéből - így egy évek múlva törölt
+  // vagy átnevezett felhasználó mellett is olvasható marad, ki hajtotta végre a módosítást.
+  userNev   String?
+  action    String // CREATE | UPDATE | DELETE | RESTORE
+  entity    String // a Prisma modell neve, pl. "Person"
+  entityId  String?
+  // Melyik gyülekezetet érinti - ahol egyértelműen levezethető, kitöltve, hogy az admin felület
+  // gyülekezet szerint tudjon szűrni a változás-történetben.
+  gyulekezetId String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([gyulekezetId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ---------- Cím / háztartás ----------
+
+model Address {
+  id           String      @id @default(cuid())
+  iranyitoszam String?
+  telepules    String
+  utca         String
+  hazszam      String
+  emeletAjto   String   @default("")
+  households   Household[]
+
+  @@unique([telepules, utca, hazszam, emeletAjto])
+}
+
+model Household {
+  id           String     @id @default(cuid())
+  nev          String? // pl. "Kovács család"
+  address      Address    @relation(fields: [addressId], references: [id])
+  addressId    String
+  gyulekezet   Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId String
+
+  members      HouseholdMember[]
+
+  // számított/felülírható: egyező vagy vegyes vallású család
+  vallasTipusManualis String? // ha a lelkész felülírja az automatikus számítást
+
+  createdAt DateTime @default(now())
+}
+
+enum HaztartasSzerep {
+  CSALADFO
+  HAZASTARS
+  GYERMEK
+  EGYEB
+}
+
+model HouseholdMember {
+  id          String          @id @default(cuid())
+  household   Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+  person      Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId    String
+  szerep      HaztartasSzerep
+  kezdete     DateTime        @default(now())
+  vege        DateTime?
+
+  @@unique([householdId, personId, kezdete])
+}
+
+// ---------- Személy ----------
+
+enum Nem {
+  FERFI
+  NO
+}
+
+enum CsaladiAllapot {
+  NOTLEN_HAJADON
+  HAZAS
+  OZVEGY
+  ELVALT
+}
+
+model Person {
+  id            String     @id @default(cuid())
+  vezeteknev    String
+  keresztnev    String
+  nem           Nem
+  szuletesiDatum DateTime?
+  szuletesiHely String?
+  vallas        String?
+  csaladiAllapot CsaladiAllapot?
+  elhunyt       Boolean    @default(false)
+  elhunytDatuma DateTime?
+  megjegyzes    String?
+  // A rendszer bevezetése előttről áthozott, korábbi évekre vonatkozó egyházfenntartói
+  // hátralék (pl. papír-nyilvántartásból) - nem évenkénti befizetés, hanem egy nyitóegyenleg.
+  nyitoTartozas Decimal    @default(0)
+
+  gyulekezet    Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId  String
+
+  // rokoni háló
+  parentLinks   FamilyLink[] @relation("ChildLink")
+  childLinks    FamilyLink[] @relation("ParentLink")
+  marriagesA    Marriage[]   @relation("SpouseA")
+  marriagesB    Marriage[]   @relation("SpouseB")
+
+  // anyakönyvi események
+  baptism       Baptism?
+  confirmation  Confirmation?
+
+  householdMemberships HouseholdMember[]
+  duesPayments  DuesPayment[]
+  donations     Donation[]
+  positions     Position[]
+  burial        Burial?
+  gravePurchases GravePurchase[]
+  movingHistory MovingRequest[] @relation("MovingPerson")
+  user          User?
+
+  publicVisible Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([deletedAt])
+}
+
+model FamilyLink {
+  id       String @id @default(cuid())
+  parent   Person @relation("ParentLink", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId String
+  child    Person @relation("ChildLink", fields: [childId], references: [id], onDelete: Cascade)
+  childId  String
+
+  @@unique([parentId, childId])
+}
+
+enum MarriageVegeOka {
+  HALALOZAS
+  VALAS
+}
+
+model Marriage {
+  id         String    @id @default(cuid())
+  spouseA    Person    @relation("SpouseA", fields: [spouseAId], references: [id], onDelete: Cascade)
+  spouseAId  String
+  // ha a házastárs nem gyülekezeti tag (nincs Person rekordja), spouseB üresen marad,
+  // a nevét (ha ismert) és a vallását szövegesen tároljuk - ez utóbbi a család
+  // vegyes/egyező besorolásához kell akkor is, ha a házastárs nem tagja a gyülekezetnek.
+  spouseB    Person?   @relation("SpouseB", fields: [spouseBId], references: [id], onDelete: Cascade)
+  spouseBId  String?
+  kulsoHazastarsNeve String?
+  kulsoHazastarsVallasa String?
+  datuma     DateTime?
+  helye      String?
+  lelkeszNeve String?
+  vege       DateTime? // özvegység/válás esetén
+  vegeOka    MarriageVegeOka?
+  deletedAt  DateTime?
+}
+
+model Baptism {
+  id          String   @id @default(cuid())
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId    String   @unique
+  datuma      DateTime
+  helye       String?
+  lelkeszNeve String?
+  keresztszulok String?
+}
+
+model Confirmation {
+  id          String   @id @default(cuid())
+  person      Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId    String   @unique
+  datuma      DateTime
+  helye       String?
+  lelkeszNeve String?
+}
+
+// Aktuális konfirmandus-évfolyam (manuálisan karbantartott, nem korfa alapján)
+model ConfirmationClass {
+  id           String   @id @default(cuid())
+  gyulekezetId String
+  megnevezes   String // pl. "2026-os konfirmandus évfolyam"
+  tagok        ConfirmationClassMember[]
+  createdAt    DateTime @default(now())
+}
+
+model ConfirmationClassMember {
+  id                  String            @id @default(cuid())
+  confirmationClass   ConfirmationClass @relation(fields: [confirmationClassId], references: [id])
+  confirmationClassId String
+  personId            String
+}
+
+// ---------- Egyházfenntartó ----------
+
+// Egy korsáv-készlet ("generáció") mindig egy adott évtől (ervenyesEttolEv) érvényes -
+// egy adott évre mindig a legfrissebb olyan generáció számít, amelynek ervenyesEttolEv
+// értéke még nem későbbi annál az évnél. Így egy díjemelés sosem hat vissza a korábbi
+// évekre, és minden év a saját (akkor érvényes) díjszabásával kerül kiszámításra.
+model ChurchDuesConfig {
+  id              String     @id @default(cuid())
+  gyulekezet      Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId    String
+  ervenyesEttolEv Int
+  korhatarTol     Int
+  korhatarIg      Int
+  osszeg          Decimal
+  deletedAt       DateTime?
+}
+
+// Kizárólag egyházfenntartói járulék befizetés - szándékosan külön modell az adománytól,
+// hogy a kettő semmilyen lekérdezésben ne keveredhessen össze.
+model DuesPayment {
+  id           String   @id @default(cuid())
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId     String
+  ev           Int
+  osszeg       Decimal
+  fizetesDatuma DateTime @default(now())
+  gyulekezetIdEkkor String // melyik gyülekezetnek fizetett akkor
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+}
+
+// Önkéntes adomány - külön modell a kötelező egyházfenntartói járuléktól.
+model Donation {
+  id           String   @id @default(cuid())
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId     String
+  ev           Int
+  osszeg       Decimal
+  celja        String?
+  fizetesDatuma DateTime @default(now())
+  gyulekezetIdEkkor String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+}
+
+// ---------- Tisztségek ----------
+
+model Position {
+  id           String     @id @default(cuid())
+  gyulekezet   Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId String
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId     String
+  tisztseg     String // pl. "PRESBITER", "POTPRESBITER", "GONDNOK", "FOGONDNOK", "NOSZOVETSEGI_TAG"
+  kezdete      DateTime   @default(now())
+  vege         DateTime?
+  publikus     Boolean    @default(true)
+}
+
+// ---------- Temető ----------
+
+// A temetői szabályzat (489/2006 sz. törvény, 102/2014 sz. törvény) alapján: egy egyházközség
+// telekkönyvbe foglalt temetőt tart fenn, azon belül parcellákra (sorokra), azon belül
+// sírhelyekre osztva. A telekkönyvi adatok opcionálisak - egy kis gyülekezet enélkül is
+// felveheti a temetőt, egy nagyobb, jogilag pontos nyilvántartást vezető pedig kitöltheti.
+model Cemetery {
+  id             String     @id @default(cuid())
+  gyulekezet     Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId   String
+  nev            String
+  cim            String?
+  telekkonyvSzam String?
+  helyrajziSzam  String?
+  teruletNm      Int?
+  parcellak      Parcella[]
+  deletedAt      DateTime?
+}
+
+model Parcella {
+  id         String   @id @default(cuid())
+  cemetery   Cemetery @relation(fields: [cemeteryId], references: [id], onDelete: Cascade)
+  cemeteryId String
+  jelzes     String // pl. "A-3 sor"
+  sirhelyek  Sirhely[]
+  deletedAt  DateTime?
+
+  @@unique([cemeteryId, jelzes])
+}
+
+model Sirhely {
+  id         String          @id @default(cuid())
+  parcella   Parcella        @relation(fields: [parcellaId], references: [id], onDelete: Cascade)
+  parcellaId String
+  jelzes     String // pl. "12-es sírhely"
+  // Történelmi/műemlék jellegű, lejárt bérletű sír, amely a szabályzat szerint nem adható
+  // újra bérbe (lásd Temetői szabályzat VIII. fejezet) - ilyenkor a lejarat/megváltás
+  // adminisztrációja értelmét veszti, csak megőrzés/gondozás tárgya marad.
+  lezart     Boolean         @default(false)
+  burials    Burial[]
+  purchases  GravePurchase[]
+  deletedAt  DateTime?
+
+  @@unique([parcellaId, jelzes])
+}
+
+model Burial {
+  id         String   @id @default(cuid())
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId   String   @unique
+  sirhely    Sirhely  @relation(fields: [sirhelyId], references: [id], onDelete: Cascade)
+  sirhelyId  String
+  datuma     DateTime
+  deletedAt  DateTime?
+}
+
+// Akárcsak az egyházfenntartói díjszabás: minden árgeneráció egy adott évtől érvényes,
+// és a Presbitérium évente határoz róla (Temetői szabályzat 25.§).
+model GravePriceConfig {
+  id              String     @id @default(cuid())
+  gyulekezet      Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId    String
+  ervenyessegEv   Int
+  osszeg          Decimal
+  ervenyesEttolEv Int
+  deletedAt       DateTime?
+}
+
+model GravePurchase {
+  id               String   @id @default(cuid())
+  sirhely          Sirhely  @relation(fields: [sirhelyId], references: [id], onDelete: Cascade)
+  sirhelyId        String
+  megvaltoNeve     String
+  megvaltoPerson   Person?  @relation(fields: [megvaltoPersonId], references: [id], onDelete: SetNull)
+  megvaltoPersonId String?
+  datuma           DateTime
+  osszeg           Decimal
+  lejarat          DateTime
+  deletedAt        DateTime?
+}
+
+// ---------- Költözés ----------
+
+enum MovingStatus {
+  FUGGOBEN
+  ELFOGADVA
+  ELUTASITVA
+  ISMERETLEN_CELBA
+}
+
+model MovingRequest {
+  id                 String       @id @default(cuid())
+  person             Person       @relation("MovingPerson", fields: [personId], references: [id], onDelete: Cascade)
+  personId           String
+  regiCim            String
+  ujCim              String
+  indoklas           String?
+  // Honnan költözik - a kezdeményezéskor a személy akkori gyülekezete (pillanatfelvétel, mert a
+  // Person.gyulekezetId egy elfogadott költözés után megváltozik, de a "honnan jött" történet
+  // ettől függetlenül megmaradjon).
+  forrasGyulekezet   Gyulekezet?  @relation("MovingRequestSourceGyulekezet", fields: [forrasGyulekezetId], references: [id], onDelete: SetNull)
+  forrasGyulekezetId String?
+  celGyulekezet      Gyulekezet?  @relation("MovingRequestTargetGyulekezet", fields: [celGyulekezetId], references: [id], onDelete: SetNull)
+  celGyulekezetId    String?
+  status             MovingStatus @default(FUGGOBEN)
+  kezdemenyezve      DateTime     @default(now())
+  elbiralva          DateTime?
+}
+
+// ---------- Események ----------
+
+enum EsemenySzint {
+  HELYI
+  MEGYEI
+  KERULETI
+}
+
+enum EsemenyStatus {
+  AKTIV
+  ESKALACIO_FUGGOBEN
+  JOVAHAGYVA
+  ELUTASITVA
+}
+
+model Event {
+  id            String        @id @default(cuid())
+  cim           String
+  leiras        String?
+  datuma        DateTime
+  szint         EsemenySzint  @default(HELYI)
+  status        EsemenyStatus @default(AKTIV)
+
+  gyulekezet    Gyulekezet?   @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId  String?
+  egyhazmegye   Egyhazmegye?  @relation(fields: [egyhazmegyeId], references: [id])
+  egyhazmegyeId String?
+  kerulet       Kerulet?      @relation(fields: [keruletId], references: [id])
+  keruletId     String?
+
+  createdAt DateTime @default(now())
+}
+
+// ---------- Törvényben előírt éves teendők ----------
+
+// A konkrét teendőket (pl. "választói névjegyzék") a kód tartalmazza (Kánon-hivatkozással,
+// határidővel) - ez a modell csak azt jegyzi, hogy egy adott gyülekezet egy adott évben,
+// egy adott teendőt már teljesített-e, hogy a harang alatti figyelmeztetés eltűnjön róla.
+model TeendoTeljesites {
+  id           String     @id @default(cuid())
+  gyulekezet   Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
+  gyulekezetId String
+  teendoId     String // a kódban definiált teendő-katalógus kulcsa (pl. "valasztoi-nevjegyzek")
+  ev           Int
+  teljesitve   DateTime   @default(now())
+
+  @@unique([gyulekezetId, teendoId, ev])
+}
