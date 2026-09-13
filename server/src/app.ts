@@ -28,6 +28,7 @@ import { lelekszamRoutes } from "./modules/lelekszam.routes.js";
 import { auditRoutes } from "./modules/audit.routes.js";
 import { trashRoutes } from "./modules/trash.routes.js";
 import { movingRoutes } from "./modules/moving.routes.js";
+import { publicRoutes } from "./modules/public.routes.js";
 import { withRequestContext } from "./lib/requestContext.js";
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS ?? "http://localhost:5173").split(",");
@@ -93,6 +94,7 @@ export async function buildApp() {
   await app.register(auditRoutes);
   await app.register(trashRoutes);
   await app.register(movingRoutes);
+  await app.register(publicRoutes);
 
   app.get("/api/health", async () => ({ ok: true }));
 
