@@ -294,4 +294,25 @@ export async function householdRoutes(app: FastifyInstance) {
     });
     return member;
   });
+
+  // Egy meglévő háztartási tagság szerepének (családfő/házastárs/gyermek/egyéb) utólagos
+  // módosítása - ez a mező a személy háztartáson BELÜLI szerepét jelöli, függetlenül a
+  // Person saját családi állapotától (nőtlen/házas/özvegy/elvált), ezért a kettő sosem
+  // szinkronizálódik automatikusan; ha az egyik változik, a másikat külön kell frissíteni.
+  app.put("/api/household-members/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const schema = z.object({ szerep: z.enum(["CSALADFO", "HAZASTARS", "GYERMEK", "EGYEB"]) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+
+    const existing = await prisma.householdMember.findUnique({ where: { id }, include: { household: true } });
+    if (!existing) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !canEditGyulekezet(user, existing.household.gyulekezetId)) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+
+    const updated = await prisma.householdMember.update({ where: { id }, data: { szerep: parsed.data.szerep } });
+    return updated;
+  });
 }

@@ -39,19 +39,50 @@ const szerepLabels: Record<string, string> = {
   EGYEB: "egyéb",
 };
 
+/** A háztartáson belüli szerep (családfő/házastárs/gyermek/egyéb) a Person saját családi
+ * állapotától (nőtlen/házas/özvegy/elvált) FÜGGETLEN mező - az egyik módosítása nem
+ * frissíti automatikusan a másikat, ezért ez a kis szerkesztő közvetlenül itt teszi
+ * lehetővé az utólagos javítást (pl. tömeges felvétel után, amikor a pontos rokoni
+ * kapcsolat még nem volt ismert). */
+function SzerepEditor({ memberId, szerep, onChanged }: { memberId: string; szerep: string; onChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+
+  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setSaving(true);
+    try {
+      await api.put(`/api/household-members/${memberId}`, { szerep: e.target.value });
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <select value={szerep} onChange={handleChange} disabled={saving} style={{ fontSize: "var(--font-size-sm)" }}>
+      {Object.entries(szerepLabels).map(([value, label]) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function HouseholdDetail() {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const [household, setHousehold] = useState<HouseholdView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     if (!id) return;
     api
       .get<HouseholdView>(`/api/households/${id}`)
       .then(setHousehold)
       .catch(() => setError("Nem sikerült betölteni a háztartás adatait"));
-  }, [id]);
+  }
+
+  useEffect(load, [id]);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
   if (!household) return <p>Betöltés...</p>;
@@ -104,7 +135,6 @@ export function HouseholdDetail() {
                   {m.person.vallas && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> — {m.person.vallas}</span>}
                 </span>{" "}
                 <span style={{ color: "var(--color-text-muted)" }}>
-                  {szerepLabels[m.szerep] ?? m.szerep}
                   {m.egyhazfenntarto.korsav &&
                     (m.egyhazfenntarto.mentes
                       ? " · mentes"
@@ -119,6 +149,13 @@ export function HouseholdDetail() {
                   </span>
                 )}
               </Link>
+              {canEdit ? (
+                <SzerepEditor memberId={m.id} szerep={m.szerep} onChanged={load} />
+              ) : (
+                <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                  {szerepLabels[m.szerep] ?? m.szerep}
+                </span>
+              )}
               {!m.person.elhunyt && canEdit && (
                 <QuickPay
                   personId={m.person.id}
