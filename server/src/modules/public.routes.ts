@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
+import { ageOn } from "../lib/age.js";
 
 /**
  * Hitelesítés nélküli, kizárólag összesített (nem személyes) adatokat kiadó végpont a
@@ -26,30 +27,48 @@ export async function publicRoutes(app: FastifyInstance) {
     if (gyulekezetek.length === 0) {
       return reply.code(404).send({ error: "Nem található nyilvános gyülekezet ilyen azonosítóval" });
     }
-    const gyulekezetIds = gyulekezetek.map((g) => g.id);
 
     const now = new Date();
     const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
     const yearEnd = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
 
-    const [elolevok, elhunytakEbbenAzEvben] = await Promise.all([
-      prisma.person.count({
-        where: { gyulekezetId: { in: gyulekezetIds }, elhunyt: false },
-      }),
-      prisma.person.count({
-        where: {
-          gyulekezetId: { in: gyulekezetIds },
-          elhunyt: true,
-          elhunytDatuma: { gte: yearStart, lt: yearEnd },
-        },
-      }),
-    ]);
+    const eredmeny = await Promise.all(
+      gyulekezetek.map(async (g) => {
+        const [tagletszam, elhunytakEbbenAzEvben, eloTagok] = await Promise.all([
+          prisma.person.count({ where: { gyulekezetId: g.id, elhunyt: false } }),
+          prisma.person.count({
+            where: { gyulekezetId: g.id, elhunyt: true, elhunytDatuma: { gte: yearStart, lt: yearEnd } },
+          }),
+          prisma.person.findMany({
+            where: { gyulekezetId: g.id, elhunyt: false, szuletesiDatum: { not: null } },
+            select: { szuletesiDatum: true },
+          }),
+        ]);
 
-    return {
-      ev: now.getUTCFullYear(),
-      tagletszam: elolevok,
-      elhunytakEbbenAzEvben,
-      gyulekezetek: gyulekezetek.map((g) => ({ nev: g.nev, slug: g.publicSlug })),
-    };
+        const korBuckets = [
+          { label: "0–14 év", min: 0, max: 14, count: 0 },
+          { label: "15–29 év", min: 15, max: 29, count: 0 },
+          { label: "30–49 év", min: 30, max: 49, count: 0 },
+          { label: "50–64 év", min: 50, max: 64, count: 0 },
+          { label: "65+ év", min: 65, max: 999, count: 0 },
+        ];
+        for (const p of eloTagok) {
+          if (!p.szuletesiDatum) continue;
+          const age = ageOn(p.szuletesiDatum, now);
+          const bucket = korBuckets.find((b) => age >= b.min && age <= b.max);
+          if (bucket) bucket.count++;
+        }
+
+        return {
+          nev: g.nev,
+          slug: g.publicSlug,
+          tagletszam,
+          elhunytakEbbenAzEvben,
+          korEloszlas: korBuckets.map((b) => ({ label: b.label, count: b.count })),
+        };
+      }),
+    );
+
+    return { ev: now.getUTCFullYear(), gyulekezetek: eredmeny };
   });
 }
