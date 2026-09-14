@@ -12,6 +12,14 @@ interface UserRow {
   roles: UserRoleEntry[];
 }
 
+interface DeletedUserRow {
+  id: string;
+  email: string;
+  nev: string;
+  deletedAt: string;
+  roles: UserRoleEntry[];
+}
+
 interface EgyhazmegyeOption {
   id: string;
   nev: string;
@@ -27,6 +35,8 @@ const szerepLabels: Record<string, string> = {
 
 export function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [deletedUsers, setDeletedUsers] = useState<DeletedUserRow[]>([]);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +48,10 @@ export function Users() {
       .get<UserRow[]>("/api/users")
       .then(setUsers)
       .catch(() => setError("Nem sikerült betölteni a felhasználókat (csak rendszergazda érheti el)"));
+    api
+      .get<DeletedUserRow[]>("/api/users/deleted")
+      .then(setDeletedUsers)
+      .catch(() => {});
   }
 
   useEffect(load, []);
@@ -57,6 +71,17 @@ export function Users() {
 
   async function toggleActive(u: UserRow) {
     await api.put(`/api/users/${u.id}/active`, { active: !u.active });
+    load();
+  }
+
+  async function deleteUser(u: UserRow) {
+    if (!confirm(`Biztosan törli "${u.nev}" felhasználót? A papírkosárból később visszaállítható.`)) return;
+    await api.delete(`/api/users/${u.id}`);
+    load();
+  }
+
+  async function restoreUser(u: DeletedUserRow) {
+    await api.post(`/api/users/${u.id}/restore`);
     load();
   }
 
@@ -116,6 +141,9 @@ export function Users() {
                 <button className="btn btn-secondary" onClick={() => toggleActive(u)}>
                   {u.active ? "Letiltás" : "Engedélyezés"}
                 </button>
+                <button className="btn btn-danger" onClick={() => deleteUser(u)}>
+                  Törlés
+                </button>
               </div>
             </div>
             {expandedId === u.id && (
@@ -134,6 +162,37 @@ export function Users() {
           </div>
         ))}
       </div>
+
+      {deletedUsers.length > 0 && (
+        <div className="stack">
+          <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowDeleted((v) => !v)}>
+            {showDeleted ? "Törölt felhasználók elrejtése" : `Törölt felhasználók megjelenítése (${deletedUsers.length})`}
+          </button>
+          {showDeleted && (
+            <div className="card" style={{ padding: 0 }}>
+              {deletedUsers.map((u) => (
+                <div
+                  key={u.id}
+                  className="row"
+                  style={{ justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid var(--color-border)" }}
+                >
+                  <div>
+                    <strong>{u.nev}</strong> — {u.email}
+                    <div style={{ color: "var(--color-text-muted)" }}>
+                      {u.roles.map((r) => szerepLabels[r.szerepKor] ?? r.szerepKor).join(", ") || "— nincs szerepkör —"}
+                      {" · törölve: "}
+                      {new Date(u.deletedAt).toLocaleDateString("hu-HU")}
+                    </div>
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => restoreUser(u)}>
+                    Visszaállítás
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

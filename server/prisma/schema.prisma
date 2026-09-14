@@ -90,8 +90,9 @@ model User {
   capabilities UserCapability[]
   auditLogs    AuditLog[]
 
-  createdAt DateTime @default(now())
-  active    Boolean  @default(true)
+  createdAt DateTime  @default(now())
+  active    Boolean   @default(true)
+  deletedAt DateTime?
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?

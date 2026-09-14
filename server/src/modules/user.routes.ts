@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "../lib/prisma.js";
+import { prisma, prismaIncludingDeleted } from "../lib/prisma.js";
 import { isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
 
@@ -45,6 +45,42 @@ export async function userRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
     });
     return users;
+  });
+
+  // A törölt (deletedAt != null) felhasználók külön listája - a papírkosárhoz hasonlóan innen
+  // visszaállíthatók, de mivel a jogosultság itt nem gyülekezethez köthető (egy admin/esperes
+  // fiók több/semelyik gyülekezethez sem tartozik), ez szándékosan nem az általános papírkosár
+  // része, hanem csak rendszergazda számára elérhető, közvetlenül a Felhasználók oldalon.
+  app.get("/api/users/deleted", async (req, reply) => {
+    if (!requireAdmin(req, reply)) return;
+    const users = await prismaIncludingDeleted.user.findMany({
+      where: { deletedAt: { not: null } },
+      select: { id: true, email: true, nev: true, deletedAt: true, roles: true },
+      orderBy: { deletedAt: "desc" },
+    });
+    return users;
+  });
+
+  app.delete("/api/users/:id", async (req, reply) => {
+    if (!requireAdmin(req, reply)) return;
+    const { id } = req.params as { id: string };
+    if (req.currentUser!.id === id) {
+      return reply.code(400).send({ error: "Saját fiókját nem törölheti" });
+    }
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return reply.code(404).send({ error: "Nem található" });
+    await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), active: false } });
+    return { ok: true };
+  });
+
+  app.post("/api/users/:id/restore", async (req, reply) => {
+    if (!requireAdmin(req, reply)) return;
+    const { id } = req.params as { id: string };
+    const user = await prismaIncludingDeleted.user.findUnique({ where: { id } });
+    if (!user) return reply.code(404).send({ error: "Nem található" });
+    if (user.deletedAt == null) return reply.code(409).send({ error: "Ez a felhasználó nincs törölve" });
+    const restored = await prisma.user.update({ where: { id }, data: { deletedAt: null } });
+    return restored;
   });
 
   app.post("/api/users", async (req, reply) => {

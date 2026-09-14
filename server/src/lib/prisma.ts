@@ -76,6 +76,7 @@ export const SOFT_DELETE_MODELS = new Set([
   "Sirhely",
   "ChurchDuesConfig",
   "GravePriceConfig",
+  "User",
 ]);
 
 function modelDelegateName(model: string): string {
