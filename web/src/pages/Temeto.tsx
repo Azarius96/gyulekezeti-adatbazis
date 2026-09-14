@@ -6,7 +6,13 @@ import { IconCross, IconMapPin, IconPlus, IconTrash, IconLock, IconLockOpen, Ico
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { DateInput } from "../components/DateInput";
-import { LEJARAT_ELORE_JELZES_HONAP, type PurchaseData, type CemeteryData } from "../components/AddBurialForm";
+import {
+  LEJARAT_ELORE_JELZES_HONAP,
+  type PurchaseData,
+  type CemeteryData,
+  type ParcellaData,
+  type SirhelyData,
+} from "../components/AddBurialForm";
 
 interface ExpiringPurchase extends PurchaseData {
   sirhelyJelzes: string;
