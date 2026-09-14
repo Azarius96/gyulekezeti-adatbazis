@@ -7,6 +7,7 @@ import { IconTrash, IconCross } from "../components/icons";
 import { DateInput } from "../components/DateInput";
 import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { AddBurialForm, useCemeteries } from "../components/AddBurialForm";
 
 function RelativeGroup({ title, people }: { title: string; people: FamilyPersonRef[] }) {
   if (people.length === 0) return null;
@@ -641,24 +642,9 @@ function AddParentForm({ personId, gyulekezetId, onAdded }: { personId: string; 
   );
 }
 
-function MoveToCemeteryCard({ personId, onDone }: { personId: string; onDone: () => void }) {
+function MoveToCemeteryCard({ personId, gyulekezetId, onDone }: { personId: string; gyulekezetId: string; onDone: () => void }) {
   const [open, setOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [elhunytDatuma, setElhunytDatuma] = useState(new Date().toISOString().slice(0, 10));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleMove() {
-    setSaving(true);
-    setError(null);
-    try {
-      await api.put(`/api/persons/${personId}`, { elhunyt: true, elhunytDatuma: elhunytDatuma || null });
-      onDone();
-    } catch {
-      setError("Nem sikerült áthelyezni a temetőbe");
-      setSaving(false);
-    }
-  }
+  const cemeteries = useCemeteries(gyulekezetId);
 
   if (!open) {
     return (
@@ -677,35 +663,17 @@ function MoveToCemeteryCard({ personId, onDone }: { personId: string; onDone: ()
   }
 
   return (
-    <div className="card stack">
-      <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Áthelyezés a temetőbe</h2>
-      <div className="field" style={{ maxWidth: 220 }}>
-        <label>Elhalálozás dátuma</label>
-        <DateInput value={elhunytDatuma} onChange={(e) => setElhunytDatuma(e.target.value)} />
-      </div>
-      {!confirming ? (
-        <div className="row">
-          <button className="btn btn-danger" onClick={() => setConfirming(true)}>
-            Áthelyezés a temetőbe
-          </button>
-          <button className="btn btn-secondary" onClick={() => setOpen(false)}>
-            Mégse
-          </button>
-        </div>
-      ) : (
-        <div className="row" style={{ alignItems: "center" }}>
-          <span style={{ color: "var(--color-danger)" }}>
-            Biztosan elhunytként rögzíti? Ez a házastárs családi állapotát is automatikusan özvegyre állítja.
-          </span>
-          <button className="btn btn-danger" disabled={saving} onClick={handleMove}>
-            {saving ? "Áthelyezés..." : "Igen, áthelyezem"}
-          </button>
-          <button className="btn btn-secondary" onClick={() => setConfirming(false)}>
-            Mégse
-          </button>
-        </div>
-      )}
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+    <div className="stack">
+      <p style={{ color: "var(--color-text-muted)", margin: 0, fontSize: "var(--font-size-sm)" }}>
+        A mentés elhunytként rögzíti a személyt, és automatikusan özvegyre állítja a házastárs családi állapotát, ha van.
+      </p>
+      <AddBurialForm
+        personId={personId}
+        gyulekezetId={gyulekezetId}
+        cemeteries={cemeteries}
+        onDone={onDone}
+        onCancel={() => setOpen(false)}
+      />
     </div>
   );
 }
@@ -1206,6 +1174,8 @@ export function PersonDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showMoveForm, setShowMoveForm] = useState(false);
+  const [showBurialForm, setShowBurialForm] = useState(false);
+  const cemeteries = useCemeteries(person?.gyulekezetId ?? "");
 
   async function handleDelete() {
     if (!id) return;
@@ -1360,12 +1330,25 @@ export function PersonDetail() {
                   <strong>Eltemetve:</strong> {new Date(person.burial.datuma).toLocaleDateString("hu-HU")} —{" "}
                   {person.burial.sirhely.parcella.cemetery.nev}, {person.burial.sirhely.parcella.jelzes}/{person.burial.sirhely.jelzes}
                 </div>
+              ) : showBurialForm ? (
+                <AddBurialForm
+                  personId={person.id}
+                  gyulekezetId={person.gyulekezetId}
+                  cemeteries={cemeteries}
+                  onDone={() => {
+                    setShowBurialForm(false);
+                    load();
+                  }}
+                  onCancel={() => setShowBurialForm(false)}
+                />
               ) : (
                 <div className="row" style={{ alignItems: "center" }}>
                   <span style={{ color: "var(--color-text-muted)" }}>Nincs rögzítve temetés.</span>
-                  <Link className="btn btn-secondary btn-sm" to="/temeto">
-                    Rögzítés a Temető oldalon
-                  </Link>
+                  {canEdit && (
+                    <button className="btn btn-secondary btn-sm" onClick={() => setShowBurialForm(true)}>
+                      Temetés rögzítése
+                    </button>
+                  )}
                 </div>
               )}
               {canEdit && (
@@ -1373,7 +1356,7 @@ export function PersonDetail() {
               )}
             </div>
           ) : (
-            canEdit && <MoveToCemeteryCard personId={person.id} onDone={load} />
+            canEdit && <MoveToCemeteryCard personId={person.id} gyulekezetId={person.gyulekezetId} onDone={load} />
           )}
 
           <div className="card stack">

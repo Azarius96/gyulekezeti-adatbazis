@@ -64,21 +64,30 @@ export async function cemeteryRoutes(app: FastifyInstance) {
 
     const where = query.gyulekezetId ? { gyulekezetId: query.gyulekezetId } : accessible === "ALL" ? {} : { gyulekezetId: { in: accessible } };
 
+    // FONTOS: a Prisma Client Extension (lib/prisma.ts) puha törlés elleni automatikus szűrése
+    // csak a legfelső szintű ".findMany()" hívásra vonatkozik - egy include-dal beágyazott
+    // kapcsolatra (mint itt a parcellak/sirhelyek/burials/purchases) NEM terjed ki, ezért ezeket
+    // itt explicit módon kell kizárni, különben egy visszaállított/törölt temetés vagy
+    // megváltás is foglaltnak tűnne.
     const cemeteries = await prisma.cemetery.findMany({
       where,
       orderBy: { nev: "asc" },
       include: {
         parcellak: {
+          where: { deletedAt: null },
           orderBy: { jelzes: "asc" },
           include: {
             sirhelyek: {
+              where: { deletedAt: null },
               orderBy: { jelzes: "asc" },
               include: {
                 burials: {
+                  where: { deletedAt: null },
                   orderBy: { datuma: "desc" },
                   include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
                 },
                 purchases: {
+                  where: { deletedAt: null },
                   orderBy: { datuma: "desc" },
                   include: { megvaltoPerson: { select: { id: true, vezeteknev: true, keresztnev: true } } },
                 },
@@ -110,48 +119,6 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       osszeg: config ? Number(config.osszeg) : null,
       ervenyessegEv: config?.ervenyessegEv ?? null,
     };
-  });
-
-  // Egy adott évben elhunytak listája - a statisztikakártyáról ide kattintva.
-  app.get("/api/temeto/elhunytak", async (req, reply) => {
-    const user = req.currentUser!;
-    const schema = z.object({ gyulekezetId: z.string().optional(), ev: z.coerce.number().int().min(1900).max(3000) });
-    const parsed = schema.safeParse(req.query);
-    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
-
-    const accessible = await getAccessibleGyulekezetIds(user);
-    if (parsed.data.gyulekezetId) {
-      if (accessible !== "ALL" && !accessible.includes(parsed.data.gyulekezetId)) {
-        return reply.code(403).send({ error: "Nincs jogosultság" });
-      }
-    } else if (accessible !== "ALL" && accessible.length === 0) {
-      return reply.code(403).send({ error: "Nincs jogosultság" });
-    }
-
-    const where = parsed.data.gyulekezetId
-      ? { gyulekezetId: parsed.data.gyulekezetId }
-      : accessible === "ALL"
-        ? {}
-        : { gyulekezetId: { in: accessible } };
-
-    const persons = await prisma.person.findMany({
-      where: {
-        ...where,
-        elhunyt: true,
-        elhunytDatuma: { gte: new Date(parsed.data.ev, 0, 1), lte: new Date(parsed.data.ev, 11, 31, 23, 59, 59) },
-      },
-      orderBy: { elhunytDatuma: "desc" },
-      select: {
-        id: true,
-        vezeteknev: true,
-        keresztnev: true,
-        elhunytDatuma: true,
-        gyulekezetId: true,
-        gyulekezet: { select: { nev: true } },
-        burial: { select: { datuma: true, sirhely: { select: { jelzes: true, parcella: { select: { jelzes: true, cemetery: { select: { nev: true } } } } } } } },
-      },
-    });
-    return persons;
   });
 
   // ---------- Temető ----------

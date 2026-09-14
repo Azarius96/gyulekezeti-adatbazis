@@ -6,72 +6,7 @@ import { IconCross, IconMapPin, IconPlus, IconTrash, IconLock, IconLockOpen, Ico
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { DateInput } from "../components/DateInput";
-
-/** Ennyi hónapon belül lejáró sírhelymegváltásokat jelezzük előre, hogy legyen idő
- * a megújításról dönteni vagy - lejárat után - a sírhelyet a szabályzat szerint kezelni. */
-const LEJARAT_ELORE_JELZES_HONAP = 12;
-
-const CURRENT_YEAR = new Date().getFullYear();
-
-interface PersonRef {
-  id: string;
-  vezeteknev: string;
-  keresztnev: string;
-}
-
-interface BurialData {
-  id: string;
-  datuma: string;
-  person: PersonRef;
-}
-
-interface PurchaseData {
-  id: string;
-  megvaltoNeve: string;
-  megvaltoPerson: PersonRef | null;
-  datuma: string;
-  osszeg: string;
-  lejarat: string;
-}
-
-interface SirhelyData {
-  id: string;
-  jelzes: string;
-  lezart: boolean;
-  burials: BurialData[];
-  purchases: PurchaseData[];
-}
-
-interface ParcellaData {
-  id: string;
-  jelzes: string;
-  sirhelyek: SirhelyData[];
-}
-
-interface CemeteryData {
-  id: string;
-  gyulekezetId: string;
-  nev: string;
-  cim: string | null;
-  telekkonyvSzam: string | null;
-  helyrajziSzam: string | null;
-  teruletNm: number | null;
-  parcellak: ParcellaData[];
-}
-
-interface ElhunytData {
-  id: string;
-  vezeteknev: string;
-  keresztnev: string;
-  elhunytDatuma: string | null;
-  gyulekezetId: string;
-  gyulekezet: { nev: string };
-  burial: { datuma: string; sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } } } | null;
-}
-
-function initials(vezeteknev: string, keresztnev: string): string {
-  return `${vezeteknev[0] ?? ""}${keresztnev[0] ?? ""}`.toUpperCase();
-}
+import { LEJARAT_ELORE_JELZES_HONAP, type PurchaseData, type CemeteryData } from "../components/AddBurialForm";
 
 interface ExpiringPurchase extends PurchaseData {
   sirhelyJelzes: string;
@@ -115,13 +50,9 @@ export function Temeto() {
   const gyulekezetek = useGyulekezetek();
   const [searchParams, setSearchParams] = useSearchParams();
   const gyulekezetId = searchParams.get("gyulekezetId") ?? "";
-  const [elhunytEv, setElhunytEv] = useState(searchParams.get("elhunytEv") ?? String(CURRENT_YEAR));
 
   const [cemeteries, setCemeteries] = useState<CemeteryData[]>([]);
-  const [elhunytak, setElhunytak] = useState<ElhunytData[]>([]);
-  const [loadingElhunytak, setLoadingElhunytak] = useState(false);
   const [showNewCemetery, setShowNewCemetery] = useState(false);
-  const [burialForPersonId, setBurialForPersonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function setGyulekezetFilter(id: string) {
@@ -140,21 +71,8 @@ export function Temeto() {
       .catch(() => setError("Nem sikerült betölteni a temetőket"));
   }
 
-  function loadElhunytak(ev: string) {
-    setLoadingElhunytak(true);
-    const params = new URLSearchParams();
-    params.set("ev", ev);
-    if (gyulekezetId) params.set("gyulekezetId", gyulekezetId);
-    api
-      .get<ElhunytData[]>(`/api/temeto/elhunytak?${params.toString()}`)
-      .then(setElhunytak)
-      .catch(() => setError("Nem sikerült betölteni az elhunytak listáját"))
-      .finally(() => setLoadingElhunytak(false));
-  }
-
   useEffect(() => {
     loadCemeteries();
-    loadElhunytak(elhunytEv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gyulekezetId]);
 
@@ -167,92 +85,14 @@ export function Temeto() {
         <div>
           <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Temető</h1>
           <p style={{ color: "var(--color-text-muted)", margin: "6px 0 0" }}>
-            Elhunytak nyilvántartása, temetői parcellák és sírhelyek kezelése.
+            Temetői parcellák és sírhelyek kezelése. Az elhunytak temetése a személy adatlapján, az "Áthelyezés a
+            temetőbe" gombbal rögzíthető.
           </p>
         </div>
         <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetFilter} gyulekezetek={gyulekezetek} />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-
-      <div className="card stack">
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Elhunytak</h2>
-          <span className="badge">
-            {elhunytak.length === 0 ? `Nincs elhunyt ${elhunytEv}-ban/-ben` : `${elhunytak.length} elhunyt ${elhunytEv}-ban/-ben`}
-          </span>
-        </div>
-        <div className="row" style={{ alignItems: "flex-end" }}>
-          <div className="field" style={{ width: 110, marginBottom: 0 }}>
-            <label>Év</label>
-            <input type="number" value={elhunytEv} onChange={(e) => setElhunytEv(e.target.value)} />
-          </div>
-          <button className="btn btn-secondary" onClick={() => loadElhunytak(elhunytEv)} disabled={loadingElhunytak}>
-            {loadingElhunytak ? "Betöltés..." : "Frissítés"}
-          </button>
-        </div>
-
-        {elhunytak.length === 0 && (
-          <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nem hunyt el senki ebben az évben.</p>
-        )}
-        <div className="stack" style={{ gap: 10 }}>
-          {elhunytak.map((p) => (
-            <div
-              key={p.id}
-              className="row"
-              style={{
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "12px 16px",
-                borderRadius: "var(--radius-sm)",
-                background: "var(--color-surface-alt)",
-              }}
-            >
-              <div className="row" style={{ alignItems: "center", gap: 12, flexWrap: "nowrap" }}>
-                <span
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "50%",
-                    background: "var(--color-surface)",
-                    color: "var(--color-text-muted)",
-                    display: "grid",
-                    placeItems: "center",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    flexShrink: 0,
-                    border: "1px solid var(--color-border)",
-                  }}
-                >
-                  {initials(p.vezeteknev, p.keresztnev)}
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <Link to={`/szemelyek/${p.id}`} style={{ fontWeight: 700 }}>
-                    {p.vezeteknev} {p.keresztnev}
-                  </Link>
-                  {gyulekezetek.length > 1 && <span style={{ color: "var(--color-text-muted)" }}> — {p.gyulekezet.nev}</span>}
-                  <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                    {p.elhunytDatuma ? `elhalálozás: ${p.elhunytDatuma.slice(0, 10)}` : "elhalálozás dátuma nem ismert"}
-                    {p.burial &&
-                      ` · eltemetve: ${p.burial.datuma.slice(0, 10)} (${p.burial.sirhely.parcella.cemetery.nev}, ${p.burial.sirhely.parcella.jelzes}/${p.burial.sirhely.jelzes})`}
-                  </div>
-                </span>
-              </div>
-              {p.burial ? (
-                <span className="badge-sm" style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)" }}>
-                  eltemetve
-                </span>
-              ) : (
-                canEditGyulekezet(user, p.gyulekezetId) && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => setBurialForPersonId(p.id)}>
-                    <IconPlus style={{ width: 16, height: 16 }} /> Temetés rögzítése
-                  </button>
-                )
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
 
       {expiringPurchases.length > 0 && (
         <div className="card stack">
@@ -300,19 +140,6 @@ export function Temeto() {
         </div>
       )}
 
-      {burialForPersonId && (
-        <AddBurialForm
-          personId={burialForPersonId}
-          gyulekezetId={activeGyulekezetId}
-          cemeteries={cemeteries}
-          onDone={() => {
-            setBurialForPersonId(null);
-            loadCemeteries();
-            loadElhunytak(elhunytEv);
-          }}
-          onCancel={() => setBurialForPersonId(null)}
-        />
-      )}
 
       <div className="stack">
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -746,154 +573,6 @@ function AddGravePurchaseForm({ sirhelyId, gyulekezetId, onDone }: { sirhelyId: 
         </span>
       )}
       {error && <span style={{ color: "var(--color-danger)" }}>{error}</span>}
-    </form>
-  );
-}
-
-function AddBurialForm({
-  personId,
-  gyulekezetId,
-  cemeteries,
-  onDone,
-  onCancel,
-}: {
-  personId: string;
-  gyulekezetId: string;
-  cemeteries: CemeteryData[];
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [cemeteryId, setCemeteryId] = useState(cemeteries[0]?.id ?? "");
-  const [parcellaJelzes, setParcellaJelzes] = useState("");
-  const [sirhelyJelzes, setSirhelyJelzes] = useState("");
-  const [datuma, setDatuma] = useState(new Date().toISOString().slice(0, 10));
-  const [elfogadva, setElfogadva] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!cemeteryId && cemeteries.length > 0) setCemeteryId(cemeteries[0].id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cemeteries]);
-
-  const matchedSirhely = useMemo(() => {
-    const norm = (s: string) => s.trim().toLowerCase();
-    const cemetery = cemeteries.find((c) => c.id === cemeteryId);
-    const parcella = cemetery?.parcellak.find((p) => norm(p.jelzes) === norm(parcellaJelzes));
-    return parcella?.sirhelyek.find((s) => norm(s.jelzes) === norm(sirhelyJelzes)) ?? null;
-  }, [cemeteries, cemeteryId, parcellaJelzes, sirhelyJelzes]);
-
-  const occupied = matchedSirhely !== null && matchedSirhely.burials.length > 0;
-  const latestPurchase = matchedSirhely?.purchases[0] ?? null;
-  const purchaseHorizon = useMemo(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + LEJARAT_ELORE_JELZES_HONAP);
-    return d;
-  }, []);
-  const purchaseExpiring = latestPurchase ? new Date(latestPurchase.lejarat) <= purchaseHorizon : false;
-  const purchaseExpired = latestPurchase ? new Date(latestPurchase.lejarat) < new Date() : false;
-
-  useEffect(() => {
-    setElfogadva(false);
-  }, [matchedSirhely]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!cemeteryId) {
-      setError("Előbb vegyen fel legalább egy temetőt");
-      return;
-    }
-    if (occupied && !elfogadva) {
-      setError("Erősítse meg, hogy tudomásul vette, hogy a sírhely már foglalt");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    try {
-      await api.post("/api/temeto/burials", { personId, cemeteryId, parcellaJelzes, sirhelyJelzes, datuma });
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Nem sikerült rögzíteni a temetést");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="card stack">
-      <h3 style={{ margin: 0 }}>Temetés rögzítése</h3>
-      <div className="row">
-        <div className="field" style={{ flex: 1 }}>
-          <label>Temető</label>
-          <select value={cemeteryId} onChange={(e) => setCemeteryId(e.target.value)}>
-            {cemeteries.length === 0 && <option value="">— nincs felvéve temető —</option>}
-            {cemeteries.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nev}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Parcella</label>
-          <input required list="parcella-list" value={parcellaJelzes} onChange={(e) => setParcellaJelzes(e.target.value)} placeholder="pl. A sor" />
-          <datalist id="parcella-list">
-            {cemeteries.find((c) => c.id === cemeteryId)?.parcellak.map((p) => <option key={p.id} value={p.jelzes} />)}
-          </datalist>
-        </div>
-        <div className="field">
-          <label>Sírhely</label>
-          <input required value={sirhelyJelzes} onChange={(e) => setSirhelyJelzes(e.target.value)} placeholder="pl. 12-es sírhely" />
-        </div>
-        <div className="field">
-          <label>Temetés dátuma</label>
-          <DateInput required value={datuma} onChange={(e) => setDatuma(e.target.value)} />
-        </div>
-      </div>
-
-      {occupied && (
-        <div
-          className="stack"
-          style={{ gap: 8, padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "rgba(255, 69, 58, 0.14)", border: "1px solid var(--color-danger)" }}
-        >
-          <strong style={{ color: "var(--color-danger)" }}>Ez a sírhely már foglalt.</strong>
-          <div style={{ fontSize: "var(--font-size-sm)" }}>
-            Ide már temettek:{" "}
-            {matchedSirhely!.burials.map((b, i) => (
-              <span key={b.id}>
-                {i > 0 && ", "}
-                <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> ({b.datuma.slice(0, 10)})
-              </span>
-            ))}
-          </div>
-          <label className="row" style={{ alignItems: "center", fontWeight: 600, fontSize: "var(--font-size-sm)" }}>
-            <input type="checkbox" checked={elfogadva} onChange={(e) => setElfogadva(e.target.checked)} />
-            Tudomásul veszem, hogy a sírhely már foglalt, mégis ide szeretnék temetni
-          </label>
-        </div>
-      )}
-
-      {latestPurchase && (purchaseExpired || purchaseExpiring) && (
-        <div
-          className="row"
-          style={{ alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-accent-light)" }}
-        >
-          <span style={{ color: "var(--color-accent)", fontWeight: 600, fontSize: "var(--font-size-sm)" }}>
-            {purchaseExpired ? "A sírhely megváltása lejárt" : "A sírhely megváltása hamarosan lejár"}
-            {" "}(lejárat: {latestPurchase.lejarat.slice(0, 10)}) - érdemes rendezni a megújítást.
-          </span>
-        </div>
-      )}
-
-      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      <div className="row">
-        <button className="btn" type="submit" disabled={saving || !gyulekezetId || (occupied && !elfogadva)}>
-          {saving ? "Mentés..." : "Mentés"}
-        </button>
-        <button className="btn btn-secondary" type="button" onClick={onCancel}>
-          Mégse
-        </button>
-      </div>
     </form>
   );
 }

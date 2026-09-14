@@ -184,7 +184,7 @@ export function Dashboard() {
             <StatCard
               label={`Elhunytak (${currentYear})`}
               value={stats.elhunytakIdenre}
-              to={`/temeto?elhunytEv=${currentYear}${gy}`}
+              to={`/haztartasok?elhunyt=true${gy}`}
               icon={IconCross}
               tone="muted"
             />
