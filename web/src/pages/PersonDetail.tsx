@@ -1326,15 +1326,23 @@ export function PersonDetail() {
                 {person.elhunytDatuma ? new Date(person.elhunytDatuma).toLocaleDateString("hu-HU") : "nincs rögzítve"}
               </div>
               {person.burial ? (
-                <div>
-                  <strong>Eltemetve:</strong> {new Date(person.burial.datuma).toLocaleDateString("hu-HU")} —{" "}
-                  {person.burial.sirhely.parcella.cemetery.nev}, {person.burial.sirhely.parcella.jelzes}/{person.burial.sirhely.jelzes}
-                </div>
+                <>
+                  <div>
+                    <strong>Eltemetve:</strong> {new Date(person.burial.datuma).toLocaleDateString("hu-HU")} —{" "}
+                    {person.burial.sirhely.parcella.cemetery.nev}, {person.burial.sirhely.parcella.jelzes}/{person.burial.sirhely.jelzes}
+                  </div>
+                  {person.burial.halottiAnyakonyviSzam && (
+                    <div>
+                      <strong>Halotti anyakönyvi szám:</strong> {person.burial.halottiAnyakonyviSzam}
+                    </div>
+                  )}
+                </>
               ) : showBurialForm ? (
                 <AddBurialForm
                   personId={person.id}
                   gyulekezetId={person.gyulekezetId}
                   cemeteries={cemeteries}
+                  initialElhunytDatuma={person.elhunytDatuma}
                   onDone={() => {
                     setShowBurialForm(false);
                     load();

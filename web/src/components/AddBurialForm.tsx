@@ -16,6 +16,7 @@ export interface PersonRef {
 export interface BurialData {
   id: string;
   datuma: string;
+  halottiAnyakonyviSzam: string | null;
   person: PersonRef;
 }
 
@@ -74,19 +75,26 @@ export function AddBurialForm({
   personId,
   gyulekezetId,
   cemeteries,
+  initialElhunytDatuma,
   onDone,
   onCancel,
 }: {
   personId: string;
   gyulekezetId: string;
   cemeteries: CemeteryData[];
+  /** Ha a személy már el van jelölve elhunytként, ennek a meglévő halálozási dátuma - előtöltésre. */
+  initialElhunytDatuma?: string | null;
   onDone: () => void;
   onCancel: () => void;
 }) {
   const [cemeteryId, setCemeteryId] = useState(cemeteries[0]?.id ?? "");
   const [parcellaJelzes, setParcellaJelzes] = useState("");
   const [sirhelyJelzes, setSirhelyJelzes] = useState("");
+  const [elhunytDatuma, setElhunytDatuma] = useState(
+    initialElhunytDatuma ? initialElhunytDatuma.slice(0, 10) : new Date().toISOString().slice(0, 10)
+  );
   const [datuma, setDatuma] = useState(new Date().toISOString().slice(0, 10));
+  const [halottiAnyakonyviSzam, setHalottiAnyakonyviSzam] = useState("");
   const [elfogadva, setElfogadva] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -130,7 +138,15 @@ export function AddBurialForm({
     setSaving(true);
     setError(null);
     try {
-      await api.post("/api/temeto/burials", { personId, cemeteryId, parcellaJelzes, sirhelyJelzes, datuma });
+      await api.post("/api/temeto/burials", {
+        personId,
+        cemeteryId,
+        parcellaJelzes,
+        sirhelyJelzes,
+        datuma,
+        elhunytDatuma,
+        halottiAnyakonyviSzam: halottiAnyakonyviSzam || null,
+      });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nem sikerült rögzíteni a temetést");
@@ -142,6 +158,20 @@ export function AddBurialForm({
   return (
     <form onSubmit={handleSubmit} className="card stack">
       <h3 style={{ margin: 0 }}>Temetés rögzítése</h3>
+      <div className="row">
+        <div className="field">
+          <label>Elhalálozás dátuma</label>
+          <DateInput required value={elhunytDatuma} onChange={(e) => setElhunytDatuma(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Halotti anyakönyvi szám</label>
+          <input
+            value={halottiAnyakonyviSzam}
+            onChange={(e) => setHalottiAnyakonyviSzam(e.target.value)}
+            placeholder="ha ismert"
+          />
+        </div>
+      </div>
       <div className="row">
         <div className="field" style={{ flex: 1 }}>
           <label>Temető</label>

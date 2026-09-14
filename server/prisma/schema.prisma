@@ -448,6 +448,9 @@ model Burial {
   sirhely    Sirhely  @relation(fields: [sirhelyId], references: [id], onDelete: Cascade)
   sirhelyId  String
   datuma     DateTime
+  // Az állami (polgári) anyakönyvi hivatal által kiállított halotti anyakönyvi kivonat száma -
+  // nem kötelező, mert nem minden esetben áll rendelkezésre a rögzítéskor.
+  halottiAnyakonyviSzam String?
   deletedAt  DateTime?
 }
 

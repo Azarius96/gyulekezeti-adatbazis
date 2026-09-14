@@ -485,6 +485,7 @@ function SirhelyRow({
       {sirhely.burials.map((b) => (
         <div key={b.id} style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
           Temetés: <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> — {b.datuma.slice(0, 10)}
+          {b.halottiAnyakonyviSzam && ` · anyakönyvi szám: ${b.halottiAnyakonyviSzam}`}
         </div>
       ))}
       {sirhely.purchases.map((p) => (

@@ -125,6 +125,7 @@ export interface PersonDetail extends PersonListItem {
   burial: {
     id: string;
     datuma: string;
+    halottiAnyakonyviSzam: string | null;
     sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } };
   } | null;
   movingHistory: {

@@ -269,6 +269,8 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       parcellaJelzes: z.string().min(1),
       sirhelyJelzes: z.string().min(1),
       datuma: z.string(),
+      elhunytDatuma: z.string(),
+      halottiAnyakonyviSzam: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
@@ -302,16 +304,25 @@ export async function cemeteryRoutes(app: FastifyInstance) {
     });
 
     const datuma = new Date(parsed.data.datuma);
+    const elhunytDatuma = new Date(parsed.data.elhunytDatuma);
     const burial = await prisma.burial.create({
-      data: { personId: person.id, sirhelyId: sirhely.id, datuma },
+      data: {
+        personId: person.id,
+        sirhelyId: sirhely.id,
+        datuma,
+        halottiAnyakonyviSzam: parsed.data.halottiAnyakonyviSzam || null,
+      },
     });
 
-    // A temetés rögzítése önmagában is elhalálozást jelent - ha a személy még nincs
-    // elhunytként jelölve, itt jelöljük meg (a halál dátumát külön is lehet pontosítani
-    // a személy adatlapján, ha eltér a temetés dátumától).
+    // A halál dátuma (elhunytDatuma) és a temetés dátuma (Burial.datuma) külön adat - a temetés
+    // jellemzően napokkal a halál után történik. Ha a személy még nincs elhunytként jelölve,
+    // itt jelöljük meg (a widowhood-kaszkád csak ekkor fut le, hogy ne induljon el ismét, ha a
+    // temetés utólag, egy már korábban elhunytként rögzített személyhez kerül felvételre).
     if (!person.elhunyt) {
-      await prisma.person.update({ where: { id: person.id }, data: { elhunyt: true, elhunytDatuma: datuma } });
-      await applyWidowhoodCascade(person.id, datuma);
+      await prisma.person.update({ where: { id: person.id }, data: { elhunyt: true, elhunytDatuma } });
+      await applyWidowhoodCascade(person.id, elhunytDatuma);
+    } else if (person.elhunytDatuma?.getTime() !== elhunytDatuma.getTime()) {
+      await prisma.person.update({ where: { id: person.id }, data: { elhunytDatuma } });
     }
 
     return burial;
@@ -325,7 +336,11 @@ export async function cemeteryRoutes(app: FastifyInstance) {
     if (!isAdmin(user) && !canEditGyulekezet(user, existing.sirhely.parcella.cemetery.gyulekezetId)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
-    const schema = z.object({ datuma: z.string().optional(), sirhelyId: z.string().optional() });
+    const schema = z.object({
+      datuma: z.string().optional(),
+      sirhelyId: z.string().optional(),
+      halottiAnyakonyviSzam: z.string().optional().nullable(),
+    });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const burial = await prisma.burial.update({
@@ -333,6 +348,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       data: {
         ...(parsed.data.datuma !== undefined ? { datuma: new Date(parsed.data.datuma) } : {}),
         ...(parsed.data.sirhelyId !== undefined ? { sirhelyId: parsed.data.sirhelyId } : {}),
+        ...(parsed.data.halottiAnyakonyviSzam !== undefined ? { halottiAnyakonyviSzam: parsed.data.halottiAnyakonyviSzam || null } : {}),
       },
     });
     return burial;
