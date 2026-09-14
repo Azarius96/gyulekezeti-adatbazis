@@ -163,6 +163,34 @@ export function IconSearch(props: IconProps) {
   );
 }
 
+export function IconMenu(props: IconProps) {
+  return base(
+    <>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </>,
+    props
+  );
+}
+
+export function IconX(props: IconProps) {
+  return base(
+    <>
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </>,
+    props
+  );
+}
+
+export function IconHeart(props: IconProps) {
+  return base(
+    <path d="M12 20.5s-7.5-4.6-9.8-9.1C.8 8.1 2.3 4.8 5.6 4.1c2-.4 3.9.5 5 2.1a1 1 0 0 0 1.6 0c1.1-1.6 3-2.5 5-2.1 3.3.7 4.8 4 3.4 7.3-2.3 4.5-9.8 9.1-9.8 9.1Z" />,
+    props
+  );
+}
+
 export function IconBell(props: IconProps) {
   return base(
     <>

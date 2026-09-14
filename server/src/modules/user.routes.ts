@@ -41,6 +41,8 @@ export async function userRoutes(app: FastifyInstance) {
         createdAt: true,
         lockedUntil: true,
         roles: true,
+        paymentPaidAt: true,
+        paymentValidUntil: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -173,6 +175,28 @@ export async function userRoutes(app: FastifyInstance) {
       where: { id },
       data: { active: parsed.data.active, ...(parsed.data.active ? { failedLoginAttempts: 0, lockedUntil: null } : {}) },
       select: { id: true, active: true },
+    });
+    return user;
+  });
+
+  // Fizetési határidő rögzítése/módosítása egy felhasználóhoz (jellemzően lelkészi fiókhoz) -
+  // mindkét mező nullázható, ha törölni kell a korlátozást.
+  app.put("/api/users/:id/payment", async (req, reply) => {
+    if (!requireAdmin(req, reply)) return;
+    const { id } = req.params as { id: string };
+    const schema = z.object({
+      paymentPaidAt: z.string().nullable(),
+      paymentValidUntil: z.string().nullable(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        paymentPaidAt: parsed.data.paymentPaidAt ? new Date(parsed.data.paymentPaidAt) : null,
+        paymentValidUntil: parsed.data.paymentValidUntil ? new Date(parsed.data.paymentValidUntil) : null,
+      },
+      select: { id: true, paymentPaidAt: true, paymentValidUntil: true },
     });
     return user;
   });

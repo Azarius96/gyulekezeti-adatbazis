@@ -590,6 +590,57 @@ a.row:active,
   line-height: 1.5;
 }
 
+/* ---------- Mobilbarát elrendezés ---------- */
+
+.app-main {
+  padding: var(--space-4);
+}
+
+.hamburger-btn {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: -280px;
+    height: 100dvh !important;
+    transition: left 0.22s ease;
+  }
+  .app-sidebar.app-sidebar--open {
+    left: 0;
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  .hamburger-btn {
+    display: grid;
+  }
+  .app-main {
+    padding: var(--space-2);
+  }
+  .support-label {
+    display: none;
+  }
+}
+
+/* Egyszerű, önműködő biztonsági háló minden táblázatnak: keskeny képernyőn a táblázat saját
+   maga görgethetővé válik vízszintesen ahelyett, hogy az egész oldalt szétfeszítené. Az egyes
+   oldalak saját overflow-x:auto csomagolása (ahol van) elsőbbséget élvez, ez csak a többi,
+   erre külön fel nem készített táblázatot védi. */
+@media (max-width: 700px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
 @page {
   size: A4;
   margin: 2cm;

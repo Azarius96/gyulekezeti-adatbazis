@@ -10,6 +10,8 @@ interface UserRow {
   active: boolean;
   lockedUntil: string | null;
   roles: UserRoleEntry[];
+  paymentPaidAt: string | null;
+  paymentValidUntil: string | null;
 }
 
 interface DeletedUserRow {
@@ -130,6 +132,12 @@ export function Users() {
                   {!u.active ? " · inaktív" : ""}
                   {u.lockedUntil && new Date(u.lockedUntil) > new Date() ? " · zárolva" : ""}
                 </div>
+                {u.paymentValidUntil && (
+                  <div style={{ color: new Date(u.paymentValidUntil) < new Date() ? "var(--color-danger)" : "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                    Fizetési érvényesség: {new Date(u.paymentValidUntil).toLocaleDateString("hu-HU")}
+                    {new Date(u.paymentValidUntil) < new Date() ? " · lejárt" : ""}
+                  </div>
+                )}
               </div>
               <div className="row">
                 <button
@@ -149,6 +157,7 @@ export function Users() {
             {expandedId === u.id && (
               <div className="stack" style={{ padding: "0 24px 20px 24px" }}>
                 <PasswordResetForm userId={u.id} />
+                <PaymentEditor user={u} onChanged={load} />
                 <RoleEditor
                   user={u}
                   gyulekezetek={gyulekezetek}
@@ -238,6 +247,95 @@ function PasswordResetForm({ userId }: { userId: string }) {
       {error && <p style={{ color: "var(--color-danger)", margin: 0 }}>{error}</p>}
       {done && <p style={{ color: "var(--color-primary-dark)", margin: 0 }}>Az új jelszó beállítva.</p>}
     </form>
+  );
+}
+
+function toDateInputValue(iso: string | null): string {
+  return iso ? iso.slice(0, 10) : "";
+}
+
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+function PaymentEditor({ user, onChanged }: { user: UserRow; onChanged: () => void }) {
+  const [paidAt, setPaidAt] = useState(toDateInputValue(user.paymentPaidAt) || new Date().toISOString().slice(0, 10));
+  const [validUntil, setValidUntil] = useState(toDateInputValue(user.paymentValidUntil));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function applyDuration(months: number) {
+    setValidUntil(addMonths(paidAt, months));
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put(`/api/users/${user.id}/payment`, {
+        paymentPaidAt: paidAt || null,
+        paymentValidUntil: validUntil || null,
+      });
+      onChanged();
+    } catch {
+      setError("Nem sikerült menteni");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function clear() {
+    setPaidAt("");
+    setValidUntil("");
+    setSaving(true);
+    try {
+      await api.put(`/api/users/${user.id}/payment`, { paymentPaidAt: null, paymentValidUntil: null });
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card stack" style={{ background: "var(--color-bg)" }}>
+      <strong>Fizetési határidő</strong>
+      <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+        Ha be van állítva "érvényes eddig" dátum, a lejárat előtt 1 hónappal a felhasználó piros
+        figyelmeztetést lát a fejlécen; a lejárat után nem tud bejelentkezni, amíg új kifizetés
+        nem kerül rögzítésre. Üresen hagyva nincs korlátozás.
+      </p>
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Mikor fizetett</label>
+          <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Érvényesség hossza</label>
+          <select value="" onChange={(e) => e.target.value && applyDuration(Number(e.target.value))}>
+            <option value="">— válasszon —</option>
+            <option value="1">1 hónap</option>
+            <option value="3">3 hónap</option>
+            <option value="6">6 hónap</option>
+            <option value="12">12 hónap</option>
+          </select>
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Érvényes eddig</label>
+          <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+        </div>
+        <button className="btn btn-secondary" type="button" disabled={saving} onClick={save}>
+          {saving ? "Mentés..." : "Mentés"}
+        </button>
+        {(user.paymentPaidAt || user.paymentValidUntil) && (
+          <button className="btn btn-secondary" type="button" disabled={saving} onClick={clear}>
+            Korlátozás törlése
+          </button>
+        )}
+      </div>
+      {error && <p style={{ color: "var(--color-danger)", margin: 0 }}>{error}</p>}
+    </div>
   );
 }
 

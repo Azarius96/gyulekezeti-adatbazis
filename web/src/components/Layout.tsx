@@ -68,6 +68,7 @@ export function Layout() {
   ];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   async function handleLogout() {
     await logout();
@@ -76,7 +77,20 @@ export function Layout() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 39,
+          }}
+          className="sidebar-overlay"
+        />
+      )}
       <nav
+        className={`app-sidebar${mobileNavOpen ? " app-sidebar--open" : ""}`}
         style={{
           width: 264,
           flexShrink: 0,
@@ -92,6 +106,7 @@ export function Layout() {
           top: 0,
           height: "100vh",
           overflowY: "auto",
+          zIndex: 40,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px 22px" }}>
@@ -121,6 +136,7 @@ export function Layout() {
               key={item.to}
               to={item.to}
               end={item.end}
+              onClick={() => setMobileNavOpen(false)}
               className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
             >
               <span
@@ -185,8 +201,8 @@ export function Layout() {
         </div>
       </nav>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <TopBar />
-        <main style={{ flex: 1, width: "100%", padding: "var(--space-4)", maxWidth: 1440, margin: "0 auto" }}>
+        <TopBar onMenuClick={() => setMobileNavOpen((v) => !v)} />
+        <main className="app-main" style={{ flex: 1, width: "100%", maxWidth: 1440, margin: "0 auto" }}>
           <Outlet />
         </main>
       </div>

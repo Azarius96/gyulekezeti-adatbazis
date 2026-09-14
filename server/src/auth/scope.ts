@@ -8,6 +8,23 @@ export function isAdmin(user: AuthUser): boolean {
 }
 
 /**
+ * A rendszer üzemeltetőjének (ADMIN szerepkör) fiókja sosem függeszthető fel fizetés hiánya
+ * miatt - a fizetési határidő kizárólag a rendszert használó (pl. lelkész) fiókokra vonatkozik.
+ */
+export function isPaymentExpired(user: AuthUser): boolean {
+  if (isAdmin(user)) return false;
+  return user.paymentValidUntil != null && user.paymentValidUntil.getTime() < Date.now();
+}
+
+/** Igaz, ha a fizetési határidő a megadott napon belül lejár (de még nem járt le) - erre épül a
+ * fejlécen megjelenő piros figyelmeztetés. */
+export function isPaymentDueSoon(user: AuthUser, withinDays = 30): boolean {
+  if (isAdmin(user) || !user.paymentValidUntil) return false;
+  const msLeft = user.paymentValidUntil.getTime() - Date.now();
+  return msLeft > 0 && msLeft <= withinDays * 24 * 60 * 60 * 1000;
+}
+
+/**
  * Visszaadja azon gyülekezet-azonosítók listáját, amelyeket az adott
  * felhasználó VALAMELYIK szerepköre alapján láthat (egy felhasználónak
  * több szerepköre és több gyülekezete/egyházmegyéje is lehet egyszerre).

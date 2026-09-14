@@ -96,6 +96,12 @@ model User {
 
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
+
+  // Előfizetés / fizetési határidő nyilvántartása (a rendszert használó gyülekezetek felé) -
+  // ha megadva és lejárt, a fiók (ADMIN kivételével) bejelentkezéskor elutasításra kerül.
+  // Nincs kitöltve = nincs fizetési korlátozás (visszamenőleg nem zár ki senkit).
+  paymentPaidAt      DateTime?
+  paymentValidUntil  DateTime?
 }
 
 model UserRole {

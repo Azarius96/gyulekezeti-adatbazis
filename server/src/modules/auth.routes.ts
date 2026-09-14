@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { signToken } from "../auth/jwt.js";
+import { isPaymentExpired, type AuthUser } from "../auth/scope.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -19,7 +20,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: "Hibás adatok" });
     }
     const { email, password } = parsed.data;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email }, include: { roles: true } });
 
     // Azonos, nem informatív hibaüzenet minden sikertelen esetben (nincs felhasználó-enumeráció).
     const genericError = () => reply.code(401).send({ error: "Hibás e-mail vagy jelszó" });
@@ -56,6 +57,12 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
+    if (isPaymentExpired(user as AuthUser)) {
+      return reply.code(402).send({
+        error: "Lejárt a fiókjához tartozó fizetési határidő. A hozzáférés újbóli aktiválásához kérjük, vegye fel a kapcsolatot a rendszergazdával.",
+      });
+    }
+
     const token = signToken({ userId: user.id });
     reply.setCookie("token", token, {
       path: "/",
@@ -83,6 +90,7 @@ export async function authRoutes(app: FastifyInstance) {
       nev: u.nev,
       email: u.email,
       roles: u.roles,
+      paymentValidUntil: u.paymentValidUntil,
     };
   });
 }

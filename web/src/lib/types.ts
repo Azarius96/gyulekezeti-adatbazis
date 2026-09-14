@@ -13,10 +13,19 @@ export interface CurrentUser {
   nev: string;
   email: string;
   roles: UserRoleEntry[];
+  paymentValidUntil: string | null;
 }
 
 export function isAdmin(user: CurrentUser | null): boolean {
   return !!user?.roles.some((r) => r.szerepKor === "ADMIN");
+}
+
+/** Napok száma a fizetési határidőig (negatív, ha már lejárt) - null, ha nincs beállítva határidő
+ * vagy a felhasználó admin (rá sosem vonatkozik a korlátozás). */
+export function paymentDaysLeft(user: CurrentUser | null): number | null {
+  if (!user || isAdmin(user) || !user.paymentValidUntil) return null;
+  const ms = new Date(user.paymentValidUntil).getTime() - Date.now();
+  return Math.ceil(ms / (24 * 60 * 60 * 1000));
 }
 
 export function ownGyulekezetIds(user: CurrentUser | null): string[] {

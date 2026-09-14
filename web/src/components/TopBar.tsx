@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { IconSearch, IconBell, IconLogout } from "./icons";
+import { paymentDaysLeft } from "../lib/types";
+import { IconSearch, IconBell, IconLogout, IconHeart, IconMenu } from "./icons";
+
+const SUPPORT_URL = "https://revolut.me/laszlo37zx";
 
 interface PersonResult {
   id: string;
@@ -88,7 +91,7 @@ function initials(nev: string | undefined): string {
     .toUpperCase();
 }
 
-export function TopBar() {
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -191,8 +194,30 @@ export function TopBar() {
     navigate("/bejelentkezes");
   }
 
+  const daysLeft = paymentDaysLeft(user);
+
   return (
-    <header
+    <>
+      {daysLeft !== null && daysLeft <= 30 && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 31,
+            padding: "8px var(--space-4)",
+            background: "var(--color-danger)",
+            color: "#fff",
+            fontSize: "var(--font-size-sm)",
+            fontWeight: 600,
+            textAlign: "center",
+          }}
+        >
+          {daysLeft > 0
+            ? `Figyelem: az előfizetése ${daysLeft} nap múlva lejár. Kérjük, egyeztessen a rendszergazdával a hozzáférés fenntartásához.`
+            : "Az előfizetése lejárt. Kérjük, egyeztessen a rendszergazdával a hozzáférés helyreállításához."}
+        </div>
+      )}
+      <header
       style={{
         display: "flex",
         alignItems: "center",
@@ -207,6 +232,24 @@ export function TopBar() {
         borderBottom: "1px solid var(--color-border)",
       }}
     >
+      <button
+        className="hamburger-btn icon-btn-round"
+        onClick={onMenuClick}
+        title="Menü"
+        style={{
+          placeItems: "center",
+          width: 42,
+          height: 42,
+          borderRadius: "50%",
+          border: "1px solid var(--color-border)",
+          background: "var(--color-surface)",
+          color: "var(--color-text-muted)",
+          cursor: "pointer",
+          flexShrink: 0,
+        }}
+      >
+        <IconMenu style={{ width: 20, height: 20 }} />
+      </button>
       <div ref={searchRef} style={{ position: "relative", flex: 1, maxWidth: 480 }}>
         <div style={{ position: "relative" }}>
           <IconSearch
@@ -286,6 +329,29 @@ export function TopBar() {
       </div>
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        <a
+          href={SUPPORT_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Támogasd a munkám"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            borderRadius: 999,
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+            color: "var(--color-text-muted)",
+            fontSize: "var(--font-size-sm)",
+            fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <IconHeart style={{ width: 16, height: 16, color: "var(--color-danger)" }} />
+          <span className="support-label">Támogasd a munkám</span>
+        </a>
         <div ref={notifRef} style={{ position: "relative" }}>
           <button
             onClick={() => setNotifOpen((v) => !v)}
@@ -450,7 +516,8 @@ export function TopBar() {
           )}
         </div>
       </div>
-    </header>
+      </header>
+    </>
   );
 }
 
