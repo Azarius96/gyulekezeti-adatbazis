@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
-import { getAccessibleGyulekezetIds } from "../auth/scope.js";
+import { getAccessibleGyulekezetIds, isStatsOnly } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
 import { ageOn } from "../lib/age.js";
 
@@ -131,7 +131,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
       gondnokok,
       noszovetseg,
       korEloszlas,
-      legutobbiAktivitas,
+      // A csak statisztikát látó (püspöki) fiók személyek nevét tartalmazó aktivitás-listát nem kap.
+      legutobbiAktivitas: isStatsOnly(user) ? [] : legutobbiAktivitas,
     };
   });
 }

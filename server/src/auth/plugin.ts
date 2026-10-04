@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { verifyToken } from "./jwt.js";
 import { prisma } from "../lib/prisma.js";
 import { setCurrentActor } from "../lib/requestContext.js";
-import { isPaymentExpired, type AuthUser } from "./scope.js";
+import { isPaymentExpired, isStatsOnly, isAllowedForStatsOnly, type AuthUser } from "./scope.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -27,6 +27,14 @@ export const authPlugin = fp(async (app: FastifyInstance) => {
     if (user && user.active && !isPaymentExpired(user)) {
       req.currentUser = user;
       setCurrentActor({ userId: user.id, userNev: user.nev });
+    }
+  });
+
+  // A csak statisztikát látó (püspöki) fiók kizárólag a fenti, olvasó végpontokat érheti el -
+  // ez a szerver oldali védelem, a felület elrejtése csak kényelmi.
+  app.addHook("preHandler", async (req: FastifyRequest, reply: FastifyReply) => {
+    if (req.currentUser && isStatsOnly(req.currentUser) && !isAllowedForStatsOnly(req.method, req.url)) {
+      return reply.code(403).send({ error: "Püspöki fiókkal csak statisztikai adatok érhetők el" });
     }
   });
 });

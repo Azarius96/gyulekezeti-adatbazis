@@ -28,6 +28,17 @@ export function paymentDaysLeft(user: CurrentUser | null): number | null {
   return Math.ceil(ms / (24 * 60 * 60 * 1000));
 }
 
+/**
+ * "Csak statisztika" fiók (püspök, mellette más szerepkör nélkül) - ugyanaz a szabály, mint a
+ * szerveren (server/src/auth/scope.ts isStatsOnly): csak összesített statisztikát lát, semmit
+ * nem módosíthat, személyes adatokhoz nem fér hozzá.
+ */
+export function isStatsOnly(user: CurrentUser | null): boolean {
+  if (!user) return false;
+  const kinds = new Set(user.roles.map((r) => r.szerepKor));
+  return kinds.has("PUSPOK") && !kinds.has("ADMIN") && !kinds.has("ESPERES") && !kinds.has("LELKESZ") && !kinds.has("DELEGALT");
+}
+
 export function ownGyulekezetIds(user: CurrentUser | null): string[] {
   if (!user) return [];
   return user.roles

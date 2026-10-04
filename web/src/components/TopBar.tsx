@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { paymentDaysLeft } from "../lib/types";
+import { paymentDaysLeft, isStatsOnly } from "../lib/types";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconSearch, IconBell, IconLogout, IconHeart, IconMenu } from "./icons";
 
@@ -130,9 +130,11 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       .catch(() => setIncomingMoving([]));
   }
 
-  useEffect(loadPending, []);
-  useEffect(loadTeendok, []);
-  useEffect(loadIncomingMoving, []);
+  // A csak statisztikát látó (püspöki) fiók számára a keresés és az értesítések rejtve vannak.
+  const statsOnly = isStatsOnly(user);
+  useEffect(() => { if (!statsOnly) loadPending(); }, [statsOnly]);
+  useEffect(() => { if (!statsOnly) loadTeendok(); }, [statsOnly]);
+  useEffect(() => { if (!statsOnly) loadIncomingMoving(); }, [statsOnly]);
 
   const teendoCount = teendoGroups.reduce((sum, g) => sum + g.teendok.length, 0);
 
@@ -252,7 +254,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       >
         <IconMenu style={{ width: 20, height: 20 }} />
       </button>
-      <div ref={searchRef} style={{ position: "relative", flex: 1, maxWidth: 480 }}>
+      <div ref={searchRef} hidden={statsOnly} style={{ position: "relative", flex: 1, maxWidth: 480 }}>
         <div style={{ position: "relative" }}>
           <IconSearch
             style={{
@@ -354,7 +356,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           <IconHeart style={{ width: 16, height: 16, color: "var(--color-danger)" }} />
           <span className="support-label">Támogasd a munkám</span>
         </a>
-        <div ref={notifRef} style={{ position: "relative" }}>
+        <div ref={notifRef} hidden={statsOnly} style={{ position: "relative" }}>
           <button
             onClick={() => setNotifOpen((v) => !v)}
             title="Értesítések"

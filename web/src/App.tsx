@@ -25,7 +25,7 @@ import { SzemelyiAdatlap } from "./pages/SzemelyiAdatlap";
 import { HivatalosIgazolasok } from "./pages/HivatalosIgazolasok";
 import { ValtozasTortenet } from "./pages/ValtozasTortenet";
 import { Papirkosar } from "./pages/Papirkosar";
-import { pendingLelkeszRole } from "./lib/types";
+import { pendingLelkeszRole, isStatsOnly } from "./lib/types";
 
 function PrivateArea() {
   const { user, loading } = useAuth();
@@ -34,6 +34,10 @@ function PrivateArea() {
   if (!user) return <Navigate to="/bejelentkezes" replace />;
   if (pendingLelkeszRole(user) && location.pathname !== "/gyulekezet-setup") {
     return <Navigate to="/gyulekezet-setup" replace />;
+  }
+  // Püspöki (csak statisztika) fiók: az áttekintőn és a gyülekezetek statisztikáján kívül nincs más oldala.
+  if (isStatsOnly(user) && !["/", "/gyulekezetek", "/lelekszam-jelentes"].includes(location.pathname)) {
+    return <Navigate to="/" replace />;
   }
   return <Layout />;
 }

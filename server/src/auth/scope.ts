@@ -8,6 +8,27 @@ export function isAdmin(user: AuthUser): boolean {
 }
 
 /**
+ * "Csak statisztika" fiók: püspök, akinek nincs mellette admin/esperes/lelkész/delegált szerepköre.
+ * Ő a hozzá tartozó gyülekezetek összesített statisztikáját láthatja, személyes adatokat nem, és
+ * semmit nem módosíthat (ld. a kérés-szintű korlátozást az auth/plugin.ts-ben).
+ */
+export function isStatsOnly(user: AuthUser): boolean {
+  const kinds = new Set(user.roles.map((r) => r.szerepKor));
+  return kinds.has("PUSPOK") && !["ADMIN", "ESPERES", "LELKESZ", "DELEGALT"].some((k) => kinds.has(k as never));
+}
+
+/** Azok az (olvasó) végpontok, amelyeket a csak-statisztika fiók elérhet - minden más (köztük bármilyen módosítás) tiltott. */
+const STATS_ONLY_ALLOWED_GET = new Set(["/api/auth/me", "/api/dashboard/stats", "/api/gyulekezetek", "/api/lelekszam-jelentes"]);
+
+export function isAllowedForStatsOnly(method: string, url: string): boolean {
+  const path = url.split("?")[0].replace(/\/+$/, "");
+  if (!path.startsWith("/api/")) return true; // statikus fájlok (a webalkalmazás maga)
+  if (method === "POST" && path === "/api/auth/logout") return true;
+  if (method === "GET" && path.startsWith("/api/public/")) return true;
+  return method === "GET" && STATS_ONLY_ALLOWED_GET.has(path);
+}
+
+/**
  * A rendszer üzemeltetőjének (ADMIN szerepkör) fiókja sosem függeszthető fel fizetés hiánya
  * miatt - a fizetési határidő kizárólag a rendszert használó (pl. lelkész) fiókokra vonatkozik.
  */

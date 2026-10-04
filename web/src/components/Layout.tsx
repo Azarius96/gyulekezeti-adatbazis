@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { isAdmin, ownGyulekezetIds } from "../lib/types";
+import { isAdmin, isStatsOnly, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
 import { GyulekezetSelect } from "./GyulekezetSelect";
 import { useGyulekezetContext } from "../context/GyulekezetContext";
@@ -38,6 +38,8 @@ const navItems = [
 // csak esperesnek/püspöknek/adminnak jelenik meg, ld. Layout() `items` összeállítását.
 const szervezetNavItem = { to: "/szervezet", label: "Szervezeti felépítés", end: false, icon: IconOrgChart, tone: "teal" };
 
+const lelekszamNavItem = { to: "/lelekszam-jelentes", label: "Lélekszám jelentés", end: false, icon: IconBook, tone: "purple" };
+
 const gyulekezetekNavItem = { to: "/gyulekezetek", label: "Gyülekezetek", end: false, icon: IconChurch, tone: "indigo" };
 
 const adminNavItems = [
@@ -63,11 +65,14 @@ export function Layout() {
   const isEsperes = user?.roles.some((r) => r.szerepKor === "ESPERES") ?? false;
   const isEsperesOrPuspok = user?.roles.some((r) => r.szerepKor === "ESPERES" || r.szerepKor === "PUSPOK") ?? false;
   const admin = isAdmin(user);
-  const items = [
-    ...navItems,
-    ...(admin || isEsperesOrPuspok ? [szervezetNavItem] : []),
-    ...(admin ? adminNavItems : isEsperes || ownGyulekezetIds(user).length > 0 ? [gyulekezetekNavItem] : []),
-  ];
+  const statsOnly = isStatsOnly(user);
+  const items = statsOnly
+    ? [navItems[0], gyulekezetekNavItem, lelekszamNavItem] // püspök: csak statisztikai oldalak
+    : [
+        ...navItems,
+        ...(admin || isEsperesOrPuspok ? [szervezetNavItem] : []),
+        ...(admin ? adminNavItems : isEsperes || ownGyulekezetIds(user).length > 0 ? [gyulekezetekNavItem] : []),
+      ];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);

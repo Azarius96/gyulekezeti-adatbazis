@@ -4,7 +4,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import type { DashboardStats } from "../lib/types";
-import { isAdmin } from "../lib/types";
+import { isAdmin, isStatsOnly } from "../lib/types";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { EventsBoard } from "../components/EventsBoard";
 import {
@@ -16,7 +16,7 @@ import {
   IconChevronRight,
   IconBook,
 } from "../components/icons";
-import type { ComponentType, SVGProps } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
@@ -42,7 +42,8 @@ function StatCard({
 }: {
   label: string;
   value: number | string;
-  to: string;
+  /** Nincs megadva a csak statisztikát látó (püspöki) fióknál: ilyenkor a kártya nem kattintható. */
+  to?: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   tone?: "primary" | "muted" | "accent" | "blue";
 }) {
@@ -53,12 +54,19 @@ function StatCard({
     blue: "icon-tile--teal",
   }[tone];
 
+  const Wrapper = (props: { children: ReactNode }) =>
+    to ? (
+      <Link to={to} className="card" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
+        {props.children}
+      </Link>
+    ) : (
+      <div className="card" style={{ display: "flex", flexDirection: "column" }}>
+        {props.children}
+      </div>
+    );
+
   return (
-    <Link
-      to={to}
-      className="card"
-      style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}
-    >
+    <Wrapper>
       <div className={`icon-tile ${toneClass}`} style={{ marginBottom: 14 }}>
         <Icon style={{ width: 22, height: 22 }} />
       </div>
@@ -66,7 +74,7 @@ function StatCard({
         {value}
       </div>
       <div style={{ color: "var(--color-text-muted)", marginTop: 6, minHeight: 60, lineHeight: 1.5 }}>{label}</div>
-    </Link>
+    </Wrapper>
   );
 }
 
@@ -129,6 +137,9 @@ export function Dashboard() {
   const canSeeSzervezet =
     isAdmin(user) || (user?.roles.some((r) => r.szerepKor === "ESPERES" || r.szerepKor === "PUSPOK") ?? false);
   const visibleQuickActions = quickActions.filter((a) => !a.restricted || canSeeSzervezet);
+  // Püspöki (csak statisztika) fiók: nincs gyors művelet, nincs hivatkozás személyes adatokra, nincs aktivitás/esemény.
+  const statsOnly = isStatsOnly(user);
+  const linkTo = (to: string) => (statsOnly ? undefined : to);
 
   return (
     <div className="stack">
@@ -143,6 +154,7 @@ export function Dashboard() {
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
+      {!statsOnly && (
       <div className="card stack">
         <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Gyors műveletek</h2>
         <div className="card-grid">
@@ -174,15 +186,16 @@ export function Dashboard() {
           })}
         </div>
       </div>
+      )}
 
       {stats && (
         <>
           <div className="card-grid">
-            <StatCard label="Összlétszám (élő tagok)" value={stats.osszlétszám} to={`/haztartasok?elhunyt=false${gy}`} icon={IconUsers} tone="blue" />
+            <StatCard label="Összlétszám (élő tagok)" value={stats.osszlétszám} to={linkTo(`/haztartasok?elhunyt=false${gy}`)} icon={IconUsers} tone="blue" />
             <StatCard
               label={`Elhunytak (${currentYear})`}
               value={stats.elhunytakIdenre}
-              to={`/haztartasok?elhunyt=true${gy}`}
+              to={linkTo(`/haztartasok?elhunyt=true${gy}`)}
               icon={IconCross}
               tone="muted"
             />
@@ -201,23 +214,30 @@ export function Dashboard() {
               { label: "Presbiterek", value: stats.presbiterek, to: `/haztartasok?tisztseg=PRESBITER,POTPRESBITER${gy}` },
               { label: "Gondnokok", value: stats.gondnokok, to: `/haztartasok?tisztseg=GONDNOK,FOGONDNOK${gy}` },
               { label: "Nőszövetségi tagok", value: stats.noszovetseg, to: `/haztartasok?tisztseg=NOSZOVETSEGI_TAG${gy}` },
-            ].map((row, i, arr) => (
-              <Link
-                key={row.label}
-                to={row.to}
-                className="row"
-                style={{
-                  justifyContent: "space-between",
-                  padding: "12px 18px",
-                  borderBottom: i < arr.length - 1 ? "1px solid var(--color-border)" : "none",
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
-              >
-                <span>{row.label}</span>
-                <strong>{row.value}</strong>
-              </Link>
-            ))}
+            ].map((row, i, arr) => {
+              const rowStyle = {
+                justifyContent: "space-between",
+                padding: "12px 18px",
+                borderBottom: i < arr.length - 1 ? "1px solid var(--color-border)" : "none",
+                textDecoration: "none",
+                color: "inherit",
+              };
+              const inner = (
+                <>
+                  <span>{row.label}</span>
+                  <strong>{row.value}</strong>
+                </>
+              );
+              return statsOnly ? (
+                <div key={row.label} className="row" style={rowStyle}>
+                  {inner}
+                </div>
+              ) : (
+                <Link key={row.label} to={row.to} className="row" style={rowStyle}>
+                  {inner}
+                </Link>
+              );
+            })}
           </div>
         </>
       )}
@@ -271,12 +291,14 @@ export function Dashboard() {
             </div>
           </div>
         )}
-        <div style={{ flex: "1 1 320px" }}>
-          <EventsBoard gyulekezetId={gyulekezetId} />
-        </div>
+        {!statsOnly && (
+          <div style={{ flex: "1 1 320px" }}>
+            <EventsBoard gyulekezetId={gyulekezetId} />
+          </div>
+        )}
       </div>
 
-      {stats && (
+      {stats && !statsOnly && (
         <div className="card stack">
           <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Legutóbbi aktivitás</h2>
           {stats.legutobbiAktivitas.length === 0 && (

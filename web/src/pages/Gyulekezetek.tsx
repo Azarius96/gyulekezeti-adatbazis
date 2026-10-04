@@ -3,7 +3,7 @@ import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { isAdmin, ownGyulekezetIds } from "../lib/types";
+import { isAdmin, isStatsOnly, ownGyulekezetIds } from "../lib/types";
 import { GyulekezetEdit } from "./GyulekezetEdit";
 import type { DashboardStats } from "../lib/types";
 
@@ -35,6 +35,8 @@ export function Gyulekezetek() {
   const { user } = useAuth();
   const [selectedId] = useSelectedGyulekezet();
   const isEsperes = user?.roles.some((r) => r.szerepKor === "ESPERES") ?? false;
+  // Püspök (csak statisztika): a gyülekezet beállításai/adatai nem szerkeszthetők és nem is láthatók, csak a statisztika.
+  if (isStatsOnly(user)) return <EsperesMegyeiNezet statsOnly selectedId={selectedId} />;
   if (selectedId) return <GyulekezetEdit key={selectedId} embeddedId={selectedId} />;
   if (isAdmin(user)) return <AdminGyulekezetekLista />;
   if (isEsperes) return <EsperesMegyeiNezet />;
@@ -69,17 +71,18 @@ function StatGrid({ stats }: { stats: DashboardStats }) {
  * összesített statisztikái, jól elhatárolva alatta a hozzá tartozó gyülekezetek listája, mindegyik
  * a saját statisztikáival és a választói névjegyzékéhez vezető - csak olvasásra szolgáló - linkkel.
  * Szerkesztési jog itt nincs, azt továbbra is csak a gyülekezet saját lelkésze/delegáltja kap. */
-function EsperesMegyeiNezet() {
+function EsperesMegyeiNezet({ statsOnly = false, selectedId = "" }: { statsOnly?: boolean; selectedId?: string } = {}) {
   const [megyeStats, setMegyeStats] = useState<DashboardStats | null>(null);
   const [gyulekezetek, setGyulekezetek] = useState<{ id: string; nev: string; _count: { persons: number } }[]>([]);
   const [gyulekezetStats, setGyulekezetStats] = useState<Record<string, DashboardStats>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<DashboardStats>("/api/dashboard/stats").then(setMegyeStats).catch(() => setError("Nem sikerült betölteni a megyei statisztikát"));
+    api.get<DashboardStats>(`/api/dashboard/stats${selectedId ? `?gyulekezetId=${selectedId}` : ""}`).then(setMegyeStats).catch(() => setError("Nem sikerült betölteni a megyei statisztikát"));
     api
       .get<{ id: string; nev: string; _count: { persons: number } }[]>("/api/gyulekezetek")
-      .then((list) => {
+      .then((all) => {
+        const list = selectedId ? all.filter((g) => g.id === selectedId) : all;
         setGyulekezetek(list);
         list.forEach((g) => {
           api
@@ -89,19 +92,22 @@ function EsperesMegyeiNezet() {
         });
       })
       .catch(() => setError("Nem sikerült betölteni a gyülekezeteket"));
-  }, []);
+  }, [selectedId]);
 
   return (
     <div className="stack">
-      <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Gyülekezetek — megyei nézet</h1>
+      <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
+        {statsOnly ? "Gyülekezetek — statisztika" : "Gyülekezetek — megyei nézet"}
+      </h1>
       <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-        Az egyházmegyéjéhez tartozó gyülekezetek áttekintése. A gyülekezetek adatait és a választói névjegyzéket csak
-        megtekintheti - szerkesztésükhöz a gyülekezet saját lelkésze/delegáltja jogosult.
+        {statsOnly
+          ? "A hozzád tartozó gyülekezetek összesített statisztikái. Személyes adatok nem érhetők el, módosítani nem lehet."
+          : "Az egyházmegyéjéhez tartozó gyülekezetek áttekintése. A gyülekezetek adatait és a választói névjegyzéket csak megtekintheti - szerkesztésükhöz a gyülekezet saját lelkésze/delegáltja jogosult."}
       </p>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
       <div className="card stack">
-        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházmegyei statisztika (összesítve)</h2>
+        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{statsOnly ? "Összesített statisztika" : "Egyházmegyei statisztika (összesítve)"}</h2>
         {megyeStats ? <StatGrid stats={megyeStats} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Betöltés...</p>}
       </div>
 
@@ -117,9 +123,11 @@ function EsperesMegyeiNezet() {
             <div key={g.id} className="card stack">
               <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                 <strong style={{ fontSize: "var(--font-size-lg)" }}>{g.nev}</strong>
-                <Link className="btn btn-secondary btn-sm" to={`/valasztoi-nevjegyzek?gyulekezetId=${g.id}`}>
-                  Választók névjegyzéke (megtekintés)
-                </Link>
+                {!statsOnly && (
+                  <Link className="btn btn-secondary btn-sm" to={`/valasztoi-nevjegyzek?gyulekezetId=${g.id}`}>
+                    Választók névjegyzéke (megtekintés)
+                  </Link>
+                )}
               </div>
               {s ? <StatGrid stats={s} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Statisztika betöltése...</p>}
             </div>
