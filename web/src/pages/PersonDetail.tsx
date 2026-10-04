@@ -1203,6 +1203,12 @@ export function PersonDetail() {
 
   const age = calcAge(person.szuletesiDatum);
   const personDuesColor = memberHighlight(person.egyhazfenntarto, person.tobbEveElmaradt);
+  // Ha az idei díj már teljes egészében ki van fizetve, nincs mit jelezni - az "Idei esedékes összeg" sáv ilyenkor nem jelenik meg.
+  const idenEsedekes = person.egyhazfenntarto.esedekesOsszeg ?? 0;
+  const idenFizetve = person.duesPayments
+    .filter((p) => p.ev === new Date().getFullYear())
+    .reduce((sum, p) => sum + Number(p.osszeg), 0);
+  const idenKifizetve = idenEsedekes > 0 && idenFizetve >= idenEsedekes;
   const nyitoTartozasOsszeg = Number(person.nyitoTartozas);
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
@@ -1304,6 +1310,7 @@ export function PersonDetail() {
       {!editing && (
           <div className="card stack">
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházfenntartó</h2>
+            {!idenKifizetve && (
             <div
               className="row"
               style={{
@@ -1332,6 +1339,7 @@ export function PersonDetail() {
                 </strong>
               )}
             </div>
+            )}
             {nyitoTartozasOsszeg > 0 && (
               <div
                 className="stack"
