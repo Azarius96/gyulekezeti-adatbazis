@@ -1385,50 +1385,28 @@ export function PersonDetail() {
           </div>
       )}
 
-      <div className="stack">
-        {!editing && !confirmDelete && (
-          <div className="row">
-            <Link className="btn btn-secondary" to={`/szemelyek/${person.id}/igazolas`}>
-              Igazolás kiállítása
-            </Link>
-            <Link className="btn btn-secondary" to={`/valtozas-tortenet?entity=Person&entityId=${person.id}`}>
-              Változás-történet
-            </Link>
-            {canEdit && !person.elhunyt && (
-              <button className="btn btn-secondary" onClick={() => setShowMoveForm(true)}>
-                Elköltözés jelölése
-              </button>
-            )}
-            {canEdit && (
-              <>
-                <button className="btn btn-secondary" onClick={() => setEditing(true)}>
-                  Szerkesztés
-                </button>
-                <button className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
-                  Személy törlése
-                </button>
-              </>
-            )}
-          </div>
-        )}
-        {showMoveForm && (
-          <MoveAwayForm person={person} onDone={() => { setShowMoveForm(false); load(); }} onCancel={() => setShowMoveForm(false)} />
-        )}
-        {confirmDelete && (
-          <div className="row" style={{ alignItems: "center" }}>
-            <span style={{ color: "var(--color-danger)" }}>
-              Biztosan törli {person.vezeteknev} {person.keresztnev} adatait? A papírkosárba kerül, onnan
-              bármikor visszaállítható.
-            </span>
-            <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
-              {deleting ? "Törlés..." : "Igen, törlöm"}
-            </button>
-            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
-              Mégse
-            </button>
-          </div>
-        )}
-      </div>
+      {!editing && (
+        <div className="card stack">
+          <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Adomány</h2>
+          {person.donations.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített adomány.</p>}
+          {person.donations.map((d) => (
+            <EditablePaymentRow
+              key={d.id}
+              id={d.id}
+              ev={d.ev}
+              osszeg={d.osszeg}
+              extra={d.celja}
+              kind="donation"
+              createdAt={d.createdAt}
+              updatedAt={d.updatedAt}
+              onChanged={load}
+              canEdit={canEdit}
+            />
+          ))}
+          {canEdit && <QuickPaymentForm personId={person.id} kind="donation" defaultOsszeg={null} onAdded={load} />}
+        </div>
+      )}
+
 
       <MovingHistoryNotice person={person} />
 
@@ -1623,25 +1601,6 @@ export function PersonDetail() {
             {canEdit && <AddPositionForm personId={person.id} onAdded={load} />}
           </div>
 
-          <div className="card stack">
-            <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Adomány</h2>
-            {person.donations.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített adomány.</p>}
-            {person.donations.map((d) => (
-              <EditablePaymentRow
-                key={d.id}
-                id={d.id}
-                ev={d.ev}
-                osszeg={d.osszeg}
-                extra={d.celja}
-                kind="donation"
-                createdAt={d.createdAt}
-                updatedAt={d.updatedAt}
-                onChanged={load}
-                canEdit={canEdit}
-              />
-            ))}
-            {canEdit && <QuickPaymentForm personId={person.id} kind="donation" defaultOsszeg={null} onAdded={load} />}
-          </div>
 
           {person.megjegyzes && (
             <div className="card stack">
@@ -1652,6 +1611,51 @@ export function PersonDetail() {
 
         </>
       )}
+
+      <div className="stack">
+        {!editing && !confirmDelete && (
+          <div className="row">
+            <Link className="btn btn-secondary" to={`/szemelyek/${person.id}/igazolas`}>
+              Igazolás kiállítása
+            </Link>
+            <Link className="btn btn-secondary" to={`/valtozas-tortenet?entity=Person&entityId=${person.id}`}>
+              Változás-történet
+            </Link>
+            {canEdit && !person.elhunyt && (
+              <button className="btn btn-secondary" onClick={() => setShowMoveForm(true)}>
+                Elköltözés jelölése
+              </button>
+            )}
+            {canEdit && (
+              <>
+                <button className="btn btn-secondary" onClick={() => setEditing(true)}>
+                  Szerkesztés
+                </button>
+                <button className="btn btn-danger" onClick={() => setConfirmDelete(true)}>
+                  Személy törlése
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {showMoveForm && (
+          <MoveAwayForm person={person} onDone={() => { setShowMoveForm(false); load(); }} onCancel={() => setShowMoveForm(false)} />
+        )}
+        {confirmDelete && (
+          <div className="row" style={{ alignItems: "center" }}>
+            <span style={{ color: "var(--color-danger)" }}>
+              Biztosan törli {person.vezeteknev} {person.keresztnev} adatait? A papírkosárba kerül, onnan
+              bármikor visszaállítható.
+            </span>
+            <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+              {deleting ? "Törlés..." : "Igen, törlöm"}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setConfirmDelete(false)}>
+              Mégse
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
