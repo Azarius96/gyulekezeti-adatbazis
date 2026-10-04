@@ -1,7 +1,8 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type ComponentType, type SVGProps } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconWallet, IconGift, IconUsers, IconClock } from "../components/icons";
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
@@ -103,14 +104,13 @@ function PenzugyiHero({ gyulekezetId }: { gyulekezetId: string }) {
 
 export function Penzugyek() {
   const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [tab, setTab] = useState<Tab>("osszesito");
 
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Pénzügyek</h1>
-        <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
       </div>
 
       <PenzugyiHero gyulekezetId={gyulekezetId} />
@@ -225,23 +225,37 @@ interface DebtorsResponse {
   debtors: Debtor[];
 }
 
-/**
- * Kompakt "kifizetés" vezérlő a tartozók listájának egy sorában - a korábbi (nyitó)
- * tartozást csökkenti a megadott összeggel (`Person.nyitoTartozas`), így az illető
- * kikerül a tartozók közül, amint a teljes hátralékot rendezte.
- */
-function PayOffOpeningDebt({ personId, osszeg, onDone }: { personId: string; osszeg: number; onDone: () => void }) {
+/** Tartozás kifizetése (részben vagy egészben): a befizetett összeg a legrégebbi hátralékra számolódik el
+ * (előbb a nyitó tartozásra, majd évenként növekvő sorrendben az egyes évek hiányzó összegére), így
+ * a személy a lista maradék tartozásával marad, vagy kikerül belőle, ha mindent rendezett. */
+function PayDebt({
+  personId,
+  osszeg,
+  evTol,
+  evIg,
+  onDone,
+}: {
+  personId: string;
+  osszeg: number;
+  evTol: number;
+  evIg: number;
+  onDone: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [fizetettOsszeg, setFizetettOsszeg] = useState(String(osszeg));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handlePay() {
     const paid = Number(fizetettOsszeg);
     if (!paid || paid <= 0) return;
     setSaving(true);
+    setError(null);
     try {
-      await api.put(`/api/persons/${personId}`, { nyitoTartozas: Math.max(0, osszeg - paid) });
+      await api.post("/api/dues-debtors/pay", { personId, osszeg: paid, evTol, evIg });
       onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nem sikerült rögzíteni");
     } finally {
       setSaving(false);
     }
@@ -256,30 +270,33 @@ function PayOffOpeningDebt({ personId, osszeg, onDone }: { personId: string; oss
   }
 
   return (
-    <div className="row" style={{ alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-      <input
-        type="number"
-        min="0"
-        max={osszeg}
-        style={{ width: 90 }}
-        value={fizetettOsszeg}
-        onChange={(e) => setFizetettOsszeg(e.target.value)}
-      />
-      <button className="btn btn-secondary btn-sm" disabled={saving} onClick={handlePay}>
-        {saving ? "Mentés..." : "Rögzítés"}
-      </button>
-      <button className="btn btn-secondary btn-sm" onClick={() => setOpen(false)}>
-        Mégse
-      </button>
+    <div className="stack" style={{ gap: 6, alignItems: "flex-end" }}>
+      <div className="row" style={{ alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+        <input
+          type="number"
+          min="0"
+          max={osszeg}
+          style={{ width: 90 }}
+          value={fizetettOsszeg}
+          onChange={(e) => setFizetettOsszeg(e.target.value)}
+        />
+        <button className="btn btn-secondary btn-sm" disabled={saving} onClick={handlePay}>
+          {saving ? "Mentés..." : "Rögzítés"}
+        </button>
+        <button className="btn btn-secondary btn-sm" onClick={() => setOpen(false)}>
+          Mégse
+        </button>
+      </div>
+      {error && <span style={{ color: "var(--color-danger)", fontSize: "var(--font-size-sm)" }}>{error}</span>}
     </div>
   );
 }
 
 function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; showGyulekezetNev: boolean }) {
   const { user } = useAuth();
-  // Alapból a tavalyi évet is belevesszük, hogy egy korábbi évről áthúzódó elmaradás sose
-  // maradjon rejtve pusztán azért, mert valaki csak a folyó évre nézi meg a listát.
-  const [evTol, setEvTol] = useState(String(CURRENT_YEAR - 1));
+  // Alapból a két előző évet is belevesszük (ugyanúgy, mint a személy-/háztartásnézet tartozása), hogy
+  // egy korábbi évről áthúzódó elmaradás sose maradjon rejtve pusztán azért, mert valaki csak a folyó évre nézi a listát.
+  const [evTol, setEvTol] = useState(String(CURRENT_YEAR - 2));
   const [evIg, setEvIg] = useState(String(CURRENT_YEAR));
   const [data, setData] = useState<DebtorsResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -342,7 +359,7 @@ function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
           {data.debtors.map((d) => {
             const reszletek = [
               ...(d.korabbiTartozas > 0 ? [`korábbi (nyitó) tartozás: ${d.korabbiTartozas} lej`] : []),
-              ...d.evek.map((e) => `${e.ev}: ${e.hianyzo} lej hiányzik${e.becsult ? " (becsült, nincs születési dátum)" : ""}`),
+              ...d.evek.map((e) => `${e.ev}. évre: ${e.hianyzo} lej hiányzik${e.becsult ? " (becsült, nincs születési dátum)" : ""}`),
             ];
             return (
               <div
@@ -367,8 +384,14 @@ function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
                 </div>
                 <div className="stack" style={{ gap: 6, alignItems: "flex-end" }}>
                   <strong style={{ color: "var(--color-danger)", whiteSpace: "nowrap" }}>{d.osszesTartozas} lej</strong>
-                  {d.korabbiTartozas > 0 && canEditGyulekezet(user, d.gyulekezetId) && (
-                    <PayOffOpeningDebt personId={d.personId} osszeg={d.korabbiTartozas} onDone={() => load(evTol, evIg)} />
+                  {canEditGyulekezet(user, d.gyulekezetId) && (
+                    <PayDebt
+                      personId={d.personId}
+                      osszeg={d.osszesTartozas}
+                      evTol={data.evTol}
+                      evIg={data.evIg}
+                      onDone={() => load(evTol, evIg)}
+                    />
                   )}
                 </div>
               </div>

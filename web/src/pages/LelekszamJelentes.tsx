@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api } from "../lib/api";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -35,7 +36,7 @@ interface JelentesAdatok {
 
 export function LelekszamJelentes() {
   const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [ev, setEv] = useState(String(CURRENT_YEAR));
   const [data, setData] = useState<JelentesAdatok | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +68,6 @@ export function LelekszamJelentes() {
             Nem hivatalos, kitölthető/letölthető jelentés - csak tájékoztató statisztika.
           </p>
         </div>
-        <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
       </div>
 
       <div className="field" style={{ width: 120 }}>

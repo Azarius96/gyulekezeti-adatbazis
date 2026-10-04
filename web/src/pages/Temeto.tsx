@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconCross, IconMapPin, IconPlus, IconTrash, IconLock, IconLockOpen, IconClock } from "../components/icons";
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
@@ -54,19 +55,11 @@ function collectExpiringPurchases(cemeteries: CemeteryData[]): ExpiringPurchase[
 export function Temeto() {
   const { user } = useAuth();
   const gyulekezetek = useGyulekezetek();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const gyulekezetId = searchParams.get("gyulekezetId") ?? "";
+  const [gyulekezetId] = useSelectedGyulekezet();
 
   const [cemeteries, setCemeteries] = useState<CemeteryData[]>([]);
   const [showNewCemetery, setShowNewCemetery] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function setGyulekezetFilter(id: string) {
-    const params = new URLSearchParams(searchParams);
-    if (id) params.set("gyulekezetId", id);
-    else params.delete("gyulekezetId");
-    setSearchParams(params);
-  }
 
   function loadCemeteries() {
     const params = new URLSearchParams();
@@ -95,7 +88,6 @@ export function Temeto() {
             temetőbe" gombbal rögzíthető.
           </p>
         </div>
-        <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetFilter} gyulekezetek={gyulekezetek} />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 
 interface TrashItem {
   entity: string;
@@ -30,7 +31,9 @@ function fmtDateTime(iso: string): string {
 }
 
 export function Papirkosar() {
-  const [items, setItems] = useState<TrashItem[]>([]);
+  const [selectedGyulekezetId] = useSelectedGyulekezet();
+  const [allItems, setItems] = useState<TrashItem[]>([]);
+  const items = selectedGyulekezetId ? allItems.filter((i) => i.gyulekezetId === selectedGyulekezetId) : allItems;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restoringKey, setRestoringKey] = useState<string | null>(null);

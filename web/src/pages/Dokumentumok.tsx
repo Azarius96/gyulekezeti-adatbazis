@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, API_BASE } from "../lib/api";
 import type { PersonListItem } from "../lib/types";
 import { IconDownload } from "../components/icons";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 
 function DocumentCard({
   title,
@@ -23,6 +24,7 @@ function DocumentCard({
 }
 
 function SzemelyKereso({ hrefBuilder, linkLabel }: { hrefBuilder: (id: string) => string; linkLabel: string }) {
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<PersonListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ function SzemelyKereso({ hrefBuilder, linkLabel }: { hrefBuilder: (id: string) =
     }
     setLoading(true);
     api
-      .get<PersonListItem[]>(`/api/persons?q=${encodeURIComponent(value)}`)
+      .get<PersonListItem[]>(`/api/persons?q=${encodeURIComponent(value)}${gyulekezetId ? `&gyulekezetId=${gyulekezetId}` : ""}`)
       .then((res) => setResults(res.slice(0, 12)))
       .catch(() => setResults([]))
       .finally(() => setLoading(false));
@@ -66,6 +68,7 @@ function SzemelyKereso({ hrefBuilder, linkLabel }: { hrefBuilder: (id: string) =
 }
 
 export function Dokumentumok() {
+  const [gyulekezetId] = useSelectedGyulekezet();
   return (
     <div className="stack">
       <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Letölthető dokumentumok</h1>
@@ -77,7 +80,7 @@ export function Dokumentumok() {
         title="Teljes adatexport (Excel)"
         description="Az elérhető gyülekezet(ek) összes rögzített adata egyetlen táblában, soronként egy személlyel — biztonsági másolatként vagy egyházmegyei/kerületi jelentéshez."
       >
-        <a className="btn btn-secondary" style={{ alignSelf: "flex-start" }} href={`${API_BASE}/api/export/szemelyek`}>
+        <a className="btn btn-secondary" style={{ alignSelf: "flex-start" }} href={`${API_BASE}/api/export/szemelyek${gyulekezetId ? `?gyulekezetId=${gyulekezetId}` : ""}`}>
           <IconDownload style={{ width: 18, height: 18 }} /> Letöltés Excelben
         </a>
       </DocumentCard>

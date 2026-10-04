@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { paymentDaysLeft } from "../lib/types";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconSearch, IconBell, IconLogout, IconHeart, IconMenu } from "./icons";
 
 const SUPPORT_URL = "https://revolut.me/laszlo37zx";
@@ -93,6 +94,7 @@ function initials(nev: string | undefined): string {
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user, logout } = useAuth();
+  const [selectedGyulekezetId] = useSelectedGyulekezet();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PersonResult[]>([]);
@@ -151,12 +153,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     }
     const handle = setTimeout(() => {
       api
-        .get<PersonResult[]>(`/api/persons?q=${encodeURIComponent(query)}`)
+        .get<PersonResult[]>(`/api/persons?q=${encodeURIComponent(query)}${selectedGyulekezetId ? `&gyulekezetId=${selectedGyulekezetId}` : ""}`)
         .then((rows) => setResults(rows.slice(0, 8)))
         .catch(() => setResults([]));
     }, 250);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, selectedGyulekezetId]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

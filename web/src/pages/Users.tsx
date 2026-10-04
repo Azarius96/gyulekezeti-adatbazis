@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import type { UserRoleEntry } from "../lib/types";
@@ -36,7 +37,11 @@ const szerepLabels: Record<string, string> = {
 };
 
 export function Users() {
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [selectedGyulekezetId] = useSelectedGyulekezet();
+  const [allUsers, setUsers] = useState<UserRow[]>([]);
+  const users = selectedGyulekezetId
+    ? allUsers.filter((u) => u.roles.some((r) => r.gyulekezetId === selectedGyulekezetId))
+    : allUsers;
   const [deletedUsers, setDeletedUsers] = useState<DeletedUserRow[]>([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showForm, setShowForm] = useState(false);

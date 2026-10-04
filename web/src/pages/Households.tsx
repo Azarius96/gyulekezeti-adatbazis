@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { QuickPay } from "../components/QuickPay";
 import { IconDownload } from "../components/icons";
 import { DateInput } from "../components/DateInput";
-import { memberHighlight, ownGyulekezetIds, canEditGyulekezet, type DuesResult, type Gyulekezet } from "../lib/types";
+import { memberHighlight, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 
@@ -18,7 +19,10 @@ interface HouseholdMemberTag {
   elhunyt: boolean;
   egyhazfenntarto: DuesResult;
   fizetveIdenre: boolean;
+  egyhazfenntartoBecsult?: boolean;
   tobbEveElmaradt: boolean;
+  tartozasOsszeg: number;
+  tartozasEvek: TartozasEv[];
 }
 
 interface HouseholdView {
@@ -47,8 +51,16 @@ const FILTER_LABELS: Record<string, (v: string) => string> = {
   konfirmalt: () => "Konfirmált",
 };
 
-function DuesBadge({ dues }: { dues: DuesResult }) {
-  if (dues.korsav === null) return null;
+function DuesBadge({ dues, becsult }: { dues: DuesResult; becsult?: boolean }) {
+  if (dues.korsav === null) {
+    if (!becsult || !dues.esedekesOsszeg) return null;
+    return (
+      <span style={{ color: "var(--color-primary-dark)", fontSize: "var(--font-size-sm)" }} title="Nincs születési dátum - az általános díjszabás szerinti összeg">
+        {" "}
+        · {dues.esedekesOsszeg} lej/év (általános díj)
+      </span>
+    );
+  }
   if (dues.mentes) {
     return <span style={{ color: "#3dd873", fontWeight: 600, fontSize: "var(--font-size-sm)" }}> · mentes</span>;
   }
@@ -78,7 +90,11 @@ export function Households() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const gyulekezetId = searchParams.get("gyulekezetId") ?? "";
+  const [selectedId, setSelectedId] = useSelectedGyulekezet();
+  const urlGyulekezetId = searchParams.get("gyulekezetId");
+  // Az URL-ben megadott gyülekezet (pl. mélylinkből) elsőbbséget élvez és átveszi a globális
+  // választást; ha nincs az URL-ben, a globálisan kiválasztott gyülekezet érvényes.
+  const gyulekezetId = selectedId || urlGyulekezetId || "";
   // Ha egy konkrét gyülekezetre van szűrve, az "Új személy hozzáadása" gomb csak akkor
   // jelenjen meg, ha AHHOZ a gyülekezethez van szerkesztési joga (pl. egy esperes, aki csak
   // megtekintésre jogosult egyházmegyei gyülekezeteket böngész, ne kapjon hozzáadás lehetőséget).
@@ -86,32 +102,57 @@ export function Households() {
 
   const extraFilterEntries = Array.from(searchParams.entries()).filter(([k]) => k !== "gyulekezetId" && k !== "q");
 
+  const loadRequestId = useRef(0);
+
   function load() {
-    const qs = searchParams.toString();
+    const effectiveParams = new URLSearchParams(searchParams);
+    if (gyulekezetId) effectiveParams.set("gyulekezetId", gyulekezetId);
+    else effectiveParams.delete("gyulekezetId");
+    const qs = effectiveParams.toString();
+    const requestId = ++loadRequestId.current;
     api
       .get<HouseholdView[]>(`/api/households${qs ? `?${qs}` : ""}`)
-      .then(setHouseholds)
-      .catch(() => setHouseholds([]));
+      .then((rows) => requestId === loadRequestId.current && setHouseholds(rows))
+      .catch(() => requestId === loadRequestId.current && setHouseholds([]));
   }
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, selectedId]);
+
+  // A bal oldali gyülekezet-választó váltása azonnal átírja az URL-t (és a listát); egy másik oldalról
+  // érkező mélylink (URL-ben megadott gyülekezet) viszont átveszi a globális választást.
+  const prevSelected = useRef(selectedId);
+  const firstSync = useRef(true);
+  useEffect(() => {
+    const selectionChanged = prevSelected.current !== selectedId;
+    prevSelected.current = selectedId;
+    const first = firstSync.current;
+    firstSync.current = false;
+    if (selectionChanged && !first) {
+      if ((urlGyulekezetId ?? "") !== selectedId) {
+        const params = new URLSearchParams(searchParams);
+        if (selectedId) params.set("gyulekezetId", selectedId);
+        else params.delete("gyulekezetId");
+        setSearchParams(params, { replace: true });
+      }
+    } else if (urlGyulekezetId !== null) {
+      if (urlGyulekezetId !== selectedId) setSelectedId(urlGyulekezetId);
+    } else if (selectedId) {
+      const params = new URLSearchParams(searchParams);
+      params.set("gyulekezetId", selectedId);
+      setSearchParams(params, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlGyulekezetId, selectedId]);
 
   function setQ(q: string) {
     setQuery(q);
     const params = new URLSearchParams(searchParams);
     if (q) params.set("q", q);
     else params.delete("q");
-    setSearchParams(params);
-  }
-
-  function setGyulekezetFilter(id: string) {
-    const params = new URLSearchParams(searchParams);
-    if (id) params.set("gyulekezetId", id);
-    else params.delete("gyulekezetId");
     setSearchParams(params);
   }
 
@@ -138,8 +179,6 @@ export function Households() {
         </div>
       </div>
 
-      <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetFilter} gyulekezetek={gyulekezetek} />
-
       {extraFilterEntries.length > 0 && (
         <div className="row" style={{ alignItems: "center" }}>
           <span style={{ color: "var(--color-text-muted)" }}>Aktív szűrők:</span>
@@ -157,7 +196,7 @@ export function Households() {
       {showForm && (
         <NewPersonForm
           gyulekezetek={editableGyulekezetek}
-          defaultGyulekezetId={ownGyulekezetIds(user)[0] ?? editableGyulekezetek[0]?.id ?? ""}
+          defaultGyulekezetId={(gyulekezetId && editableGyulekezetek.some((g) => g.id === gyulekezetId) ? gyulekezetId : "") || (ownGyulekezetIds(user)[0] ?? editableGyulekezetek[0]?.id ?? "")}
           onCreated={() => {
             setShowForm(false);
             load();
@@ -229,11 +268,11 @@ export function Households() {
                         {age !== null && <span style={{ color: "var(--color-text-muted)" }}> ({age} év)</span>}{" "}
                         {t.elhunyt && <span style={{ color: "var(--color-danger)" }}>(elhunyt) </span>}
                         <span style={{ color: "var(--color-text-muted)" }}>({szerepLabels[t.szerep] ?? t.szerep})</span>
-                        <DuesBadge dues={t.egyhazfenntarto} />
+                        <DuesBadge dues={t.egyhazfenntarto} becsult={t.egyhazfenntartoBecsult} />
                         {t.tobbEveElmaradt && (
                           <span style={{ color: "var(--color-danger)", fontWeight: 700, fontSize: "var(--font-size-sm)" }}>
                             {" "}
-                            · több éve elmaradt
+                            · tartozás: {tartozasSzoveg(t.tartozasOsszeg, t.tartozasEvek)}
                           </span>
                         )}
                       </Link>

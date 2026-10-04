@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { DateInput } from "../components/DateInput";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -38,7 +39,12 @@ export function ValasztokNevjegyzeke() {
   const [searchParams] = useSearchParams();
   // Mélylink támogatás (pl. az esperes megyei nézetéből egy adott gyülekezetre mutató linkkel) -
   // csak kezdőértékként, utána a felhasználó a lenti választóval bármikor válthat.
-  const [gyulekezetId, setGyulekezetId] = useState(searchParams.get("gyulekezetId") ?? "");
+  const [gyulekezetId, setGyulekezetId] = useSelectedGyulekezet();
+  const deepLinkId = searchParams.get("gyulekezetId");
+  useEffect(() => {
+    if (deepLinkId && deepLinkId !== gyulekezetId) setGyulekezetId(deepLinkId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId]);
   const [ev, setEv] = useState(String(CURRENT_YEAR));
   const [data, setData] = useState<NevjegyzekData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +97,6 @@ export function ValasztokNevjegyzeke() {
               ellenőrizze, majd a lenti mezők kitöltése után nyomtassa ki.
             </p>
           </div>
-          <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
         </div>
 
         {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

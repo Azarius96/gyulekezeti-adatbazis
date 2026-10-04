@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 
 interface AuditItem {
   id: string;
@@ -14,11 +15,36 @@ interface AuditItem {
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   createdAt: string;
+  targetPersons: string[];
+  targetPersonId: string | null;
+  targetHousehold: string | null;
 }
 
-interface GyulekezetOption {
-  id: string;
-  nev: string;
+const FIELD_LABELS: Record<string, string> = {
+  vezeteknev: "Vezetéknév", keresztnev: "Keresztnév", nem: "Nem", szuletesiDatum: "Születési dátum",
+  szuletesiHely: "Születési hely", vallas: "Vallás", csaladiAllapot: "Családi állapot", elhunyt: "Elhunyt",
+  elhunytDatuma: "Elhalálozás dátuma", megjegyzes: "Megjegyzés", nyitoTartozas: "Nyitó tartozás",
+  ev: "Év", osszeg: "Összeg", fizetesDatuma: "Fizetés dátuma", datuma: "Dátum", helye: "Helye",
+  keresztszulok: "Keresztszülők", lelkeszNeve: "Lelkész", tisztseg: "Tisztség", kezdete: "Kezdete",
+  vege: "Vége", szerep: "Szerep", nev: "Név", cim: "Cím", jelzes: "Jelzés", lezart: "Lezárt",
+  halottiAnyakonyviSzam: "Halotti anyakönyvi szám", megvaltoNeve: "Megváltó neve", lejarat: "Lejárat",
+  telepules: "Település", utca: "Utca", hazszam: "Házszám", status: "Állapot", indoklas: "Indoklás",
+  regiCim: "Régi cím", ujCim: "Új cím", kulsoHazastarsNeve: "Külső házastárs neve",
+  vallasTipusManualis: "Vallástípus (kézi)", kertSzint: "Kért szint",
+};
+
+// Technikai mezők, amiket sosem mutatunk a változás-listában.
+const HIDDEN_FIELDS = new Set(["id", "createdAt", "updatedAt", "deletedAt", "passwordHash"]);
+
+const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key;
+const isTechnical = (key: string) => HIDDEN_FIELDS.has(key) || /Id$/.test(key);
+
+function fmtValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "igen" : "nem";
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleDateString("hu-HU");
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -61,11 +87,17 @@ function fmtDateTime(iso: string): string {
 /** Csak azokat a mezőket mutatja, amik ténylegesen megváltoztak - ne kelljen a teljes,
  * technikai JSON-dumpot bogarászni, hogy mi is történt valójában. */
 function diffFields(before: Record<string, unknown> | null, after: Record<string, unknown> | null): { key: string; before: unknown; after: unknown }[] {
+  if (!after && before) {
+    return Object.keys(before).filter((k) => !isTechnical(k) && before[k] !== null && before[k] !== "").map((key) => ({ key, before: before[key], after: undefined }));
+  }
+  if (!before && after) {
+    return Object.keys(after).filter((k) => !isTechnical(k) && after[k] !== null && after[k] !== "").map((key) => ({ key, before: undefined, after: after[key] }));
+  }
   if (!before || !after) return [];
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   const out: { key: string; before: unknown; after: unknown }[] = [];
   for (const key of keys) {
-    if (key === "updatedAt" || key === "createdAt") continue;
+    if (isTechnical(key)) continue;
     const b = JSON.stringify(before[key]);
     const a = JSON.stringify(after[key]);
     if (b !== a) out.push({ key, before: before[key], after: after[key] });
@@ -73,27 +105,48 @@ function diffFields(before: Record<string, unknown> | null, after: Record<string
   return out;
 }
 
-function fmtValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
-}
-
 function AuditRow({ item }: { item: AuditItem }) {
   const [open, setOpen] = useState(false);
   const actionInfo = ACTION_LABELS[item.action] ?? { label: item.action, color: "var(--color-text-muted)" };
   const changes = diffFields(item.before, item.after);
+  const isUpdate = item.action === "UPDATE";
+  const subject =
+    item.targetPersons.length > 0
+      ? item.targetPersons.join(" és ")
+      : item.targetHousehold ?? null;
+  const preview = isUpdate
+    ? changes.slice(0, 3).map((c) => `${fieldLabel(c.key)}: ${fmtValue(c.before)} → ${fmtValue(c.after)}`).join(" · ") +
+      (changes.length > 3 ? ` · +${changes.length - 3} további` : "")
+    : "";
 
   return (
-    <div className="card" style={{ padding: "10px 14px" }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", cursor: changes.length ? "pointer" : "default" }} onClick={() => changes.length && setOpen((v) => !v)}>
-        <div className="row" style={{ alignItems: "center", gap: 10 }}>
-          <span style={{ fontWeight: 700, color: actionInfo.color, fontSize: "var(--font-size-sm)" }}>{actionInfo.label}</span>
-          <span>{ENTITY_LABELS[item.entity] ?? item.entity}</span>
-          {item.gyulekezetNev && <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>· {item.gyulekezetNev}</span>}
+    <div className="card" style={{ padding: "12px 16px" }}>
+      <div
+        className="row"
+        style={{ justifyContent: "space-between", alignItems: "flex-start", cursor: changes.length ? "pointer" : "default" }}
+        onClick={() => changes.length && setOpen((v) => !v)}
+      >
+        <div className="stack" style={{ gap: 4, minWidth: 0, flex: 1 }}>
+          <div className="row" style={{ alignItems: "center", gap: 10 }}>
+            <span style={{ fontWeight: 700, color: actionInfo.color, fontSize: "var(--font-size-sm)" }}>{actionInfo.label}</span>
+            <span style={{ color: "var(--color-text-muted)" }}>{ENTITY_LABELS[item.entity] ?? item.entity}</span>
+            {subject && (
+              <strong onClick={(e) => e.stopPropagation()}>
+                {item.targetPersonId && item.targetPersons.length > 0 ? (
+                  <Link to={`/szemelyek/${item.targetPersonId}`}>{subject}</Link>
+                ) : (
+                  subject
+                )}
+              </strong>
+            )}
+          </div>
+          {preview && <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>{preview}</div>}
         </div>
-        <div className="row" style={{ alignItems: "center", gap: 10 }}>
-          <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{item.userNev ?? "ismeretlen felhasználó"}</span>
+        <div className="stack" style={{ gap: 2, alignItems: "flex-end", flexShrink: 0 }}>
+          <span style={{ fontSize: "var(--font-size-sm)" }}>
+            <span style={{ color: "var(--color-text-muted)" }}>Módosította: </span>
+            <strong>{item.userNev ?? "ismeretlen felhasználó"}</strong>
+          </span>
           <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{fmtDateTime(item.createdAt)}</span>
         </div>
       </div>
@@ -101,10 +154,14 @@ function AuditRow({ item }: { item: AuditItem }) {
         <div className="stack" style={{ marginTop: 10, gap: 4, borderTop: "1px solid var(--color-border)", paddingTop: 10 }}>
           {changes.map((c) => (
             <div key={c.key} className="row" style={{ fontSize: "var(--font-size-sm)", gap: 8 }}>
-              <span style={{ color: "var(--color-text-muted)", minWidth: 140 }}>{c.key}</span>
-              <span style={{ textDecoration: "line-through", color: "var(--color-text-muted)" }}>{fmtValue(c.before)}</span>
-              <span>→</span>
-              <span style={{ fontWeight: 600 }}>{fmtValue(c.after)}</span>
+              <span style={{ color: "var(--color-text-muted)", minWidth: 160 }}>{fieldLabel(c.key)}</span>
+              {c.before !== undefined && (
+                <span style={{ textDecoration: c.after !== undefined ? "line-through" : "none", color: "var(--color-text-muted)" }}>
+                  {fmtValue(c.before)}
+                </span>
+              )}
+              {c.before !== undefined && c.after !== undefined && <span>→</span>}
+              {c.after !== undefined && <span style={{ fontWeight: 600 }}>{fmtValue(c.after)}</span>}
             </div>
           ))}
         </div>
@@ -116,8 +173,7 @@ function AuditRow({ item }: { item: AuditItem }) {
 export function ValtozasTortenet() {
   const [searchParams] = useSearchParams();
   const entityIdFilter = searchParams.get("entityId") ?? "";
-  const [gyulekezetek, setGyulekezetek] = useState<GyulekezetOption[]>([]);
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [entity, setEntity] = useState(searchParams.get("entity") ?? "");
   const [action, setAction] = useState("");
   const [items, setItems] = useState<AuditItem[]>([]);
@@ -127,8 +183,8 @@ export function ValtozasTortenet() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get<GyulekezetOption[]>("/api/audit-log/gyulekezetek").then(setGyulekezetek).catch(() => setGyulekezetek([]));
-  }, []);
+    setPage(1);
+  }, [gyulekezetId]);
 
   useEffect(() => {
     setLoading(true);
@@ -147,13 +203,21 @@ export function ValtozasTortenet() {
   }, [gyulekezetId, entity, action, page, entityIdFilter]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  // Gyülekezetenkénti bontás (a lista időrendje gyülekezeten belül megmarad).
+  const groups = Array.from(
+    items.reduce((m, it) => {
+      const k = it.gyulekezetNev ?? "Gyülekezethez nem köthető";
+      m.set(k, [...(m.get(k) ?? []), it]);
+      return m;
+    }, new Map<string, AuditItem[]>())
+  );
 
   return (
     <div className="stack">
       <div>
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Változás-történet</h1>
         <p style={{ color: "var(--color-text-muted)", margin: "6px 0 0" }}>
-          Minden rögzített módosítás - ki, mikor, mit változtatott. A lista csak azokat a gyülekezeteket mutatja, amikhez hozzáférése van.
+          Minden rögzített módosítás - kin, mit, ki és mikor változtatott. A lista a kiválasztott gyülekezet változásait mutatja (a bal oldali gyülekezet-választó szerint), gyülekezetenként csoportosítva.
         </p>
         {entityIdFilter && (
           <p style={{ margin: "6px 0 0" }}>
@@ -163,23 +227,6 @@ export function ValtozasTortenet() {
       </div>
 
       <div className="card row" style={{ flexWrap: "wrap", gap: 12 }}>
-        <div className="field">
-          <label>Gyülekezet</label>
-          <select
-            value={gyulekezetId}
-            onChange={(e) => {
-              setGyulekezetId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">Összes elérhető gyülekezet</option>
-            {gyulekezetek.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.nev}
-              </option>
-            ))}
-          </select>
-        </div>
         <div className="field">
           <label>Típus</label>
           <select
@@ -218,11 +265,16 @@ export function ValtozasTortenet() {
       {loading && <p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}
       {!loading && items.length === 0 && <p style={{ color: "var(--color-text-muted)" }}>Nincs a szűrésnek megfelelő bejegyzés.</p>}
 
-      <div className="stack" style={{ gap: 6 }}>
-        {items.map((item) => (
-          <AuditRow key={item.id} item={item} />
-        ))}
-      </div>
+      {groups.map(([nev, groupItems]) => (
+        <div key={nev} className="stack" style={{ gap: 6 }}>
+          {(groups.length > 1 || !gyulekezetId) && (
+            <h2 style={{ fontSize: "var(--font-size-lg)", margin: "8px 0 0" }}>{nev}</h2>
+          )}
+          {groupItems.map((item) => (
+            <AuditRow key={item.id} item={item} />
+          ))}
+        </div>
+      ))}
 
       {totalPages > 1 && (
         <div className="row" style={{ justifyContent: "center", gap: 8 }}>

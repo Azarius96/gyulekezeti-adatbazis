@@ -67,9 +67,9 @@ interface Debtor {
  * hozzá rögzített befizetés, a sztenderd díj alapján akkor is bekerül, csak "becsült" jelzéssel
  * (ld. `resolveDuesForYearOrEstimate` a duesCalc.ts-ben).
  */
-async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: number, evIg: number): Promise<Debtor[]> {
+async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: number, evIg: number, personId?: string): Promise<Debtor[]> {
   const persons = await prisma.person.findMany({
-    where: { gyulekezet: gyulekezetWhere, elhunyt: false },
+    where: { gyulekezet: gyulekezetWhere, elhunyt: false, ...(personId ? { id: personId } : {}) },
     select: {
       id: true,
       vezeteknev: true,
@@ -336,6 +336,49 @@ export async function duesRoutes(app: FastifyInstance) {
   });
 
   // Egyházfenntartói járulék - szándékosan külön végpont, nem keverhető az adománnyal.
+  // Tartozás kifizetése: a befizetett összeget a legrégebbi hátralékra számolja el - előbb a
+  // nyitó (rendszer előtti) tartozásra, majd évenként növekvő sorrendben az egyes évek hiányzó
+  // összegére (évenkénti DuesPayment rekordként) -, így a tartozók listája mindig pontosan a
+  // maradék tartozást mutatja.
+  app.post("/api/dues-debtors/pay", async (req, reply) => {
+    const schema = z.object({
+      personId: z.string(),
+      osszeg: z.number().positive(),
+      evTol: z.number().int().min(1900).max(3000),
+      evIg: z.number().int().min(1900).max(3000),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !(await assertCanEditPerson(user, parsed.data.personId))) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+    const person = await prisma.person.findUnique({ where: { id: parsed.data.personId }, select: { gyulekezetId: true, nyitoTartozas: true } });
+    if (!person) return reply.code(404).send({ error: "Nem található" });
+
+    const [debtor] = await computeDebtors({ id: person.gyulekezetId }, parsed.data.evTol, parsed.data.evIg, parsed.data.personId);
+    if (!debtor) return reply.code(400).send({ error: "Ennek a személynek nincs tartozása a megadott időszakra" });
+    if (parsed.data.osszeg - debtor.osszesTartozas > 0.01) {
+      return reply.code(400).send({ error: `A befizetés (${parsed.data.osszeg} lej) nagyobb a tartozásnál (${debtor.osszesTartozas} lej)` });
+    }
+
+    let remaining = parsed.data.osszeg;
+    if (debtor.korabbiTartozas > 0.01 && remaining > 0.001) {
+      const pay = Math.min(remaining, debtor.korabbiTartozas);
+      await prisma.person.update({ where: { id: parsed.data.personId }, data: { nyitoTartozas: Math.max(0, debtor.korabbiTartozas - pay) } });
+      remaining -= pay;
+    }
+    for (const e of [...debtor.evek].sort((a, b) => a.ev - b.ev)) {
+      if (remaining <= 0.001) break;
+      const pay = Math.min(remaining, e.hianyzo);
+      await prisma.duesPayment.create({
+        data: { personId: parsed.data.personId, ev: e.ev, osszeg: pay, fizetesDatuma: new Date(), gyulekezetIdEkkor: person.gyulekezetId },
+      });
+      remaining -= pay;
+    }
+    return { ok: true, kifizetve: parsed.data.osszeg, maradek: Math.max(0, Math.round((debtor.osszesTartozas - parsed.data.osszeg) * 100) / 100) };
+  });
+
   app.post("/api/dues-payments", async (req, reply) => {
     const schema = z.object({
       personId: z.string(),

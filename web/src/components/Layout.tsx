@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { isAdmin } from "../lib/types";
+import { isAdmin, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
+import { GyulekezetSelect } from "./GyulekezetSelect";
+import { useGyulekezetContext } from "../context/GyulekezetContext";
 import {
   IconDashboard,
   IconHome,
@@ -64,11 +66,12 @@ export function Layout() {
   const items = [
     ...navItems,
     ...(admin || isEsperesOrPuspok ? [szervezetNavItem] : []),
-    ...(admin ? adminNavItems : isEsperes ? [gyulekezetekNavItem] : []),
+    ...(admin ? adminNavItems : isEsperes || ownGyulekezetIds(user).length > 0 ? [gyulekezetekNavItem] : []),
   ];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { selectedId, setSelectedId, gyulekezetek } = useGyulekezetContext();
 
   async function handleLogout() {
     await logout();
@@ -128,6 +131,12 @@ export function Layout() {
             adatbázis
           </div>
         </div>
+
+        {gyulekezetek.length > 1 && (
+          <div style={{ padding: "0 8px 12px" }}>
+            <GyulekezetSelect value={selectedId} onChange={setSelectedId} gyulekezetek={gyulekezetek} />
+          </div>
+        )}
 
         {items.map((item) => {
           const Icon = item.icon;

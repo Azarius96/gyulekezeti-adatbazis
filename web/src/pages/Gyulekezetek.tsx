@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { isAdmin } from "../lib/types";
+import { isAdmin, ownGyulekezetIds } from "../lib/types";
+import { GyulekezetEdit } from "./GyulekezetEdit";
 import type { DashboardStats } from "../lib/types";
 
 interface GyulekezetOverview {
@@ -25,10 +27,19 @@ const szerepLabels: Record<string, string> = {
   DELEGALT: "Delegált",
 };
 
+/** A Gyülekezetek menü a bal oldali gyülekezet-választót követi: kiválasztott gyülekezetnél annak
+ * adatai (alapadatok, egyházfenntartói díjak, sírhelyárak) jelennek meg, a felhasználó jogosultságának
+ * megfelelően szerkeszthetően; "Összes gyülekezet"/esperesi nézetben a rendszergazda a gyülekezetek
+ * listáját, az esperes csak az összesített statisztikát látja. */
 export function Gyulekezetek() {
   const { user } = useAuth();
-  if (!isAdmin(user)) return <EsperesMegyeiNezet />;
-  return <AdminGyulekezetekLista />;
+  const [selectedId] = useSelectedGyulekezet();
+  const isEsperes = user?.roles.some((r) => r.szerepKor === "ESPERES") ?? false;
+  if (selectedId) return <GyulekezetEdit key={selectedId} embeddedId={selectedId} />;
+  if (isAdmin(user)) return <AdminGyulekezetekLista />;
+  if (isEsperes) return <EsperesMegyeiNezet />;
+  const own = ownGyulekezetIds(user)[0];
+  return own ? <GyulekezetEdit key={own} embeddedId={own} /> : <EsperesMegyeiNezet />;
 }
 
 function StatTile({ label, value }: { label: string; value: number | string }) {

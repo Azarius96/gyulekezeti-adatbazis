@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
 import { canEditGyulekezet, isAdmin } from "../lib/types";
@@ -46,11 +47,16 @@ function DuesConfigRow({ config, onChanged, canEdit }: { config: DuesConfig; onC
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save() {
+  // A szerver 409-cel jelzi, ha a módosítás egy már lezárt évet érint - ilyenkor a figyelmeztetés
+  // után a felhasználó megerősítheti, hogy mégis végre akarja hajtani (pl. elírt korhatár javítása).
+  const LEZART_FIGYELMEZTETES =
+    "Figyelem: ez a korsáv egy már lezárt évtől érvényes. A módosítás visszamenőleg megváltoztatja a korábbi évek tartozás- és díjszámítását is.\n\nBiztosan mégis módosítod?";
+
+  async function save(megerosit = false) {
     setSaving(true);
     setError(null);
     try {
-      await api.put(`/api/dues-config/${config.id}`, {
+      await api.put(`/api/dues-config/${config.id}${megerosit ? "?megerosit=1" : ""}`, {
         korhatarTol: Number(korhatarTol),
         korhatarIg: Number(korhatarIg),
         osszeg: Number(osszeg),
@@ -59,18 +65,25 @@ function DuesConfigRow({ config, onChanged, canEdit }: { config: DuesConfig; onC
       setEditing(false);
       onChanged();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && !megerosit && window.confirm(LEZART_FIGYELMEZTETES)) {
+        setSaving(false);
+        return save(true);
+      }
       setError(err instanceof ApiError ? err.message : "Nem sikerült menteni");
     } finally {
       setSaving(false);
     }
   }
 
-  async function remove() {
+  async function remove(megerosit = false) {
     setError(null);
     try {
-      await api.delete(`/api/dues-config/${config.id}`);
+      await api.delete(`/api/dues-config/${config.id}${megerosit ? "?megerosit=1" : ""}`);
       onChanged();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && !megerosit && window.confirm(LEZART_FIGYELMEZTETES.replace("módosítod", "törlöd"))) {
+        return remove(true);
+      }
       setError(err instanceof ApiError ? err.message : "Nem sikerült törölni");
     }
   }
@@ -86,7 +99,7 @@ function DuesConfigRow({ config, onChanged, canEdit }: { config: DuesConfig; onC
           <input type="number" style={{ width: 115 }} value={osszeg} onChange={(e) => setOsszeg(e.target.value)} />
           <span>lej/év, érvényes ettől:</span>
           <input type="number" style={{ width: 95 }} value={ervenyesEttolEv} onChange={(e) => setErvenyesEttolEv(e.target.value)} />
-          <button className="btn btn-secondary btn-sm" disabled={saving} onClick={save}>
+          <button className="btn btn-secondary btn-sm" disabled={saving} onClick={() => save()}>
             Mentés
           </button>
           <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>
@@ -115,7 +128,7 @@ function DuesConfigRow({ config, onChanged, canEdit }: { config: DuesConfig; onC
               <button className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>
                 Szerkesztés
               </button>
-              <button className="btn btn-secondary btn-sm" onClick={remove}>
+              <button className="btn btn-secondary btn-sm" onClick={() => remove()}>
                 Törlés
               </button>
             </>
@@ -325,9 +338,13 @@ function GravePriceConfigRow({ config, onChanged, canEdit }: { config: GravePric
   );
 }
 
-export function GyulekezetEdit() {
+/** `embeddedId`: ha meg van adva, az oldal a Gyülekezetek menüben, a kiválasztott gyülekezet nézeteként
+ * jelenik meg (nincs "vissza" link, az azonosító nem az URL-ből jön). */
+export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
   const { user } = useAuth();
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = embeddedId ?? params.id;
+  const [, setSelectedGyulekezetId] = useSelectedGyulekezet();
   const navigate = useNavigate();
   const [gyulekezet, setGyulekezet] = useState<GyulekezetData | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -442,6 +459,7 @@ export function GyulekezetEdit() {
     setDeleting(true);
     try {
       await api.delete(`/api/gyulekezetek/${id}`, { megerositesNev: deleteConfirmText });
+      if (embeddedId) setSelectedGyulekezetId("");
       navigate("/gyulekezetek");
     } catch {
       setDeleteError("A törlés nem sikerült. Ellenőrizze, hogy pontosan a gyülekezet nevét írta-e be.");
@@ -458,7 +476,7 @@ export function GyulekezetEdit() {
 
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
-      <Link to="/gyulekezetek">&larr; Vissza a gyülekezetekhez</Link>
+      {!embeddedId && <Link to="/gyulekezetek">&larr; Vissza a gyülekezetekhez</Link>}
       <h1 style={{ fontSize: "var(--font-size-xl)" }}>{gyulekezet.nev}</h1>
 
       {canEdit ? (

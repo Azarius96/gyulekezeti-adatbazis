@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { isAdmin } from "../lib/types";
@@ -30,7 +31,9 @@ export function Szervezet() {
   const admin = isAdmin(user);
   const [keruletek, setKeruletek] = useState<Kerulet[]>([]);
   const [egyhazmegyek, setEgyhazmegyek] = useState<Egyhazmegye[]>([]);
-  const [gyulekezetek, setGyulekezetek] = useState<GyulekezetSzervezetView[]>([]);
+  const [selectedGyulekezetId] = useSelectedGyulekezet();
+  const [allGyulekezetek, setGyulekezetek] = useState<GyulekezetSzervezetView[]>([]);
+  const gyulekezetek = selectedGyulekezetId ? allGyulekezetek.filter((g) => g.id === selectedGyulekezetId) : allGyulekezetek;
   const [error, setError] = useState<string | null>(null);
 
   function load() {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api, API_BASE, ApiError } from "../lib/api";
 import { IconHistory, IconDownload, IconTrash, IconUpload } from "../components/icons";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
@@ -271,7 +272,11 @@ function BackupRow({ backup, onChanged }: { backup: BackupMeta; onChanged: () =>
 
 function GyulekezetenkentiMentes() {
   const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [selectedGyulekezetId] = useSelectedGyulekezet();
+  const [gyulekezetId, setGyulekezetId] = useState(selectedGyulekezetId);
+  useEffect(() => {
+    setGyulekezetId(selectedGyulekezetId);
+  }, [selectedGyulekezetId]);
   const [showRestore, setShowRestore] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [restoring, setRestoring] = useState(false);

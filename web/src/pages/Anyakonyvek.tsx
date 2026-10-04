@@ -1,7 +1,8 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconDroplet, IconBook, IconRings, IconCross, IconMapPin, IconTrash } from "../components/icons";
 import { ageOn as calcAge } from "../lib/age";
 import { ApiError } from "../lib/api";
@@ -157,7 +158,7 @@ function PersonRow({
 
 export function Anyakonyvek() {
   const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [tab, setTab] = useState<Tab>("osszesito");
   const showGyulekezetNev = gyulekezetek.length > 1;
 
@@ -167,7 +168,6 @@ export function Anyakonyvek() {
       <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
         Keresztelési, konfirmációs, házassági és temetési anyakönyv évenkénti áttekintése.
       </p>
-      <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
 
       <div className="row" style={{ borderBottom: "1px solid var(--color-border)", paddingBottom: 4 }}>
         {TABS.map((t) => (

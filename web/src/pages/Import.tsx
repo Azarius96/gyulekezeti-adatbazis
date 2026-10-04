@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { isAdmin, ownGyulekezetIds } from "../lib/types";
 import { API_BASE } from "../lib/api";
 
@@ -63,7 +64,8 @@ function ResultPanel({ result }: { result: PersonImportResult | CemeteryImportRe
 export function Import() {
   const { user } = useAuth();
   const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState(ownGyulekezetIds(user)[0] ?? "");
+  const [selectedId] = useSelectedGyulekezet();
+  const gyulekezetId = selectedId || (ownGyulekezetIds(user)[0] ?? "");
   const [personResult, setPersonResult] = useState<PersonImportResult | null>(null);
   const [cemeteryResult, setCemeteryResult] = useState<CemeteryImportResult | null>(null);
   const [uploading, setUploading] = useState<"persons" | "cemetery" | null>(null);
@@ -114,7 +116,6 @@ export function Import() {
   return (
     <div className="stack">
       <h1 style={{ fontSize: "var(--font-size-xl)" }}>Excel import</h1>
-      <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
       <div className="card stack">

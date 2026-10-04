@@ -189,6 +189,15 @@ select {
   background-size: 18px;
 }
 
+/* A legördülő lista (natív <option>) a rendszer saját, alapértelmezetten FEHÉR popupján jelenik meg
+   (Windows alatt biztosan) - a világos szöveg ott fehér alapon láthatatlan lenne, csak az egér
+   alatt kiemelt sor látszott. Ezért az opciók kapnak saját, sötét, tömör hátteret és világos szöveget. */
+select option,
+select optgroup {
+  background-color: #14213f;
+  color: var(--color-text);
+}
+
 /* A natív szám-input léptető nyilai eltérő magasságot kényszerítenének ki
    a böngészőben - levéve pontosan illeszkedik a gombok/select-ek sorával. */
 input[type="number"] {

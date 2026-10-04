@@ -5,7 +5,7 @@ import { getAccessibleGyulekezetIds, canEditGyulekezet, assertCanEditPerson, isA
 import { requireAuth } from "../auth/plugin.js";
 import { getFamilyOverview, applyWidowhoodCascade } from "./family.js";
 import { ageOn } from "../lib/age.js";
-import { getCurrentDuesBands, getDuesBandsForYear, computeMemberDuesInfo } from "./duesCalc.js";
+import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { matchesAllWords } from "../lib/search.js";
 
 const sacramentSchema = z.object({
@@ -148,12 +148,7 @@ export async function personRoutes(app: FastifyInstance) {
     }
 
     const csalad = await getFamilyOverview(id);
-    const currentYear = new Date().getFullYear();
-    const [currentYearBands, prevYearBands] = await Promise.all([
-      getCurrentDuesBands(person.gyulekezetId),
-      getDuesBandsForYear(person.gyulekezetId, currentYear - 1),
-    ]);
-    const duesInfo = computeMemberDuesInfo(person, currentYearBands, prevYearBands);
+    const duesInfo = computeMemberDuesInfo(person, await loadDuesBandsByYear(person.gyulekezetId));
     return { ...person, csalad, ...duesInfo };
   });
 

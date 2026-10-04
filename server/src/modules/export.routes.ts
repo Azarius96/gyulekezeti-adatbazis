@@ -145,7 +145,13 @@ export async function exportRoutes(app: FastifyInstance) {
     if (accessible !== "ALL" && accessible.length === 0) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
-    const workbook = await buildExportWorkbook(accessible);
+    // Opcionális szűrés egyetlen gyülekezetre (a felület kiválasztott gyülekezete) - csak az
+    // elérhető gyülekezetek közül.
+    const requested = (req.query as { gyulekezetId?: string }).gyulekezetId;
+    if (requested && accessible !== "ALL" && !accessible.includes(requested)) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+    const workbook = await buildExportWorkbook(requested ? [requested] : accessible);
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = `gyulekezeti_adatok_${new Date().toISOString().slice(0, 10)}.xlsx`;
     reply

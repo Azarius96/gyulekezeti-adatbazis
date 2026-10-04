@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { memberHighlight, canEditGyulekezet, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
+import { memberHighlight, canEditGyulekezet, tartozasSzoveg, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
-import { IconTrash, IconCross } from "../components/icons";
+import { IconTrash, IconCross, IconMapPin } from "../components/icons";
 import { DateInput } from "../components/DateInput";
 import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
@@ -1205,13 +1205,15 @@ export function PersonDetail() {
   const personDuesColor = memberHighlight(person.egyhazfenntarto, person.tobbEveElmaradt);
   const nyitoTartozasOsszeg = Number(person.nyitoTartozas);
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
+  const currentAddressMembership =
+    person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0] ?? null;
 
   return (
     <div className="stack">
       <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => navigate(-1)}>
         &larr; Vissza
       </button>
-      <div className="row" style={{ justifyContent: "space-between" }}>
+      <div className="row">
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
           {person.vezeteknev} {person.keresztnev}
           {person.fizetveIdenre && (
@@ -1229,10 +1231,153 @@ export function PersonDetail() {
           )}
           {person.tobbEveElmaradt && (
             <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-danger)", fontWeight: 700, marginLeft: 12 }}>
-              ⚠ több éve elmaradt
+              ⚠ tartozás: {tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}
             </span>
           )}
         </h1>
+      </div>
+
+      {!editing && (
+        <div className="card stack">
+          <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Alapadatok</h2>
+          {currentAddressMembership ? (
+            <Link
+              to={`/haztartasok/${currentAddressMembership.household.id}`}
+              title="Ki lakik ezen a címen?"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 16px",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--color-primary-light)",
+                border: "1.5px solid var(--color-primary)",
+                textDecoration: "none",
+                color: "var(--color-text)",
+              }}
+            >
+              <IconMapPin style={{ width: 22, height: 22, color: "var(--color-primary)", flexShrink: 0 }} />
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>Lakcím</span>
+                <strong style={{ fontSize: "var(--font-size-lg)" }}>
+                  {currentAddressMembership.household.address.telepules}, {currentAddressMembership.household.address.utca}{" "}
+                  {currentAddressMembership.household.address.hazszam}
+                  {currentAddressMembership.household.address.emeletAjto ? `, ${currentAddressMembership.household.address.emeletAjto}` : ""}
+                </strong>
+              </span>
+              <span style={{ marginLeft: "auto", color: "var(--color-primary)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                Ki lakik itt? →
+              </span>
+            </Link>
+          ) : (
+            <div style={{ color: "var(--color-text-muted)" }}>
+              <strong>Lakcím:</strong> nincs háztartáshoz rendelve
+            </div>
+          )}
+          <div className="row">
+            <div>
+              <strong>Nem:</strong> {person.nem === "FERFI" ? "Férfi" : "Nő"}
+            </div>
+            <div>
+              <strong>Születési dátum:</strong>{" "}
+              {person.szuletesiDatum ? new Date(person.szuletesiDatum).toLocaleDateString("hu-HU") : "—"}
+            </div>
+            {age !== null && (
+              <div>
+                <strong>Életkor:</strong> {age} év
+              </div>
+            )}
+            <div>
+              <strong>Születési hely:</strong> {person.szuletesiHely ?? "—"}
+            </div>
+            <div>
+              <strong>Vallás:</strong> {person.vallas ?? "—"}
+            </div>
+            <div>
+              <strong>Családi állapot:</strong>{" "}
+              {person.csaladiAllapot ? csaladiAllapotLabels[person.csaladiAllapot] : "—"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!editing && (
+          <div className="card stack">
+            <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházfenntartó</h2>
+            <div
+              className="row"
+              style={{
+                padding: "10px 14px",
+                borderRadius: "var(--radius)",
+                background: personDuesColor?.bg ?? "var(--color-bg)",
+                color: personDuesColor?.fg ?? "inherit",
+              }}
+            >
+              {!person.egyhazfenntarto.ismertDijszabas ? (
+                <span>Nincs beállítva díjszabás ebben a gyülekezetben.</span>
+              ) : person.egyhazfenntarto.korsav === null && person.egyhazfenntartoBecsult ? (
+                <strong>
+                  Idei esedékes összeg: {person.egyhazfenntarto.esedekesOsszeg} lej
+                  <span style={{ fontWeight: 400 }}> — általános díjszabás (nincs születési dátum rögzítve)</span>
+                </strong>
+              ) : person.egyhazfenntarto.korsav === null ? (
+                <span>Nincs beállítva díjszabás erre a korosztályra ebben a gyülekezetben.</span>
+              ) : person.egyhazfenntarto.mentes ? (
+                <strong>Mentesség ({person.egyhazfenntarto.korsav.korhatarTol}–{person.egyhazfenntarto.korsav.korhatarIg} év)</strong>
+              ) : (
+                <strong>
+                  {person.egyhazfenntarto.kedvezmenyes ? "Kedvezményes " : ""}Idei esedékes összeg:{" "}
+                  {person.egyhazfenntarto.esedekesOsszeg} lej ({person.egyhazfenntarto.korsav.korhatarTol}–
+                  {person.egyhazfenntarto.korsav.korhatarIg} év sáv)
+                </strong>
+              )}
+            </div>
+            {nyitoTartozasOsszeg > 0 && (
+              <div
+                className="stack"
+                style={{
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: "var(--radius)",
+                  background: "rgba(255, 69, 58, 0.16)",
+                  color: "var(--color-danger)",
+                }}
+              >
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <span>
+                    <strong>Korábbi (nyitó) tartozás: {nyitoTartozasOsszeg} lej</strong>
+                    <span style={{ fontWeight: 400 }}> — a rendszer bevezetése előttről áthozott hátralék</span>
+                  </span>
+                  {canEdit && <PayOffOpeningDebtButton personId={person.id} osszeg={nyitoTartozasOsszeg} onDone={load} />}
+                </div>
+              </div>
+            )}
+            {person.duesPayments.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített befizetés.</p>}
+            {person.duesPayments.map((pay) => (
+              <EditablePaymentRow
+                key={pay.id}
+                id={pay.id}
+                ev={pay.ev}
+                osszeg={pay.osszeg}
+                kind="dues"
+                createdAt={pay.createdAt}
+                updatedAt={pay.updatedAt}
+                onChanged={load}
+                canEdit={canEdit}
+              />
+            ))}
+            {canEdit && (
+              <QuickPaymentForm
+                personId={person.id}
+                kind="dues"
+                defaultOsszeg={person.egyhazfenntarto.esedekesOsszeg}
+                onAdded={load}
+              />
+            )}
+          </div>
+      )}
+
+      <div className="stack">
         {!editing && !confirmDelete && (
           <div className="row">
             <Link className="btn btn-secondary" to={`/szemelyek/${person.id}/igazolas`}>
@@ -1290,34 +1435,6 @@ export function PersonDetail() {
         />
       ) : (
         <>
-          <div className="card stack">
-            <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Alapadatok</h2>
-            <div className="row">
-              <div>
-                <strong>Nem:</strong> {person.nem === "FERFI" ? "Férfi" : "Nő"}
-              </div>
-              <div>
-                <strong>Születési dátum:</strong>{" "}
-                {person.szuletesiDatum ? new Date(person.szuletesiDatum).toLocaleDateString("hu-HU") : "—"}
-              </div>
-              {age !== null && (
-                <div>
-                  <strong>Életkor:</strong> {age} év
-                </div>
-              )}
-              <div>
-                <strong>Születési hely:</strong> {person.szuletesiHely ?? "—"}
-              </div>
-              <div>
-                <strong>Vallás:</strong> {person.vallas ?? "—"}
-              </div>
-              <div>
-                <strong>Családi állapot:</strong>{" "}
-                {person.csaladiAllapot ? csaladiAllapotLabels[person.csaladiAllapot] : "—"}
-              </div>
-            </div>
-          </div>
-
           {person.elhunyt ? (
             <div className="card stack">
               <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Temető</h2>
@@ -1499,73 +1616,6 @@ export function PersonDetail() {
           </div>
 
           <div className="card stack">
-            <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházfenntartó</h2>
-            <div
-              className="row"
-              style={{
-                padding: "10px 14px",
-                borderRadius: "var(--radius)",
-                background: personDuesColor?.bg ?? "var(--color-bg)",
-                color: personDuesColor?.fg ?? "inherit",
-              }}
-            >
-              {person.egyhazfenntarto.korsav === null ? (
-                <span>Nincs beállítva díjszabás erre a korosztályra ebben a gyülekezetben.</span>
-              ) : person.egyhazfenntarto.mentes ? (
-                <strong>Mentesség ({person.egyhazfenntarto.korsav.korhatarTol}–{person.egyhazfenntarto.korsav.korhatarIg} év)</strong>
-              ) : (
-                <strong>
-                  {person.egyhazfenntarto.kedvezmenyes ? "Kedvezményes " : ""}Idei esedékes összeg:{" "}
-                  {person.egyhazfenntarto.esedekesOsszeg} lej ({person.egyhazfenntarto.korsav.korhatarTol}–
-                  {person.egyhazfenntarto.korsav.korhatarIg} év sáv)
-                </strong>
-              )}
-            </div>
-            {nyitoTartozasOsszeg > 0 && (
-              <div
-                className="stack"
-                style={{
-                  gap: 8,
-                  padding: "10px 14px",
-                  borderRadius: "var(--radius)",
-                  background: "rgba(255, 69, 58, 0.16)",
-                  color: "var(--color-danger)",
-                }}
-              >
-                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <span>
-                    <strong>Korábbi (nyitó) tartozás: {nyitoTartozasOsszeg} lej</strong>
-                    <span style={{ fontWeight: 400 }}> — a rendszer bevezetése előttről áthozott hátralék</span>
-                  </span>
-                  {canEdit && <PayOffOpeningDebtButton personId={person.id} osszeg={nyitoTartozasOsszeg} onDone={load} />}
-                </div>
-              </div>
-            )}
-            {person.duesPayments.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített befizetés.</p>}
-            {person.duesPayments.map((pay) => (
-              <EditablePaymentRow
-                key={pay.id}
-                id={pay.id}
-                ev={pay.ev}
-                osszeg={pay.osszeg}
-                kind="dues"
-                createdAt={pay.createdAt}
-                updatedAt={pay.updatedAt}
-                onChanged={load}
-                canEdit={canEdit}
-              />
-            ))}
-            {canEdit && (
-              <QuickPaymentForm
-                personId={person.id}
-                kind="dues"
-                defaultOsszeg={person.egyhazfenntarto.esedekesOsszeg}
-                onAdded={load}
-              />
-            )}
-          </div>
-
-          <div className="card stack">
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Adomány</h2>
             {person.donations.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített adomány.</p>}
             {person.donations.map((d) => (
@@ -1592,21 +1642,6 @@ export function PersonDetail() {
             </div>
           )}
 
-          {person.householdMemberships.length > 0 && (
-            <div className="card stack">
-              <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Háztartás</h2>
-              {person.householdMemberships.map((hm) => (
-                <Link
-                  key={hm.id}
-                  to={`/haztartasok/${hm.household.id}`}
-                  style={{ color: "var(--color-text)" }}
-                >
-                  {hm.household.address.telepules}, {hm.household.address.utca} {hm.household.address.hazszam} →
-                  a teljes család megtekintése
-                </Link>
-              ))}
-            </div>
-          )}
         </>
       )}
     </div>

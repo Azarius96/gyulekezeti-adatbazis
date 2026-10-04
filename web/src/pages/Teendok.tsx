@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconHistory, IconChevronDown, IconChevronRight } from "../components/icons";
@@ -49,8 +49,7 @@ function formatDate(iso: string): string {
 export function Teendok() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const gyulekezetek = useGyulekezetek();
-  const [gyulekezetId, setGyulekezetId] = useState("");
+  const [gyulekezetId] = useSelectedGyulekezet();
   const [groups, setGroups] = useState<TeendoGyulekezetGroup[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +73,6 @@ export function Teendok() {
             A Romániai Református Egyház törvénytára alapján évente esedékes egyházközségi kötelezettségek.
           </p>
         </div>
-        <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

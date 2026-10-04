@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getCurrentDuesBands, getDuesBandsForYear, computeMemberDuesInfo } from "./duesCalc.js";
+import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { ageOn } from "../lib/age.js";
 import { matchesAllWords } from "../lib/search.js";
 
@@ -20,18 +20,8 @@ const memberPersonSelect = {
   marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
   positions: { where: { vege: null }, select: { tisztseg: true } },
   confirmation: { select: { id: true } },
-  duesPayments: { select: { ev: true } },
+  duesPayments: { select: { ev: true, osszeg: true } },
 } as const;
-
-/** A folyó és a tavalyi év korsáv-készlete egyben (a computeMemberDuesInfo mindkettőt igényli). */
-async function loadDuesBandsForCurrentAndPrevYear(gyulekezetId: string) {
-  const currentYear = new Date().getFullYear();
-  const [currentYearBands, prevYearBands] = await Promise.all([
-    getCurrentDuesBands(gyulekezetId),
-    getDuesBandsForYear(gyulekezetId, currentYear - 1),
-  ]);
-  return { currentYearBands, prevYearBands };
-}
 
 interface HouseholdListQuery {
   gyulekezetId?: string;
@@ -101,7 +91,7 @@ export async function householdRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
 
-    const { currentYearBands, prevYearBands } = await loadDuesBandsForCurrentAndPrevYear(household.gyulekezetId);
+    const bandsByYear = await loadDuesBandsByYear(household.gyulekezetId);
     const vallasTipus = household.vallasTipusManualis ?? (vallasokOfMembers(household.members).size <= 1 ? "EGYEZO" : "VEGYES");
 
     return {
@@ -109,7 +99,7 @@ export async function householdRoutes(app: FastifyInstance) {
       vallasTipus,
       members: household.members.map((m) => ({
         ...m,
-        ...computeMemberDuesInfo(m.person, currentYearBands, prevYearBands),
+        ...computeMemberDuesInfo(m.person, bandsByYear),
       })),
     };
   });
@@ -187,11 +177,11 @@ export async function householdRoutes(app: FastifyInstance) {
     }
 
     // gyülekezetenkénti korsáv-készletek cache-elve, hogy ne kérdezzük le minden háztartásnál újra
-    const bandsCache = new Map<string, Awaited<ReturnType<typeof loadDuesBandsForCurrentAndPrevYear>>>();
+    const bandsCache = new Map<string, Awaited<ReturnType<typeof loadDuesBandsByYear>>>();
     async function getDuesBands(gyulekezetId: string) {
       let cached = bandsCache.get(gyulekezetId);
       if (!cached) {
-        cached = await loadDuesBandsForCurrentAndPrevYear(gyulekezetId);
+        cached = await loadDuesBandsByYear(gyulekezetId);
         bandsCache.set(gyulekezetId, cached);
       }
       return cached;
@@ -200,7 +190,7 @@ export async function householdRoutes(app: FastifyInstance) {
     const result = [];
     for (const h of households) {
       const vallasTipus = h.vallasTipusManualis ?? (vallasokOfMembers(h.members).size <= 1 ? "EGYEZO" : "VEGYES");
-      const { currentYearBands, prevYearBands } = await getDuesBands(h.gyulekezetId);
+      const bandsByYear = await getDuesBands(h.gyulekezetId);
       const matching = matchingMembersByHousehold.get(h.id);
       const membersToShow = matching && matching.length > 0 ? matching : h.members;
       result.push({
@@ -213,7 +203,7 @@ export async function householdRoutes(app: FastifyInstance) {
         tagok: membersToShow.map((m) => ({
           ...m.person,
           szerep: m.szerep,
-          ...computeMemberDuesInfo(m.person, currentYearBands, prevYearBands),
+          ...computeMemberDuesInfo(m.person, bandsByYear),
         })),
       });
     }

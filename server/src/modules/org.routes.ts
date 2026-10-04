@@ -203,14 +203,21 @@ export async function orgRoutes(app: FastifyInstance) {
   // Egy korsáv-generáció (ervenyesEttolEv) a lezárt (múltbeli) évek díjszámításának alapja -
   // ha ezt utólag átírnánk vagy törölnénk, minden azt az évet érintő korábbi kimutatás
   // (tartozáslista, lélekszám jelentés stb.) csendben, nyom nélkül megváltozna. Ezért egy
-  // generáció csak addig módosítható/törölhető, amíg a folyó vagy jövőbeli évtől érvényes -
-  // egy már lezárt évet érintő változtatáshoz új generációt kell indítani (ld. "Másolás").
-  function assertNemLezartGeneracio(ervenyesEttolEv: number, reply: import("fastify").FastifyReply): boolean {
+  // generáció alapból csak addig módosítható/törölhető, amíg a folyó vagy jövőbeli évtől érvényes -
+  // egy már lezárt évet érintő változtatáshoz új generációt kell indítani (ld. "Másolás"). Ha a
+  // felhasználó a figyelmeztetés után mégis visszamenőleg akarja módosítani (pl. elírt korhatár
+  // javítása), a kérés `?megerosit=1` paraméterrel felülírhatja a védelmet.
+  function assertNemLezartGeneracio(
+    ervenyesEttolEv: number,
+    reply: import("fastify").FastifyReply,
+    megerosit: boolean
+  ): boolean {
     const folyoEv = new Date().getFullYear();
-    if (ervenyesEttolEv < folyoEv) {
+    if (ervenyesEttolEv < folyoEv && !megerosit) {
       reply.code(409).send({
         error:
           "Ez a korsáv egy korábbi, már lezárt évtől érvényes - visszamenőleges módosítása meghamisítaná a már rögzített évek adatait. Ha a díjat a jelenlegi vagy egy jövőbeli évtől szeretné megváltoztatni, hozzon létre új korsávot a Másolás gombbal.",
+        megerosithato: true,
       });
       return false;
     }
@@ -225,10 +232,11 @@ export async function orgRoutes(app: FastifyInstance) {
     if (!isAdmin(user) && !canEditGyulekezet(user, existing.gyulekezetId)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
-    if (!assertNemLezartGeneracio(existing.ervenyesEttolEv, reply)) return;
+    const megerosit = (req.query as { megerosit?: string }).megerosit === "1";
+    if (!assertNemLezartGeneracio(existing.ervenyesEttolEv, reply, megerosit)) return;
     const parsed = duesConfigEditSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
-    if (parsed.data.ervenyesEttolEv !== undefined && !assertNemLezartGeneracio(parsed.data.ervenyesEttolEv, reply)) return;
+    if (parsed.data.ervenyesEttolEv !== undefined && !assertNemLezartGeneracio(parsed.data.ervenyesEttolEv, reply, megerosit)) return;
     const config = await prisma.churchDuesConfig.update({ where: { id: configId }, data: parsed.data });
     return config;
   });
@@ -241,7 +249,8 @@ export async function orgRoutes(app: FastifyInstance) {
     if (!isAdmin(user) && !canEditGyulekezet(user, existing.gyulekezetId)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
-    if (!assertNemLezartGeneracio(existing.ervenyesEttolEv, reply)) return;
+    const megerosit = (req.query as { megerosit?: string }).megerosit === "1";
+    if (!assertNemLezartGeneracio(existing.ervenyesEttolEv, reply, megerosit)) return;
     await prisma.churchDuesConfig.update({ where: { id: configId }, data: { deletedAt: new Date() } });
     return { ok: true };
   });

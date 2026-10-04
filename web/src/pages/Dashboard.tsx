@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import type { DashboardStats } from "../lib/types";
 import { isAdmin } from "../lib/types";
-import { GyulekezetSelect, useGyulekezetek } from "../components/GyulekezetSelect";
+import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { EventsBoard } from "../components/EventsBoard";
 import {
   IconUsers,
@@ -114,8 +114,7 @@ export function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [gyulekezetId, setGyulekezetId] = useState("");
-  const gyulekezetek = useGyulekezetek();
+  const [gyulekezetId] = useSelectedGyulekezet();
 
   useEffect(() => {
     api
@@ -140,7 +139,6 @@ export function Dashboard() {
           </h1>
           <p style={{ color: "var(--color-text-muted)", margin: "6px 0 0" }}>Áttekintés a gyülekezet aktuális helyzetéről.</p>
         </div>
-        <GyulekezetSelect value={gyulekezetId} onChange={setGyulekezetId} gyulekezetek={gyulekezetek} />
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}

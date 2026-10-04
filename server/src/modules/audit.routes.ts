@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { prisma } from "../lib/prisma.js";
+import { prisma, prismaIncludingDeleted } from "../lib/prisma.js";
 import { requireAuth } from "../auth/plugin.js";
 import { getAccessibleGyulekezetIds } from "../auth/scope.js";
 
@@ -54,11 +54,46 @@ export async function auditRoutes(app: FastifyInstance) {
       : [];
     const nevMap = new Map(gyulekezetek.map((g) => [g.id, g.nev]));
 
+    // Az érintett személy(ek) neve: a "Személy" bejegyzésnél maga a rekord, a kapcsolódó
+    // rekordoknál (keresztelés, befizetés, tisztség, házasság stb.) a hivatkozott személy -
+    // így a napló azt is megmondja, KIN történt a módosítás, nem csak azt, hogy mi.
+    const snapshot = (r: (typeof rows)[number]) => ((r.after ?? r.before) ?? {}) as Record<string, unknown>;
+    const personIdsOf = (r: (typeof rows)[number]): string[] => {
+      const snap = snapshot(r);
+      const ids: unknown[] =
+        r.entity === "Person"
+          ? [r.entityId]
+          : [snap.personId, snap.spouseAId, snap.spouseBId, snap.parentId, snap.childId, snap.megvaltoPersonId];
+      return ids.filter((x): x is string => typeof x === "string" && x.length > 0);
+    };
+    const allPersonIds = Array.from(new Set(rows.flatMap(personIdsOf)));
+    const persons = allPersonIds.length
+      ? await prismaIncludingDeleted.person.findMany({
+          where: { id: { in: allPersonIds } },
+          select: { id: true, vezeteknev: true, keresztnev: true },
+        })
+      : [];
+    const personNev = new Map(persons.map((p) => [p.id, `${p.vezeteknev} ${p.keresztnev}`]));
+
+    const householdIds = Array.from(
+      new Set(rows.map((r) => (r.entity === "Household" ? r.entityId : (snapshot(r).householdId as string | undefined))).filter((x): x is string => !!x))
+    );
+    const households = householdIds.length
+      ? await prismaIncludingDeleted.household.findMany({
+          where: { id: { in: householdIds } },
+          select: { id: true, address: { select: { telepules: true, utca: true, hazszam: true } } },
+        })
+      : [];
+    const hhCim = new Map(households.map((h) => [h.id, `${h.address.telepules}, ${h.address.utca} ${h.address.hazszam}`]));
+
     return {
       total,
       page,
       limit,
       items: rows.map((r) => ({
+        targetPersons: Array.from(new Set(personIdsOf(r).map((id) => personNev.get(id)).filter((n): n is string => !!n))),
+        targetPersonId: personIdsOf(r)[0] ?? null,
+        targetHousehold: hhCim.get((r.entity === "Household" ? r.entityId : (snapshot(r).householdId as string | undefined)) ?? "") ?? null,
         id: r.id,
         userId: r.userId,
         userNev: r.userNev,

@@ -101,6 +101,20 @@ export function memberHighlight(d: DuesResult, tobbEveElmaradt: boolean): { bg: 
   return duesColor(d);
 }
 
+export interface TartozasEv {
+  ev: number;
+  hianyzo: number;
+  becsult: boolean;
+}
+
+/** A tartozás szöveges bontása évenként, pl. "250 lej (korábbi: 50, 2025: 100, 2026: 100)" - hogy látszódjon, MELYIK évre tartozik. */
+export function tartozasSzoveg(osszeg: number, evek: TartozasEv[] | undefined): string {
+  const lista = evek ?? [];
+  const nyito = Math.round((osszeg - lista.reduce((sum, e) => sum + e.hianyzo, 0)) * 100) / 100;
+  const reszek = [...(nyito > 0.01 ? [`korábbi: ${nyito}`] : []), ...lista.map((e) => `${e.ev}: ${e.hianyzo}`)];
+  return reszek.length > 0 ? `${osszeg} lej (${reszek.join(", ")})` : `${osszeg} lej`;
+}
+
 export interface PersonDetail extends PersonListItem {
   szuletesiHely: string | null;
   vallas: string | null;
@@ -113,12 +127,17 @@ export interface PersonDetail extends PersonListItem {
   duesPayments: { id: string; ev: number; osszeg: string; createdAt: string; updatedAt: string }[];
   donations: { id: string; ev: number; osszeg: string; celja: string | null; createdAt: string; updatedAt: string }[];
   egyhazfenntarto: DuesResult;
+  /** Igaz, ha nincs rögzített születési dátum, ezért az általános (sztenderd) díjszabás szerinti összeg szerepel. */
+  egyhazfenntartoBecsult: boolean;
   fizetveIdenre: boolean;
   tobbEveElmaradt: boolean;
+  tartozasOsszeg: number;
+  tartozasEvek: TartozasEv[];
   householdMemberships: {
     id: string;
     szerep: string;
-    household: { id: string; nev: string | null; address: { telepules: string; utca: string; hazszam: string } };
+    vege: string | null;
+    household: { id: string; nev: string | null; address: { telepules: string; utca: string; hazszam: string; emeletAjto?: string | null } };
   }[];
   csalad: FamilyOverview;
   elhunytDatuma: string | null;

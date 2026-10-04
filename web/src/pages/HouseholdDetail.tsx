@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
-import { memberHighlight, canEditGyulekezet, type DuesResult } from "../lib/types";
+import { memberHighlight, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 
@@ -11,7 +11,10 @@ interface HouseholdMemberView {
   szerep: string;
   egyhazfenntarto: DuesResult;
   fizetveIdenre: boolean;
+  egyhazfenntartoBecsult: boolean;
   tobbEveElmaradt: boolean;
+  tartozasOsszeg: number;
+  tartozasEvek: TartozasEv[];
   person: {
     id: string;
     vezeteknev: string;
@@ -135,7 +138,9 @@ export function HouseholdDetail() {
                   {m.person.vallas && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> — {m.person.vallas}</span>}
                 </span>{" "}
                 <span style={{ color: "var(--color-text-muted)" }}>
-                  {m.egyhazfenntarto.korsav &&
+                  {m.egyhazfenntarto.korsav === null && m.egyhazfenntartoBecsult && m.egyhazfenntarto.esedekesOsszeg
+                    ? ` · ${m.egyhazfenntarto.esedekesOsszeg} lej/év (általános díj)`
+                    : m.egyhazfenntarto.korsav &&
                     (m.egyhazfenntarto.mentes
                       ? " · mentes"
                       : m.egyhazfenntarto.kedvezmenyes
@@ -145,7 +150,7 @@ export function HouseholdDetail() {
                 {m.tobbEveElmaradt && (
                   <span style={{ color: "var(--color-danger)", fontWeight: 700, fontSize: "var(--font-size-sm)" }}>
                     {" "}
-                    · több éve elmaradt
+                    · tartozás: {tartozasSzoveg(m.tartozasOsszeg, m.tartozasEvek)}
                   </span>
                 )}
               </Link>
