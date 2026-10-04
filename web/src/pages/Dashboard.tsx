@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import type { DashboardStats } from "../lib/types";
 import { isAdmin, isStatsOnly } from "../lib/types";
-import { useSelectedGyulekezet } from "../context/GyulekezetContext";
+import { useSelectedGyulekezet, useSelectedMegye } from "../context/GyulekezetContext";
 import { EventsBoard } from "../components/EventsBoard";
 import {
   IconUsers,
@@ -123,13 +123,16 @@ export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gyulekezetId] = useSelectedGyulekezet();
+  const [megyeId] = useSelectedMegye();
 
   useEffect(() => {
     api
-      .get<DashboardStats>(`/api/dashboard/stats${gyulekezetId ? `?gyulekezetId=${gyulekezetId}` : ""}`)
+      .get<DashboardStats>(
+        `/api/dashboard/stats${gyulekezetId ? `?gyulekezetId=${gyulekezetId}` : megyeId ? `?egyhazmegyeId=${megyeId}` : ""}`
+      )
       .then(setStats)
       .catch(() => setError("Nem sikerült betölteni az adatokat"));
-  }, [gyulekezetId]);
+  }, [gyulekezetId, megyeId]);
 
   const gy = gyulekezetId ? `&gyulekezetId=${gyulekezetId}` : "";
   const currentYear = new Date().getFullYear();

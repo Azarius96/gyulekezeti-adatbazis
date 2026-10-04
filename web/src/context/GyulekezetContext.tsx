@@ -7,12 +7,17 @@ interface GyulekezetContextValue {
   /** A kiválasztott gyülekezet azonosítója; üres = nincs szűrés (összes elérhető gyülekezet). */
   selectedId: string;
   setSelectedId: (id: string) => void;
+  /** Csak a püspöki (statisztika) nézetben: a kiválasztott egyházmegye azonosítója (kölcsönösen kizárja a gyülekezet-választást). */
+  selectedMegyeId: string;
+  setSelectedMegyeId: (id: string) => void;
   gyulekezetek: Gyulekezet[];
 }
 
 const GyulekezetContext = createContext<GyulekezetContextValue | null>(null);
 
 const storageKey = (userId: string) => `gyulekezet-valasztas:${userId}`;
+
+const MEGYE_PREFIX = "megye:";
 
 function readStored(userId: string): string {
   try {
@@ -29,6 +34,7 @@ function readStored(userId: string): string {
 export function GyulekezetProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  // `id` a gyülekezet azonosítója VAGY "megye:<id>" (egyházmegyei nézet, püspöknek) - a tárolt érték is ez.
   const [state, setState] = useState<{ userId: string | null; id: string }>({ userId: null, id: "" });
   const [gyulekezetek, setGyulekezetek] = useState<Gyulekezet[]>([]);
 
@@ -50,6 +56,14 @@ export function GyulekezetProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   function setSelectedId(id: string) {
+    store(id);
+  }
+
+  function setSelectedMegyeId(id: string) {
+    store(id ? MEGYE_PREFIX + id : "");
+  }
+
+  function store(id: string) {
     setState((s) => ({ ...s, id }));
     if (!userId) return;
     try {
@@ -64,14 +78,24 @@ export function GyulekezetProvider({ children }: { children: ReactNode }) {
   // vagy csak egyetlen gyülekezet van, visszalépünk a szűrés nélküli nézetre.
   useEffect(() => {
     if (gyulekezetek.length === 0 || !state.id) return;
-    if (gyulekezetek.length <= 1 || !gyulekezetek.some((g) => g.id === state.id)) {
-      setSelectedId("");
+    const megyeId = state.id.startsWith(MEGYE_PREFIX) ? state.id.slice(MEGYE_PREFIX.length) : null;
+    const valid = megyeId ? gyulekezetek.some((g) => g.egyhazmegyeId === megyeId) : gyulekezetek.some((g) => g.id === state.id);
+    if (gyulekezetek.length <= 1 || !valid) {
+      store("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gyulekezetek, state.id]);
 
   return (
-    <GyulekezetContext.Provider value={{ selectedId: state.id, setSelectedId, gyulekezetek }}>
+    <GyulekezetContext.Provider
+      value={{
+        selectedId: state.id.startsWith(MEGYE_PREFIX) ? "" : state.id,
+        setSelectedId,
+        selectedMegyeId: state.id.startsWith(MEGYE_PREFIX) ? state.id.slice(MEGYE_PREFIX.length) : "",
+        setSelectedMegyeId,
+        gyulekezetek,
+      }}
+    >
       {children}
     </GyulekezetContext.Provider>
   );
@@ -81,6 +105,13 @@ export function useSelectedGyulekezet(): [string, (id: string) => void] {
   const ctx = useContext(GyulekezetContext);
   if (!ctx) throw new Error("useSelectedGyulekezet csak GyulekezetProvideren belül használható");
   return [ctx.selectedId, ctx.setSelectedId];
+}
+
+/** Püspöki nézet: a kiválasztott egyházmegye (üres = nincs egyházmegye kiválasztva). */
+export function useSelectedMegye(): [string, (id: string) => void] {
+  const ctx = useContext(GyulekezetContext);
+  if (!ctx) throw new Error("useSelectedMegye csak GyulekezetProvideren belül használható");
+  return [ctx.selectedMegyeId, ctx.setSelectedMegyeId];
 }
 
 export function useGyulekezetContext() {

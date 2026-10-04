@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import { canEditGyulekezet, isAdmin, type Gyulekezet } from "../lib/types";
+import { canEditGyulekezet, isAdmin, isStatsOnly, type Gyulekezet } from "../lib/types";
+import { useGyulekezetContext } from "../context/GyulekezetContext";
 
 export function useGyulekezetek() {
   const [gyulekezetek, setGyulekezetek] = useState<Gyulekezet[]>([]);
@@ -21,7 +22,48 @@ export function GyulekezetSelect({
   gyulekezetek: Gyulekezet[];
 }) {
   const { user } = useAuth();
+  const { selectedMegyeId, setSelectedMegyeId } = useGyulekezetContext();
   if (gyulekezetek.length <= 1) return null;
+
+  // Püspök (csak statisztika): általános nézet, egyházmegyénként összesített nézetek és az egyes gyülekezetek.
+  if (isStatsOnly(user)) {
+    const megyek = Array.from(
+      new Map(gyulekezetek.filter((g) => g.egyhazmegye).map((g) => [g.egyhazmegye!.id, g.egyhazmegye!.nev])).entries()
+    );
+    const current = selectedMegyeId ? `megye:${selectedMegyeId}` : value;
+    return (
+      <div className="field" style={{ maxWidth: 320 }}>
+        <label htmlFor="gyulekezet-select">Nézet</label>
+        <select
+          id="gyulekezet-select"
+          value={current}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v.startsWith("megye:")) setSelectedMegyeId(v.slice(6));
+            else onChange(v);
+          }}
+        >
+          <option value="">Általános nézet (összes gyülekezet)</option>
+          {megyek.length > 0 && (
+            <optgroup label="Egyházmegyék">
+              {megyek.map(([id, nev]) => (
+                <option key={id} value={`megye:${id}`}>
+                  {nev}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="Gyülekezetek">
+            {gyulekezetek.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nev}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+      </div>
+    );
+  }
 
   // Esperesnek (nem adminnak) a lista két, jól elhatárolt csoportra bomlik: a saját (szerkeszthető)
   // gyülekezetei, és az egyházmegye többi gyülekezete, amit csak megtekinthet (dőlt betűvel jelezve).

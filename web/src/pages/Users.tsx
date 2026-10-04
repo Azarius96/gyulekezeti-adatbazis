@@ -48,6 +48,7 @@ export function Users() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [egyhazmegyek, setEgyhazmegyek] = useState<EgyhazmegyeOption[]>([]);
+  const [keruletek, setKeruletek] = useState<EgyhazmegyeOption[]>([]);
   const gyulekezetek = useGyulekezetek();
 
   function load() {
@@ -64,6 +65,7 @@ export function Users() {
   useEffect(load, []);
   useEffect(() => {
     api.get<EgyhazmegyeOption[]>("/api/egyhazmegyek").then(setEgyhazmegyek).catch(() => {});
+    api.get<EgyhazmegyeOption[]>("/api/keruletek").then(setKeruletek).catch(() => {});
   }, []);
 
   function gyulekezetNev(id: string | null) {
@@ -74,6 +76,11 @@ export function Users() {
   function egyhazmegyeNev(id: string | null) {
     if (!id) return null;
     return egyhazmegyek.find((em) => em.id === id)?.nev ?? id;
+  }
+
+  function keruletNev(id: string | null) {
+    if (!id) return null;
+    return keruletek.find((k) => k.id === id)?.nev ?? id;
   }
 
   async function toggleActive(u: UserRow) {
@@ -106,6 +113,7 @@ export function Users() {
         <NewUserForm
           gyulekezetek={gyulekezetek}
           egyhazmegyek={egyhazmegyek}
+          keruletek={keruletek}
           onCreated={() => {
             setShowForm(false);
             load();
@@ -125,8 +133,11 @@ export function Users() {
                     .map((r) => {
                       const gy = gyulekezetNev(r.gyulekezetId);
                       const em = egyhazmegyeNev(r.egyhazmegyeId);
+                      const ker = keruletNev(r.keruletId);
                       const kiegeszites =
                         gy ? ` (${gy})`
+                        : ker ? ` (${ker})`
+                        : r.szerepKor === "PUSPOK" ? " (egyházkerület még nincs hozzárendelve)"
                         : em ? ` (${em} egyházmegye)`
                         : r.gyulekezetId === null && (r.szerepKor === "LELKESZ" || r.szerepKor === "DELEGALT") ? " (gyülekezet még nincs hozzárendelve)"
                         : r.szerepKor === "ESPERES" && !em ? " (egyházmegye még nincs hozzárendelve)"
@@ -167,8 +178,10 @@ export function Users() {
                   user={u}
                   gyulekezetek={gyulekezetek}
                   egyhazmegyek={egyhazmegyek}
+                  keruletek={keruletek}
                   gyulekezetNev={gyulekezetNev}
                   egyhazmegyeNev={egyhazmegyeNev}
+                  keruletNev={keruletNev}
                   onChanged={load}
                 />
               </div>
@@ -348,20 +361,25 @@ function RoleEditor({
   user,
   gyulekezetek,
   egyhazmegyek,
+  keruletek,
   gyulekezetNev,
   egyhazmegyeNev,
+  keruletNev,
   onChanged,
 }: {
   user: UserRow;
   gyulekezetek: { id: string; nev: string }[];
   egyhazmegyek: EgyhazmegyeOption[];
+  keruletek: EgyhazmegyeOption[];
   gyulekezetNev: (id: string | null) => string | null;
   egyhazmegyeNev: (id: string | null) => string | null;
+  keruletNev: (id: string | null) => string | null;
   onChanged: () => void;
 }) {
   const [szerepKor, setSzerepKor] = useState("LELKESZ");
   const [gyulekezetId, setGyulekezetId] = useState("");
   const [egyhazmegyeId, setEgyhazmegyeId] = useState("");
+  const [keruletId, setKeruletId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -375,15 +393,21 @@ function RoleEditor({
       setError("Esperes szerepkörhöz meg kell adni, melyik egyházmegye esperese");
       return;
     }
+    if (szerepKor === "PUSPOK" && !keruletId) {
+      setError("Püspök szerepkörhöz meg kell adni, melyik egyházkerület püspöke");
+      return;
+    }
     setSaving(true);
     try {
       await api.post(`/api/users/${user.id}/roles`, {
         szerepKor,
         gyulekezetId: gyulekezetId || null,
         egyhazmegyeId: szerepKor === "ESPERES" ? egyhazmegyeId || null : null,
+        keruletId: szerepKor === "PUSPOK" ? keruletId || null : null,
       });
       setGyulekezetId("");
       setEgyhazmegyeId("");
+      setKeruletId("");
       onChanged();
     } catch {
       setError("Nem sikerült hozzáadni a szerepkört (esetleg már létezik ugyanilyen)");
@@ -407,6 +431,7 @@ function RoleEditor({
             {szerepLabels[r.szerepKor] ?? r.szerepKor}
             {gyulekezetNev(r.gyulekezetId) ? ` — ${gyulekezetNev(r.gyulekezetId)}` : ""}
             {egyhazmegyeNev(r.egyhazmegyeId) ? ` — ${egyhazmegyeNev(r.egyhazmegyeId)} egyházmegye` : ""}
+            {keruletNev(r.keruletId) ? ` — ${keruletNev(r.keruletId)}` : ""}
           </span>
           <button className="btn btn-secondary btn-sm" onClick={() => removeRole(r.id)}>
             Eltávolítás
@@ -442,6 +467,16 @@ function RoleEditor({
             ))}
           </select>
         )}
+        {szerepKor === "PUSPOK" && (
+          <select value={keruletId} onChange={(e) => setKeruletId(e.target.value)}>
+            <option value="">— válasszon egyházkerületet —</option>
+            {keruletek.map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.nev}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="btn" type="button" disabled={saving} onClick={addRole}>
           Szerepkör hozzáadása
         </button>
@@ -450,7 +485,8 @@ function RoleEditor({
       <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
         Ha egy lelkész több gyülekezetet is vezet, adjon hozzá több "Lelkész" szerepkört, mindegyikhez másik
         gyülekezettel. Az esperes szerepkör az egész egyházmegyéhez ad hozzáférést (olvasásra), nem egyetlen
-        gyülekezethez.
+        gyülekezethez. A püspök szerepkör az egész egyházkerülethez ad hozzáférést, de csak statisztikai
+        nézettel (személyes adatok és módosítás nélkül).
       </p>
     </div>
   );
@@ -459,10 +495,12 @@ function RoleEditor({
 function NewUserForm({
   gyulekezetek,
   egyhazmegyek,
+  keruletek,
   onCreated,
 }: {
   gyulekezetek: { id: string; nev: string }[];
   egyhazmegyek: EgyhazmegyeOption[];
+  keruletek: EgyhazmegyeOption[];
   onCreated: () => void;
 }) {
   const [email, setEmail] = useState("");
@@ -471,6 +509,7 @@ function NewUserForm({
   const [szerepKor, setSzerepKor] = useState("LELKESZ");
   const [gyulekezetId, setGyulekezetId] = useState("");
   const [egyhazmegyeId, setEgyhazmegyeId] = useState("");
+  const [keruletId, setKeruletId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -478,6 +517,10 @@ function NewUserForm({
     setError(null);
     if (szerepKor === "ESPERES" && !egyhazmegyeId) {
       setError("Esperes szerepkörhöz meg kell adni, melyik egyházmegye esperese");
+      return;
+    }
+    if (szerepKor === "PUSPOK" && !keruletId) {
+      setError("Püspök szerepkörhöz meg kell adni, melyik egyházkerület püspöke");
       return;
     }
     try {
@@ -490,6 +533,7 @@ function NewUserForm({
             szerepKor,
             gyulekezetId: gyulekezetId || null,
             egyhazmegyeId: szerepKor === "ESPERES" ? egyhazmegyeId || null : null,
+            keruletId: szerepKor === "PUSPOK" ? keruletId || null : null,
           },
         ],
       });
@@ -550,6 +594,19 @@ function NewUserForm({
               {egyhazmegyek.map((em) => (
                 <option key={em.id} value={em.id}>
                   {em.nev}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {szerepKor === "PUSPOK" && (
+          <div className="field" style={{ flex: 1 }}>
+            <label>Melyik egyházkerület püspöke</label>
+            <select value={keruletId} onChange={(e) => setKeruletId(e.target.value)}>
+              <option value="">— válasszon egyházkerületet —</option>
+              {keruletek.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.nev}
                 </option>
               ))}
             </select>

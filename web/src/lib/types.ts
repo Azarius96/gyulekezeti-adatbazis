@@ -174,6 +174,8 @@ export interface PersonDetail extends PersonListItem {
 export interface Gyulekezet {
   id: string;
   nev: string;
+  egyhazmegyeId?: string;
+  egyhazmegye?: { id: string; nev: string };
 }
 
 export interface DashboardStats {

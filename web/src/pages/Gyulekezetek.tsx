@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useSelectedGyulekezet } from "../context/GyulekezetContext";
+import { useSelectedGyulekezet, useSelectedMegye } from "../context/GyulekezetContext";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -34,9 +34,10 @@ const szerepLabels: Record<string, string> = {
 export function Gyulekezetek() {
   const { user } = useAuth();
   const [selectedId] = useSelectedGyulekezet();
+  const [selectedMegyeId] = useSelectedMegye();
   const isEsperes = user?.roles.some((r) => r.szerepKor === "ESPERES") ?? false;
   // Püspök (csak statisztika): a gyülekezet beállításai/adatai nem szerkeszthetők és nem is láthatók, csak a statisztika.
-  if (isStatsOnly(user)) return <EsperesMegyeiNezet statsOnly selectedId={selectedId} />;
+  if (isStatsOnly(user)) return <PuspokNezet selectedId={selectedId} megyeId={selectedMegyeId} />;
   if (selectedId) return <GyulekezetEdit key={selectedId} embeddedId={selectedId} />;
   if (isAdmin(user)) return <AdminGyulekezetekLista />;
   if (isEsperes) return <EsperesMegyeiNezet />;
@@ -71,18 +72,18 @@ function StatGrid({ stats }: { stats: DashboardStats }) {
  * összesített statisztikái, jól elhatárolva alatta a hozzá tartozó gyülekezetek listája, mindegyik
  * a saját statisztikáival és a választói névjegyzékéhez vezető - csak olvasásra szolgáló - linkkel.
  * Szerkesztési jog itt nincs, azt továbbra is csak a gyülekezet saját lelkésze/delegáltja kap. */
-function EsperesMegyeiNezet({ statsOnly = false, selectedId = "" }: { statsOnly?: boolean; selectedId?: string } = {}) {
+function EsperesMegyeiNezet() {
   const [megyeStats, setMegyeStats] = useState<DashboardStats | null>(null);
   const [gyulekezetek, setGyulekezetek] = useState<{ id: string; nev: string; _count: { persons: number } }[]>([]);
   const [gyulekezetStats, setGyulekezetStats] = useState<Record<string, DashboardStats>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get<DashboardStats>(`/api/dashboard/stats${selectedId ? `?gyulekezetId=${selectedId}` : ""}`).then(setMegyeStats).catch(() => setError("Nem sikerült betölteni a megyei statisztikát"));
+    api.get<DashboardStats>("/api/dashboard/stats").then(setMegyeStats).catch(() => setError("Nem sikerült betölteni a megyei statisztikát"));
     api
       .get<{ id: string; nev: string; _count: { persons: number } }[]>("/api/gyulekezetek")
       .then((all) => {
-        const list = selectedId ? all.filter((g) => g.id === selectedId) : all;
+        const list = all;
         setGyulekezetek(list);
         list.forEach((g) => {
           api
@@ -92,22 +93,19 @@ function EsperesMegyeiNezet({ statsOnly = false, selectedId = "" }: { statsOnly?
         });
       })
       .catch(() => setError("Nem sikerült betölteni a gyülekezeteket"));
-  }, [selectedId]);
+  }, []);
 
   return (
     <div className="stack">
-      <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
-        {statsOnly ? "Gyülekezetek — statisztika" : "Gyülekezetek — megyei nézet"}
-      </h1>
+      <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Gyülekezetek — megyei nézet</h1>
       <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-        {statsOnly
-          ? "A hozzád tartozó gyülekezetek összesített statisztikái. Személyes adatok nem érhetők el, módosítani nem lehet."
-          : "Az egyházmegyéjéhez tartozó gyülekezetek áttekintése. A gyülekezetek adatait és a választói névjegyzéket csak megtekintheti - szerkesztésükhöz a gyülekezet saját lelkésze/delegáltja jogosult."}
+        Az egyházmegyéjéhez tartozó gyülekezetek áttekintése. A gyülekezetek adatait és a választói névjegyzéket csak
+        megtekintheti - szerkesztésükhöz a gyülekezet saját lelkésze/delegáltja jogosult.
       </p>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
       <div className="card stack">
-        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{statsOnly ? "Összesített statisztika" : "Egyházmegyei statisztika (összesítve)"}</h2>
+        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházmegyei statisztika (összesítve)</h2>
         {megyeStats ? <StatGrid stats={megyeStats} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Betöltés...</p>}
       </div>
 
@@ -123,17 +121,110 @@ function EsperesMegyeiNezet({ statsOnly = false, selectedId = "" }: { statsOnly?
             <div key={g.id} className="card stack">
               <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                 <strong style={{ fontSize: "var(--font-size-lg)" }}>{g.nev}</strong>
-                {!statsOnly && (
-                  <Link className="btn btn-secondary btn-sm" to={`/valasztoi-nevjegyzek?gyulekezetId=${g.id}`}>
-                    Választók névjegyzéke (megtekintés)
-                  </Link>
-                )}
+                <Link className="btn btn-secondary btn-sm" to={`/valasztoi-nevjegyzek?gyulekezetId=${g.id}`}>
+                  Választók névjegyzéke (megtekintés)
+                </Link>
               </div>
               {s ? <StatGrid stats={s} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Statisztika betöltése...</p>}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** Püspöki (csak statisztika) nézet: egyházmegyénként csoportosítva az összesített és a gyülekezetenkénti
+ * statisztika; a bal oldali választó szűri egy egyházmegyére vagy egyetlen gyülekezetre. Személyes adat,
+ * hivatkozás és módosítási lehetőség nincs. */
+function PuspokNezet({ selectedId, megyeId }: { selectedId: string; megyeId: string }) {
+  interface Row {
+    id: string;
+    nev: string;
+    egyhazmegye?: { id: string; nev: string };
+  }
+  const [gyulekezetek, setGyulekezetek] = useState<Row[]>([]);
+  const [osszes, setOsszes] = useState<DashboardStats | null>(null);
+  const [megyeStats, setMegyeStats] = useState<Record<string, DashboardStats>>({});
+  const [gyulekezetStats, setGyulekezetStats] = useState<Record<string, DashboardStats>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOsszes(null);
+    const q = selectedId ? `?gyulekezetId=${selectedId}` : megyeId ? `?egyhazmegyeId=${megyeId}` : "";
+    api.get<DashboardStats>(`/api/dashboard/stats${q}`).then(setOsszes).catch(() => setError("Nem sikerült betölteni a statisztikát"));
+    api
+      .get<Row[]>("/api/gyulekezetek")
+      .then((all) => {
+        const list = selectedId ? all.filter((g) => g.id === selectedId) : megyeId ? all.filter((g) => g.egyhazmegye?.id === megyeId) : all;
+        setGyulekezetek(list);
+        list.forEach((g) =>
+          api
+            .get<DashboardStats>(`/api/dashboard/stats?gyulekezetId=${g.id}`)
+            .then((st) => setGyulekezetStats((prev) => ({ ...prev, [g.id]: st })))
+            .catch(() => {})
+        );
+        // Általános nézetben egyházmegyénként is összesítünk.
+        if (!selectedId && !megyeId) {
+          new Set(list.map((g) => g.egyhazmegye?.id).filter(Boolean) as string[]).forEach((id) =>
+            api
+              .get<DashboardStats>(`/api/dashboard/stats?egyhazmegyeId=${id}`)
+              .then((st) => setMegyeStats((prev) => ({ ...prev, [id]: st })))
+              .catch(() => {})
+          );
+        }
+      })
+      .catch(() => setError("Nem sikerült betölteni a gyülekezeteket"));
+  }, [selectedId, megyeId]);
+
+  const megyek = Array.from(
+    new Map(gyulekezetek.filter((g) => g.egyhazmegye).map((g) => [g.egyhazmegye!.id, g.egyhazmegye!.nev])).entries()
+  );
+  const cim = selectedId
+    ? gyulekezetek[0]?.nev ?? "Gyülekezet"
+    : megyeId
+      ? `${megyek.find(([id]) => id === megyeId)?.[1] ?? "Egyházmegye"} — egyházmegyei statisztika`
+      : "Általános nézet — összesített statisztika";
+
+  return (
+    <div className="stack">
+      <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Gyülekezetek — statisztika</h1>
+      <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
+        A hozzád tartozó gyülekezetek összesített statisztikái. Személyes adatok nem érhetők el, módosítani nem lehet.
+      </p>
+      {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
+
+      <div className="card stack">
+        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{cim}</h2>
+        {osszes ? <StatGrid stats={osszes} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Betöltés...</p>}
+      </div>
+
+      {(selectedId ? [["", ""] as [string, string]] : megyek.length > 0 ? megyek : [["", ""] as [string, string]]).map(([id, nev]) => {
+        const sorok = selectedId ? gyulekezetek : gyulekezetek.filter((g) => (g.egyhazmegye?.id ?? "") === id);
+        return (
+          <div
+            key={id || "all"}
+            className="stack"
+            style={{ gap: 16, borderTop: "1px solid var(--color-border)", paddingTop: "var(--space-3)", marginTop: "var(--space-2)" }}
+          >
+            {!selectedId && nev && (
+              <>
+                <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{nev}</h2>
+                {!megyeId && megyeStats[id] && <StatGrid stats={megyeStats[id]} />}
+              </>
+            )}
+            {sorok.map((g) => {
+              const st = gyulekezetStats[g.id];
+              return (
+                <div key={g.id} className="card stack">
+                  <strong style={{ fontSize: "var(--font-size-lg)" }}>{g.nev}</strong>
+                  {st ? <StatGrid stats={st} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Statisztika betöltése...</p>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }

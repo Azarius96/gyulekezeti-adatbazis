@@ -13,7 +13,13 @@ export async function orgRoutes(app: FastifyInstance) {
     const where = accessible === "ALL" ? {} : { id: { in: accessible } };
     return prisma.gyulekezet.findMany({
       where,
-      select: { id: true, nev: true, _count: { select: { persons: true } } },
+      select: {
+        id: true,
+        nev: true,
+        egyhazmegyeId: true,
+        egyhazmegye: { select: { id: true, nev: true } },
+        _count: { select: { persons: true } },
+      },
       orderBy: { nev: "asc" },
     });
   });

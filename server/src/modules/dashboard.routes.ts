@@ -9,7 +9,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
   app.get("/api/dashboard/stats", async (req, reply) => {
     const user = req.currentUser!;
-    const query = (req.query as { gyulekezetId?: string }) ?? {};
+    const query = (req.query as { gyulekezetId?: string; egyhazmegyeId?: string }) ?? {};
     const accessible = await getAccessibleGyulekezetIds(user);
 
     if (query.gyulekezetId && accessible !== "ALL" && !accessible.includes(query.gyulekezetId)) {
@@ -19,6 +19,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
     let gyulekezetIds: string[] | undefined;
     if (query.gyulekezetId) {
       gyulekezetIds = [query.gyulekezetId];
+    } else if (query.egyhazmegyeId) {
+      // Egyházmegyei statisztika: az egyházmegye azon gyülekezetei, amelyeket a felhasználó láthat.
+      const inMegye = await prisma.gyulekezet.findMany({ where: { egyhazmegyeId: query.egyhazmegyeId }, select: { id: true } });
+      gyulekezetIds = inMegye.map((g) => g.id).filter((id) => accessible === "ALL" || accessible.includes(id));
     } else if (accessible !== "ALL") {
       gyulekezetIds = accessible;
     }
