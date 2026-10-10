@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
-import type { PersonDetail } from "../lib/types";
+import { burialHelye, type PersonDetail } from "../lib/types";
 import { DateInput } from "../components/DateInput";
 import { IconChevronDown, IconChevronRight } from "../components/icons";
 import { age as computeAge } from "../lib/age";
@@ -434,7 +434,7 @@ export function HivatalosIgazolasok() {
         setHazastarsNev(utolsoHazassag ? `${utolsoHazassag.vezeteknev} ${utolsoHazassag.keresztnev}` : "");
         setElhalalozasDatum(p.elhunytDatuma?.slice(0, 10) ?? "");
         setTemetesDatum(p.burial?.datuma.slice(0, 10) ?? "");
-        setTemetoNev(p.burial?.sirhely.parcella.cemetery.nev ?? "");
+        setTemetoNev(p.burial ? burialHelye(p.burial).temeto : "");
         return api.get<GyulekezetFejlec>(`/api/gyulekezetek/${p.gyulekezetId}`);
       })
       .then((g) => {

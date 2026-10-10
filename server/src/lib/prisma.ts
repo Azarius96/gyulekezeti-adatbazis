@@ -221,6 +221,22 @@ function excludeDeletedByDefault(model: string, args: Record<string, unknown> | 
   return { ...safeArgs, where: { ...where, deletedAt: null } };
 }
 
+/**
+ * Az elköltözött (kiköltözött, Person.elkoltozott = true) tagok a LISTÁZÓ és számláló lekérdezésekből
+ * (findMany / count / aggregate) alapból kimaradnak - így sem a statisztikában, sem a tartozók, a
+ * választói névjegyzék, az exportok vagy a keresések között nem jelennek meg, anélkül hogy minden
+ * route-ban külön szűrni kellene. Aki szándékosan őket kéri (Kiköltözöttek lista), az `elkoltozott`
+ * mezőt explicit megadja a feltételben. Az azonosító szerinti (findUnique/findFirst) lekérdezést
+ * nem szűrjük, így egy kiköltözött személy adatlapja továbbra is megnyitható.
+ */
+function excludeMovedAwayByDefault(model: string, args: Record<string, unknown> | undefined): Record<string, unknown> {
+  const safeArgs = args ?? {};
+  if (model !== "Person") return safeArgs;
+  const where = (safeArgs.where as Record<string, unknown> | undefined) ?? {};
+  if (Object.prototype.hasOwnProperty.call(where, "elkoltozott")) return safeArgs;
+  return { ...safeArgs, where: { ...where, elkoltozott: false } };
+}
+
 export const prisma = rawPrisma.$extends({
   name: "auditLogExtension",
   query: {
@@ -232,13 +248,13 @@ export const prisma = rawPrisma.$extends({
         return query(excludeDeletedByDefault(model, args) as never);
       },
       findMany({ model, args, query }) {
-        return query(excludeDeletedByDefault(model, args) as never);
+        return query(excludeMovedAwayByDefault(model, excludeDeletedByDefault(model, args)) as never);
       },
       count({ model, args, query }) {
-        return query(excludeDeletedByDefault(model, args) as never);
+        return query(excludeMovedAwayByDefault(model, excludeDeletedByDefault(model, args)) as never);
       },
       aggregate({ model, args, query }) {
-        return query(excludeDeletedByDefault(model, args) as never);
+        return query(excludeMovedAwayByDefault(model, excludeDeletedByDefault(model, args)) as never);
       },
       async create({ model, args, query }) {
         const result = await query(args);

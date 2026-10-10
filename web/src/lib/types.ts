@@ -112,6 +112,19 @@ export function memberHighlight(d: DuesResult, tobbEveElmaradt: boolean): { bg: 
   return duesColor(d);
 }
 
+/** Egy temetés helye szövegesen - parcellázott temetőben "Temető, parcella/sírhely", egyébként csak a temető neve. */
+export function burialHelye(b: { sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } } | null; cemetery?: { nev: string } | null }): {
+  temeto: string;
+  szoveg: string;
+} {
+  if (b.sirhely) {
+    const temeto = b.sirhely.parcella.cemetery.nev;
+    return { temeto, szoveg: `${temeto}, ${b.sirhely.parcella.jelzes}/${b.sirhely.jelzes}` };
+  }
+  const temeto = b.cemetery?.nev ?? "";
+  return { temeto, szoveg: temeto };
+}
+
 export interface TartozasEv {
   ev: number;
   hianyzo: number;
@@ -132,6 +145,8 @@ export interface PersonDetail extends PersonListItem {
   csaladiAllapot: CsaladiAllapot | null;
   megjegyzes: string | null;
   nyitoTartozas: string;
+  /** Kiköltözött tag: kimarad a statisztikából és a tartozók közül, a Kiköltözöttek listában szerepel. */
+  elkoltozott?: boolean;
   baptism: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
   confirmation: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
   positions: { id: string; tisztseg: string; kezdete: string; vege: string | null }[];
@@ -156,7 +171,8 @@ export interface PersonDetail extends PersonListItem {
     id: string;
     datuma: string;
     halottiAnyakonyviSzam: string | null;
-    sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } };
+    sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } } | null;
+    cemetery?: { nev: string } | null;
   } | null;
   movingHistory: {
     id: string;

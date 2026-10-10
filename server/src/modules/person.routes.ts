@@ -133,7 +133,7 @@ export async function personRoutes(app: FastifyInstance) {
         positions: true,
         duesPayments: { orderBy: { ev: "desc" } },
         donations: { orderBy: { ev: "desc" } },
-        burial: { include: { sirhely: { include: { parcella: { include: { cemetery: true } } } } } },
+        burial: { include: { sirhely: { include: { parcella: { include: { cemetery: true } } } }, cemetery: true } },
         movingHistory: {
           orderBy: { kezdemenyezve: "desc" },
           include: { forrasGyulekezet: { select: { nev: true } }, celGyulekezet: { select: { nev: true } } },

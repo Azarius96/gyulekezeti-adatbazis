@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { memberHighlight, canEditGyulekezet, tartozasSzoveg, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
+import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconTrash, IconCross, IconMapPin } from "../components/icons";
 import { DateInput } from "../components/DateInput";
@@ -1061,6 +1061,51 @@ function MovingHistoryNotice({ person }: { person: PersonDetailType }) {
   );
 }
 
+/** Kiköltözött (elköltözött) tag jelzése az adatlapon, a költözés adataival és a visszaállítás lehetőségével. */
+function MovedAwayBanner({ person, canEdit, onChanged }: { person: PersonDetailType; canEdit: boolean; onChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!person.elkoltozott) return null;
+  const move = person.movingHistory.find((m) => m.status === "ISMERETLEN_CELBA") ?? person.movingHistory[0];
+
+  async function restore() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post(`/api/persons/${person.id}/visszakoltozott`);
+      onChanged();
+    } catch {
+      setError("Nem sikerült visszaállítani");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="card stack"
+      style={{ gap: 6, background: "rgba(255, 159, 10, 0.14)", border: "1px solid rgba(255, 159, 10, 0.5)" }}
+    >
+      <strong style={{ color: "#ffb340" }}>Kiköltözött tag</strong>
+      <div style={{ fontSize: "var(--font-size-sm)" }}>
+        {move && <>Költözés: {fmtMoveDate(move.kezdemenyezve)}</>}
+        {move?.regiCim && <> · korábbi cím: {move.regiCim}</>}
+        {move?.ujCim && move.ujCim !== "ismeretlen" && <> · új cím: {move.ujCim}</>}
+        {move?.indoklas && <> · {move.indoklas}</>}
+        . Nem szerepel a statisztikában és a tartozók között.
+      </div>
+      {canEdit && (
+        <div>
+          <button className="btn btn-secondary btn-sm" disabled={saving} onClick={restore}>
+            {saving ? "Visszaállítás..." : "Visszaköltözött / tévedés - újra aktív tag"}
+          </button>
+        </div>
+      )}
+      {error && <span style={{ color: "var(--color-danger)", fontSize: "var(--font-size-sm)" }}>{error}</span>}
+    </div>
+  );
+}
+
 function MoveAwayForm({
   person,
   onDone,
@@ -1095,7 +1140,7 @@ function MoveAwayForm({
       setDone(
         celGyulekezetId
           ? "Rögzítve - az új gyülekezet lelkésze a rendszeren belül értesítést kap, és elfogadhatja/elutasíthatja."
-          : "Rögzítve - a személy a papírkosárba került (nem véglegesen)."
+          : "Rögzítve - a személy a Kiköltözöttek közé került, és kikerül a statisztikából és a tartozók közül."
       );
     } catch {
       setError("Nem sikerült rögzíteni a költözést");
@@ -1208,7 +1253,7 @@ export function PersonDetail() {
   const idenFizetve = person.duesPayments
     .filter((p) => p.ev === new Date().getFullYear())
     .reduce((sum, p) => sum + Number(p.osszeg), 0);
-  const idenKifizetve = idenEsedekes > 0 && idenFizetve >= idenEsedekes;
+  const idenKifizetve = person.elkoltozott || (idenEsedekes > 0 && idenFizetve >= idenEsedekes);
   const nyitoTartozasOsszeg = Number(person.nyitoTartozas);
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
@@ -1409,6 +1454,7 @@ export function PersonDetail() {
 
 
       <MovingHistoryNotice person={person} />
+      <MovedAwayBanner person={person} canEdit={canEdit} onChanged={load} />
 
       {editing ? (
         <EditForm
@@ -1432,7 +1478,7 @@ export function PersonDetail() {
                 <>
                   <div>
                     <strong>Eltemetve:</strong> {new Date(person.burial.datuma).toLocaleDateString("hu-HU")} —{" "}
-                    {person.burial.sirhely.parcella.cemetery.nev}, {person.burial.sirhely.parcella.jelzes}/{person.burial.sirhely.jelzes}
+                    {burialHelye(person.burial).szoveg}
                   </div>
                   {person.burial.halottiAnyakonyviSzam && (
                     <div>

@@ -233,6 +233,10 @@ model Person {
   // A rendszer bevezetése előttről áthozott, korábbi évekre vonatkozó egyházfenntartói
   // hátralék (pl. papír-nyilvántartásból) - nem évenkénti befizetés, hanem egy nyitóegyenleg.
   nyitoTartozas Decimal    @default(0)
+  // Elköltözött (kiköltözött) tag: nem a papírkosárba kerül, hanem a "Kiköltözöttek" listába. A
+  // normál listákból, statisztikákból és a tartozók közül kimarad (ld. lib/prisma.ts), de az
+  // adatlapja megmarad és a költözési előzmény (MovingRequest) is.
+  elkoltozott   Boolean    @default(false)
 
   gyulekezet    Gyulekezet @relation(fields: [gyulekezetId], references: [id], onDelete: Cascade)
   gyulekezetId  String
@@ -411,6 +415,8 @@ model Cemetery {
   helyrajziSzam  String?
   teruletNm      Int?
   parcellak      Parcella[]
+  // Parcellákra nem osztott temető: a temetés közvetlenül a temetőhöz kapcsolódik (sírhely nélkül).
+  burials        Burial[]
   deletedAt      DateTime?
 }
 
@@ -445,8 +451,12 @@ model Burial {
   id         String   @id @default(cuid())
   person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   personId   String   @unique
-  sirhely    Sirhely  @relation(fields: [sirhelyId], references: [id], onDelete: Cascade)
-  sirhelyId  String
+  // Parcellázott temetőben a sírhely; parcellákra nem osztott temetőnél üres, és a temetés
+  // közvetlenül a temetőhöz (cemeteryId) tartozik.
+  sirhely    Sirhely? @relation(fields: [sirhelyId], references: [id], onDelete: Cascade)
+  sirhelyId  String?
+  cemetery   Cemetery? @relation(fields: [cemeteryId], references: [id], onDelete: Cascade)
+  cemeteryId String?
   datuma     DateTime
   // Az állami (polgári) anyakönyvi hivatal által kiállított halotti anyakönyvi kivonat száma -
   // nem kötelező, mert nem minden esetben áll rendelkezésre a rögzítéskor.

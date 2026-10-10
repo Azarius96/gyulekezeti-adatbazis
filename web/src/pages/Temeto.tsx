@@ -273,7 +273,9 @@ function CemeteryCard({ cemetery, onChanged, canEdit }: { cemetery: CemeteryData
             <strong style={{ fontSize: "var(--font-size-lg)" }}>{cemetery.nev}</strong>
             <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
               {cemetery.cim && <>{cemetery.cim} · </>}
-              {cemetery.parcellak.length} parcella, {sirhelyekCount} sírhely
+              {cemetery.parcellak.length > 0 || (cemetery.burials?.length ?? 0) === 0
+                ? `${cemetery.parcellak.length} parcella, ${sirhelyekCount} sírhely`
+                : `parcellákra nem osztott · ${cemetery.burials!.length} temetés`}
               {cemetery.telekkonyvSzam && <> · telekkönyv: {cemetery.telekkonyvSzam}</>}
               {cemetery.helyrajziSzam && <> · helyrajzi szám: {cemetery.helyrajziSzam}</>}
               {cemetery.teruletNm && <> · {cemetery.teruletNm} m²</>}
@@ -297,6 +299,18 @@ function CemeteryCard({ cemetery, onChanged, canEdit }: { cemetery: CemeteryData
             </span>
           ))}
       </div>
+
+      {(cemetery.burials?.length ?? 0) > 0 && (
+        <div className="stack" style={{ gap: 4 }}>
+          <strong>Parcellába nem sorolt temetések</strong>
+          {cemetery.burials!.map((b) => (
+            <div key={b.id} style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+              <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> — {b.datuma.slice(0, 10)}
+              {b.halottiAnyakonyviSzam && ` · anyakönyvi szám: ${b.halottiAnyakonyviSzam}`}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="stack" style={{ gap: 10 }}>
         {cemetery.parcellak.map((parcella) => (

@@ -73,6 +73,12 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       where,
       orderBy: { nev: "asc" },
       include: {
+        // Parcellákra nem osztott temető: a közvetlenül a temetőhöz rögzített temetések
+        burials: {
+          where: { deletedAt: null, sirhelyId: null },
+          orderBy: { datuma: "desc" },
+          include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+        },
         parcellak: {
           where: { deletedAt: null },
           orderBy: { jelzes: "asc" },
@@ -266,14 +272,20 @@ export async function cemeteryRoutes(app: FastifyInstance) {
     const schema = z.object({
       personId: z.string(),
       cemeteryId: z.string(),
-      parcellaJelzes: z.string().min(1),
-      sirhelyJelzes: z.string().min(1),
+      // Mindkettő üres: a temetés közvetlenül a temetőhöz kerül (parcellákra nem osztott temető).
+      parcellaJelzes: z.string().optional().nullable(),
+      sirhelyJelzes: z.string().optional().nullable(),
       datuma: z.string(),
       elhunytDatuma: z.string(),
       halottiAnyakonyviSzam: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const parcellaJelzes = parsed.data.parcellaJelzes?.trim() || null;
+    const sirhelyJelzes = parsed.data.sirhelyJelzes?.trim() || null;
+    if (!!parcellaJelzes !== !!sirhelyJelzes) {
+      return reply.code(400).send({ error: "A parcellát és a sírhelyet együtt kell megadni (vagy egyiket sem)" });
+    }
 
     const cemetery = await prisma.cemetery.findUnique({ where: { id: parsed.data.cemeteryId } });
     if (!cemetery) return reply.code(404).send({ error: "Nem található temető" });
@@ -292,23 +304,28 @@ export async function cemeteryRoutes(app: FastifyInstance) {
     const existingBurial = await prisma.burial.findUnique({ where: { personId: person.id } });
     if (existingBurial) return reply.code(400).send({ error: "Ennek a személynek már van rögzített temetése" });
 
-    const parcella = await prisma.parcella.upsert({
-      where: { cemeteryId_jelzes: { cemeteryId: parsed.data.cemeteryId, jelzes: parsed.data.parcellaJelzes } },
-      create: { cemeteryId: parsed.data.cemeteryId, jelzes: parsed.data.parcellaJelzes },
-      update: {},
-    });
-    const sirhely = await prisma.sirhely.upsert({
-      where: { parcellaId_jelzes: { parcellaId: parcella.id, jelzes: parsed.data.sirhelyJelzes } },
-      create: { parcellaId: parcella.id, jelzes: parsed.data.sirhelyJelzes },
-      update: {},
-    });
+    let sirhelyId: string | null = null;
+    if (parcellaJelzes && sirhelyJelzes) {
+      const parcella = await prisma.parcella.upsert({
+        where: { cemeteryId_jelzes: { cemeteryId: parsed.data.cemeteryId, jelzes: parcellaJelzes } },
+        create: { cemeteryId: parsed.data.cemeteryId, jelzes: parcellaJelzes },
+        update: {},
+      });
+      const sirhely = await prisma.sirhely.upsert({
+        where: { parcellaId_jelzes: { parcellaId: parcella.id, jelzes: sirhelyJelzes } },
+        create: { parcellaId: parcella.id, jelzes: sirhelyJelzes },
+        update: {},
+      });
+      sirhelyId = sirhely.id;
+    }
 
     const datuma = new Date(parsed.data.datuma);
     const elhunytDatuma = new Date(parsed.data.elhunytDatuma);
     const burial = await prisma.burial.create({
       data: {
         personId: person.id,
-        sirhelyId: sirhely.id,
+        sirhelyId,
+        cemeteryId: sirhelyId ? null : parsed.data.cemeteryId,
         datuma,
         halottiAnyakonyviSzam: parsed.data.halottiAnyakonyviSzam || null,
       },
@@ -330,10 +347,10 @@ export async function cemeteryRoutes(app: FastifyInstance) {
 
   app.put("/api/temeto/burials/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const existing = await prisma.burial.findUnique({ where: { id }, select: { sirhely: { select: { parcella: { select: { cemetery: { select: { gyulekezetId: true } } } } } } } });
+    const existing = await prisma.burial.findUnique({ where: { id }, select: { sirhely: { select: { parcella: { select: { cemetery: { select: { gyulekezetId: true } } } } } }, cemetery: { select: { gyulekezetId: true } } } });
     if (!existing) return reply.code(404).send({ error: "Nem található" });
     const user = req.currentUser!;
-    if (!isAdmin(user) && !canEditGyulekezet(user, existing.sirhely.parcella.cemetery.gyulekezetId)) {
+    if (!isAdmin(user) && !canEditGyulekezet(user, (existing.sirhely?.parcella.cemetery.gyulekezetId ?? existing.cemetery?.gyulekezetId)!)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
     const schema = z.object({
@@ -356,10 +373,10 @@ export async function cemeteryRoutes(app: FastifyInstance) {
 
   app.delete("/api/temeto/burials/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const existing = await prisma.burial.findUnique({ where: { id }, select: { sirhely: { select: { parcella: { select: { cemetery: { select: { gyulekezetId: true } } } } } } } });
+    const existing = await prisma.burial.findUnique({ where: { id }, select: { sirhely: { select: { parcella: { select: { cemetery: { select: { gyulekezetId: true } } } } } }, cemetery: { select: { gyulekezetId: true } } } });
     if (!existing) return reply.code(404).send({ error: "Nem található" });
     const user = req.currentUser!;
-    if (!isAdmin(user) && !canEditGyulekezet(user, existing.sirhely.parcella.cemetery.gyulekezetId)) {
+    if (!isAdmin(user) && !canEditGyulekezet(user, (existing.sirhely?.parcella.cemetery.gyulekezetId ?? existing.cemetery?.gyulekezetId)!)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
     await prisma.burial.update({ where: { id }, data: { deletedAt: new Date() } });

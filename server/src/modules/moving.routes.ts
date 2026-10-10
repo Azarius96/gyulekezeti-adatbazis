@@ -145,9 +145,11 @@ export async function movingRoutes(app: FastifyInstance) {
       return request;
     }
 
-    // Nincs (vagy nem ebben a rendszerben lévő) célgyülekezet - a költözés azonnal lezárul,
-    // a személy pedig a papírkosárba kerül (nem véglegesen).
-    const [request] = await prisma.$transaction([
+    // Nincs (vagy nem ebben a rendszerben lévő) célgyülekezet - a költözés azonnal lezárul, a
+    // személy "kiköltözött" állapotba kerül (nem a papírkosárba): kimarad a statisztikából és a
+    // tartozók közül, de a Kiköltözöttek listában és az adatlapján megmarad. A háztartási tagsága lezárul.
+    const [, request] = await prisma.$transaction([
+      prisma.householdMember.updateMany({ where: { personId: person.id, vege: null }, data: { vege: kezdemenyezve } }),
       prisma.movingRequest.create({
         data: {
           personId: person.id,
@@ -161,9 +163,23 @@ export async function movingRoutes(app: FastifyInstance) {
           elbiralva: new Date(),
         },
       }),
-      prisma.person.update({ where: { id: person.id }, data: { deletedAt: new Date() } }),
+      prisma.person.update({ where: { id: person.id }, data: { elkoltozott: true } }),
     ]);
     return request;
+  });
+
+  // Visszaköltözés / tévedés javítása: a személy újra a gyülekezet aktív tagja lesz (háztartás nélkül -
+  // a lelkész utána rendelheti hozzá a címhez).
+  app.post("/api/persons/:id/visszakoltozott", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const person = await prisma.person.findUnique({ where: { id } });
+    if (!person || !person.elkoltozott) return reply.code(404).send({ error: "Nem található kiköltözött személy" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !canEditGyulekezet(user, person.gyulekezetId)) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+    await prisma.person.update({ where: { id }, data: { elkoltozott: false } });
+    return { ok: true };
   });
 
   const editSchema = z.object({
@@ -202,6 +218,10 @@ export async function movingRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
     await prisma.movingRequest.delete({ where: { id } });
+    // Egy ismeretlen célba költözés törlése (tévedés javítása) a személyt újra aktív taggá teszi.
+    if (existing.status === "ISMERETLEN_CELBA") {
+      await prisma.person.updateMany({ where: { id: existing.personId, elkoltozott: true }, data: { elkoltozott: false } });
+    }
     return { ok: true };
   });
 

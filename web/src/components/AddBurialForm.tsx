@@ -52,6 +52,8 @@ export interface CemeteryData {
   helyrajziSzam: string | null;
   teruletNm: number | null;
   parcellak: ParcellaData[];
+  /** Közvetlenül a temetőhöz rögzített (parcella/sírhely nélküli) temetések. */
+  burials?: BurialData[];
 }
 
 /** Egy adott gyülekezet temetői, a teljes parcella/sírhely fával - az AddBurialForm ehhez
@@ -131,6 +133,10 @@ export function AddBurialForm({
       setError("Előbb vegyen fel legalább egy temetőt");
       return;
     }
+    if (!!parcellaJelzes.trim() !== !!sirhelyJelzes.trim()) {
+      setError("A parcellát és a sírhelyet együtt adja meg - vagy mindkettőt hagyja üresen, ha a temető nincs parcellákra osztva");
+      return;
+    }
     if (occupied && !elfogadva) {
       setError("Erősítse meg, hogy tudomásul vette, hogy a sírhely már foglalt");
       return;
@@ -185,21 +191,26 @@ export function AddBurialForm({
           </select>
         </div>
         <div className="field">
-          <label>Parcella</label>
-          <input required list="parcella-list" value={parcellaJelzes} onChange={(e) => setParcellaJelzes(e.target.value)} placeholder="pl. A sor" />
+          <label>Parcella (nem kötelező)</label>
+          <input list="parcella-list" value={parcellaJelzes} onChange={(e) => setParcellaJelzes(e.target.value)} placeholder="pl. A sor" />
           <datalist id="parcella-list">
             {cemeteries.find((c) => c.id === cemeteryId)?.parcellak.map((p) => <option key={p.id} value={p.jelzes} />)}
           </datalist>
         </div>
         <div className="field">
-          <label>Sírhely</label>
-          <input required value={sirhelyJelzes} onChange={(e) => setSirhelyJelzes(e.target.value)} placeholder="pl. 12-es sírhely" />
+          <label>Sírhely (nem kötelező)</label>
+          <input value={sirhelyJelzes} onChange={(e) => setSirhelyJelzes(e.target.value)} placeholder="pl. 12-es sírhely" />
         </div>
         <div className="field">
           <label>Temetés dátuma</label>
           <DateInput required value={datuma} onChange={(e) => setDatuma(e.target.value)} />
         </div>
       </div>
+
+      <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+        Ha a temető nincs parcellákra osztva, a parcellát és a sírhelyet hagyja üresen - ilyenkor a temetés közvetlenül a
+        temetőhöz kerül.
+      </p>
 
       {occupied && (
         <div

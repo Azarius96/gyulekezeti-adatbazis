@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { burialHelye } from "../lib/types";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
@@ -376,7 +377,7 @@ const koltozesStatusLabel: Record<KoltozesData["status"], string> = {
   FUGGOBEN: "Függőben (célgyülekezet elbírálására vár)",
   ELFOGADVA: "Elfogadva",
   ELUTASITVA: "Elutasítva",
-  ISMERETLEN_CELBA: "Ismeretlen/külső célba",
+  ISMERETLEN_CELBA: "Kiköltözött (ismeretlen/külső célba)",
 };
 
 function Koltozesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; showGyulekezetNev: boolean }) {
@@ -410,7 +411,9 @@ function Koltozesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
         <span className="badge">{items.length === 0 ? "Nincs bejegyzés" : `${items.length} bejegyzés összesen`}</span>
       </div>
       <p style={{ color: "var(--color-text-muted)", margin: 0, fontSize: "var(--font-size-sm)" }}>
-        Új elköltözés rögzítése a személy saját adatlapjáról indítható ("Elköltözés jelölése" gomb).
+        Új elköltözés rögzítése a személy saját adatlapjáról indítható ("Elköltözés jelölése" gomb). Az ismeretlen célba
+        elköltözött (kiköltözött) tagok itt találhatók - nem a papírkosárban -, és nem szerepelnek a statisztikában, sem a
+        tartozók között. A bejegyzés törlése visszaállítja őket aktív tagnak.
       </p>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       {loading && <p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}
@@ -520,7 +523,8 @@ interface TemetesData {
   id: string;
   datuma: string;
   person: PersonRef & { elhunytDatuma: string | null };
-  sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } };
+  sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } } | null;
+  cemetery?: { nev: string } | null;
 }
 
 function Temetesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; showGyulekezetNev: boolean }) {
@@ -541,7 +545,7 @@ function Temetesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; 
             gyulekezetNev={t.person.gyulekezet.nev}
             showGyulekezetNev={showGyulekezetNev}
             eventLabel={`temetés: ${t.datuma.slice(0, 10)}`}
-            meta={`${t.sirhely.parcella.cemetery.nev}, ${t.sirhely.parcella.jelzes}/${t.sirhely.jelzes}${
+            meta={`${burialHelye(t).szoveg}${
               t.person.elhunytDatuma ? ` · elhalálozás: ${t.person.elhunytDatuma.slice(0, 10)}` : ""
             }`}
           />

@@ -30,7 +30,8 @@ interface TableConfig {
 // sorrendben fut, hogy sose ütközzön idegen kulcs -megszorításba.
 const TABLES: TableConfig[] = [
   { key: "households", delegate: "household", softDelete: false, scopeWhere: (id) => ({ gyulekezetId: id }) },
-  { key: "persons", delegate: "person", softDelete: true, scopeWhere: (id) => ({ gyulekezetId: id }) },
+  // a kiköltözött (elkoltozott) tagok is a mentés részei, ezért az alapértelmezett szűrést explicit felülírjuk
+  { key: "persons", delegate: "person", softDelete: true, scopeWhere: (id) => ({ gyulekezetId: id, elkoltozott: { in: [true, false] } }) },
   { key: "householdMembers", delegate: "householdMember", softDelete: false, scopeWhere: (id) => ({ household: { gyulekezetId: id } }) },
   { key: "familyLinks", delegate: "familyLink", softDelete: false, scopeWhere: (id) => ({ parent: { gyulekezetId: id } }) },
   { key: "marriages", delegate: "marriage", softDelete: true, scopeWhere: (id) => ({ spouseA: { gyulekezetId: id } }) },

@@ -205,6 +205,8 @@ export function computeMemberDuesInfo(
   person: {
     szuletesiDatum: Date | null;
     elhunyt: boolean;
+    /** Kiköltözött tag: nincs esedékes díja és tartozása (mint az elhunytnak). */
+    elkoltozott?: boolean;
     nyitoTartozas: unknown;
     duesPayments: { ev: number; osszeg?: unknown }[];
   },
@@ -225,7 +227,8 @@ export function computeMemberDuesInfo(
   const hasPrevYearPayment = person.duesPayments.some((p) => p.ev === currentYear - 1);
 
   const tartozasEvek: MemberDuesInfo["tartozasEvek"] = [];
-  if (!person.elhunyt) {
+  const inactive = person.elhunyt || !!person.elkoltozott;
+  if (!inactive) {
     for (let ev = currentYear - TARTOZAS_VISSZAMENO_EVEK; ev <= currentYear; ev++) {
       const { dues, becsult } = resolveDuesForYearOrEstimate(person.szuletesiDatum, ev, bandsByYear.get(ev) ?? []);
       if (!dues.ismertDijszabas || !dues.esedekesOsszeg || dues.esedekesOsszeg <= 0) continue;
@@ -239,14 +242,14 @@ export function computeMemberDuesInfo(
   const tobbEveElmaradt =
     tartozasEvek.some((e) => e.ev < currentYear) ||
     isMultiYearOverdue({
-    elhunyt: person.elhunyt,
+    elhunyt: inactive,
     nyitoTartozas: Number(person.nyitoTartozas),
     currentDues: egyhazfenntarto,
     prevYearDues,
     hasPrevYearPayment,
   });
 
-  const tartozasOsszeg = person.elhunyt
+  const tartozasOsszeg = inactive
     ? 0
     : Math.round((Number(person.nyitoTartozas) + tartozasEvek.reduce((sum, e) => sum + e.hianyzo, 0)) * 100) / 100;
 

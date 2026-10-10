@@ -117,6 +117,7 @@ export async function anyakonyvRoutes(app: FastifyInstance) {
         datuma: true,
         person: { select: { ...personSelect, elhunytDatuma: true, gyulekezet: { select: { nev: true } } } },
         sirhely: { select: { jelzes: true, parcella: { select: { jelzes: true, cemetery: { select: { nev: true } } } } } },
+        cemetery: { select: { nev: true } },
       },
     });
   });
