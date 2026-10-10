@@ -20,6 +20,14 @@ export async function applyWidowhoodCascade(personId: string, deathDate: Date | 
   }
 }
 
+/**
+ * Elhalálozás (vagy temetés rögzítése) esetén a személy még nyitott tisztségei lezárulnak - egy elhunythoz
+ * nem tartozhat tisztség. A lezárás napja a halál napja (ha ismert), különben a mai nap.
+ */
+export async function endPositionsOnDeath(personId: string, deathDate: Date | null): Promise<void> {
+  await prisma.position.updateMany({ where: { personId, vege: null }, data: { vege: deathDate ?? new Date() } });
+}
+
 export interface FamilyOverview {
   szulok: { id: string; vezeteknev: string; keresztnev: string; linkId: string }[];
   nagyszulok: { id: string; vezeteknev: string; keresztnev: string }[];

@@ -1253,7 +1253,7 @@ export function PersonDetail() {
   const idenFizetve = person.duesPayments
     .filter((p) => p.ev === new Date().getFullYear())
     .reduce((sum, p) => sum + Number(p.osszeg), 0);
-  const idenKifizetve = person.elkoltozott || (idenEsedekes > 0 && idenFizetve >= idenEsedekes);
+  const idenKifizetve = person.elkoltozott || person.elhunyt || (idenEsedekes > 0 && idenFizetve >= idenEsedekes);
   const nyitoTartozasOsszeg = Number(person.nyitoTartozas);
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
@@ -1401,7 +1401,7 @@ export function PersonDetail() {
                     <strong>Korábbi (nyitó) tartozás: {nyitoTartozasOsszeg} lej</strong>
                     <span style={{ fontWeight: 400 }}> — a rendszer bevezetése előttről áthozott hátralék</span>
                   </span>
-                  {canEdit && <PayOffOpeningDebtButton personId={person.id} osszeg={nyitoTartozasOsszeg} onDone={load} />}
+                  {canEdit && !person.elhunyt && <PayOffOpeningDebtButton personId={person.id} osszeg={nyitoTartozasOsszeg} onDone={load} />}
                 </div>
               </div>
             )}
@@ -1419,7 +1419,7 @@ export function PersonDetail() {
                 canEdit={canEdit}
               />
             ))}
-            {canEdit && (
+            {canEdit && !person.elhunyt && (
               <QuickPaymentForm
                 personId={person.id}
                 kind="dues"
@@ -1448,7 +1448,7 @@ export function PersonDetail() {
               canEdit={canEdit}
             />
           ))}
-          {canEdit && <QuickPaymentForm personId={person.id} kind="donation" defaultOsszeg={null} onAdded={load} />}
+          {canEdit && !person.elhunyt && <QuickPaymentForm personId={person.id} kind="donation" defaultOsszeg={null} onAdded={load} />}
         </div>
       )}
 
@@ -1644,7 +1644,7 @@ export function PersonDetail() {
                 </div>
               );
             })}
-            {canEdit && <AddPositionForm personId={person.id} onAdded={load} />}
+            {canEdit && !person.elhunyt && <AddPositionForm personId={person.id} onAdded={load} />}
           </div>
 
 

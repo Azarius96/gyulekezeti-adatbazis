@@ -69,9 +69,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const korEloszlas = korBuckets.map((b) => ({ label: b.label, count: b.count }));
 
     const [presbiterek, gondnokok, noszovetseg] = await Promise.all([
-      prisma.position.count({ where: { tisztseg: { in: ["PRESBITER", "POTPRESBITER"] }, vege: null, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
-      prisma.position.count({ where: { tisztseg: { in: ["GONDNOK", "FOGONDNOK"] }, vege: null, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
-      prisma.position.count({ where: { tisztseg: "NOSZOVETSEGI_TAG", vege: null, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
+      prisma.position.count({ where: { tisztseg: { in: ["PRESBITER", "POTPRESBITER"] }, vege: null, person: { elhunyt: false, elkoltozott: false }, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
+      prisma.position.count({ where: { tisztseg: { in: ["GONDNOK", "FOGONDNOK"] }, vege: null, person: { elhunyt: false, elkoltozott: false }, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
+      prisma.position.count({ where: { tisztseg: "NOSZOVETSEGI_TAG", vege: null, person: { elhunyt: false, elkoltozott: false }, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
     ]);
 
     const gyulekezetIdEkkorFilter = gyulekezetIds ? { in: gyulekezetIds } : undefined;

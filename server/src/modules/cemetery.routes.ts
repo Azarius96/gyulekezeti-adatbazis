@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { applyWidowhoodCascade } from "./family.js";
+import { applyWidowhoodCascade, endPositionsOnDeath } from "./family.js";
 
 /**
  * TEMETŐ MODUL
@@ -341,6 +341,9 @@ export async function cemeteryRoutes(app: FastifyInstance) {
     } else if (person.elhunytDatuma?.getTime() !== elhunytDatuma.getTime()) {
       await prisma.person.update({ where: { id: person.id }, data: { elhunytDatuma } });
     }
+
+    // Aki a temetőben nyugszik, ahhoz nem tartozhat tisztség - a még nyitottak lezárulnak.
+    await endPositionsOnDeath(person.id, elhunytDatuma);
 
     return burial;
   });

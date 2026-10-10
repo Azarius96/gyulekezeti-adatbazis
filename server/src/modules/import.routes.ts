@@ -8,7 +8,7 @@ import {
   parseCemeteryWorkbook,
 } from "./importExcel.js";
 import { checkDuplicate, normalizeName } from "./duplicateCheck.js";
-import { applyWidowhoodCascade } from "./family.js";
+import { applyWidowhoodCascade, endPositionsOnDeath } from "./family.js";
 
 function ageOn(birth: Date, ref: Date): number {
   let age = ref.getFullYear() - birth.getFullYear();
@@ -276,6 +276,7 @@ export async function importRoutes(app: FastifyInstance) {
           },
         });
         await applyWidowhoodCascade(dup.match.id, updatedPerson.elhunytDatuma);
+        await endPositionsOnDeath(dup.match.id, updatedPerson.elhunytDatuma);
         updated.push(`${row.vezeteknev} ${row.keresztnev} (meglévő rekord frissítve elhunytra)`);
         continue;
       }

@@ -24,6 +24,7 @@ export async function positionRoutes(app: FastifyInstance) {
     if (!isAdmin(user) && !canEditGyulekezet(user, person.gyulekezetId)) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
+    if (person.elhunyt) return reply.code(400).send({ error: "Elhunyt személyhez nem rögzíthető tisztség" });
 
     const position = await prisma.position.create({
       data: {

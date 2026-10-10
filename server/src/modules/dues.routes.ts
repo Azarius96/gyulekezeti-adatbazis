@@ -353,8 +353,9 @@ export async function duesRoutes(app: FastifyInstance) {
     if (!isAdmin(user) && !(await assertCanEditPerson(user, parsed.data.personId))) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
-    const person = await prisma.person.findUnique({ where: { id: parsed.data.personId }, select: { gyulekezetId: true, nyitoTartozas: true } });
+    const person = await prisma.person.findUnique({ where: { id: parsed.data.personId }, select: { gyulekezetId: true, nyitoTartozas: true, elhunyt: true } });
     if (!person) return reply.code(404).send({ error: "Nem található" });
+    if (person.elhunyt) return reply.code(400).send({ error: "Elhunyt személyhez nem rögzíthető egyházfenntartói befizetés" });
 
     const [debtor] = await computeDebtors({ id: person.gyulekezetId }, parsed.data.evTol, parsed.data.evIg, parsed.data.personId);
     if (!debtor) return reply.code(400).send({ error: "Ennek a személynek nincs tartozása a megadott időszakra" });
@@ -396,6 +397,7 @@ export async function duesRoutes(app: FastifyInstance) {
 
     const person = await prisma.person.findUnique({ where: { id: parsed.data.personId } });
     if (!person) return reply.code(404).send({ error: "Nem található" });
+    if (person.elhunyt) return reply.code(400).send({ error: "Elhunyt személyhez nem rögzíthető egyházfenntartói befizetés" });
 
     const payment = await prisma.duesPayment.create({
       data: {
@@ -428,6 +430,7 @@ export async function duesRoutes(app: FastifyInstance) {
 
     const person = await prisma.person.findUnique({ where: { id: parsed.data.personId } });
     if (!person) return reply.code(404).send({ error: "Nem található" });
+    if (person.elhunyt) return reply.code(400).send({ error: "Elhunyt személyhez nem rögzíthető adomány" });
 
     const donation = await prisma.donation.create({
       data: {

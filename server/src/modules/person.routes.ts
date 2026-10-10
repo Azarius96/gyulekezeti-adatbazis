@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, assertCanEditPerson, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getFamilyOverview, applyWidowhoodCascade } from "./family.js";
+import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath } from "./family.js";
 import { ageOn } from "../lib/age.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { matchesAllWords } from "../lib/search.js";
@@ -252,6 +252,7 @@ export async function personRoutes(app: FastifyInstance) {
 
     if (data.elhunyt === true && !existing.elhunyt) {
       await applyWidowhoodCascade(id, person.elhunytDatuma);
+      await endPositionsOnDeath(id, person.elhunytDatuma);
     }
 
     if (data.kereszteles) {
