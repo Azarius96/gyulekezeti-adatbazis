@@ -433,7 +433,7 @@ export function HivatalosIgazolasok() {
         setHazassagHelye(utolsoHazassag?.helye ?? "");
         setHazastarsNev(utolsoHazassag ? `${utolsoHazassag.vezeteknev} ${utolsoHazassag.keresztnev}` : "");
         setElhalalozasDatum(p.elhunytDatuma?.slice(0, 10) ?? "");
-        setTemetesDatum(p.burial?.datuma.slice(0, 10) ?? "");
+        setTemetesDatum(p.burial?.datuma?.slice(0, 10) ?? "");
         setTemetoNev(p.burial ? burialHelye(p.burial).temeto : "");
         return api.get<GyulekezetFejlec>(`/api/gyulekezetek/${p.gyulekezetId}`);
       })

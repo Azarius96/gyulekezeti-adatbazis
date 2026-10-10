@@ -15,7 +15,7 @@ export interface PersonRef {
 
 export interface BurialData {
   id: string;
-  datuma: string;
+  datuma: string | null;
   halottiAnyakonyviSzam: string | null;
   person: PersonRef;
 }
@@ -223,7 +223,7 @@ export function AddBurialForm({
             {matchedSirhely!.burials.map((b, i) => (
               <span key={b.id}>
                 {i > 0 && ", "}
-                <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> ({b.datuma.slice(0, 10)})
+                <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> ({b.datuma?.slice(0, 10) ?? "dátum nem ismert"})
               </span>
             ))}
           </div>

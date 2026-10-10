@@ -169,7 +169,7 @@ export interface PersonDetail extends PersonListItem {
   elhunytDatuma: string | null;
   burial: {
     id: string;
-    datuma: string;
+    datuma: string | null;
     halottiAnyakonyviSzam: string | null;
     sirhely: { jelzes: string; parcella: { jelzes: string; cemetery: { nev: string } } } | null;
     cemetery?: { nev: string } | null;

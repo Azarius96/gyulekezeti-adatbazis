@@ -55,8 +55,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
       { label: "0–14 év", min: 0, max: 14, count: 0 },
       { label: "15–29 év", min: 15, max: 29, count: 0 },
       { label: "30–49 év", min: 30, max: 49, count: 0 },
-      { label: "50–64 év", min: 50, max: 64, count: 0 },
-      { label: "65+ év", min: 65, max: 999, count: 0 },
+      { label: "50–69 év", min: 50, max: 69, count: 0 },
+      { label: "70+ év", min: 70, max: 999, count: 0 },
     ];
     for (const p of eloTagok) {
       if (!p.szuletesiDatum) continue;

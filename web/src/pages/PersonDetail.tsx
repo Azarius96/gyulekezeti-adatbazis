@@ -1477,7 +1477,7 @@ export function PersonDetail() {
               {person.burial ? (
                 <>
                   <div>
-                    <strong>Eltemetve:</strong> {new Date(person.burial.datuma).toLocaleDateString("hu-HU")} —{" "}
+                    <strong>Eltemetve:</strong> {person.burial.datuma ? new Date(person.burial.datuma).toLocaleDateString("hu-HU") : "dátum nem ismert"} —{" "}
                     {burialHelye(person.burial).szoveg}
                   </div>
                   {person.burial.halottiAnyakonyviSzam && (

@@ -457,7 +457,8 @@ model Burial {
   sirhelyId  String?
   cemetery   Cemetery? @relation(fields: [cemeteryId], references: [id], onDelete: Cascade)
   cemeteryId String?
-  datuma     DateTime
+  // A temetés napja - ha csak annyi ismert, hogy a személy a temetőben nyugszik, üres.
+  datuma     DateTime?
   // Az állami (polgári) anyakönyvi hivatal által kiállított halotti anyakönyvi kivonat száma -
   // nem kötelező, mert nem minden esetben áll rendelkezésre a rögzítéskor.
   halottiAnyakonyviSzam String?
