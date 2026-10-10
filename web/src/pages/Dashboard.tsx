@@ -20,6 +20,11 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
+/** A "nincs születési dátum" szelet semleges (szürke) színt kap, a többi a diagram sorrendi színeit. */
+function sliceColor(label: string, i: number): string {
+  return label === "Nincs születési dátum" ? "var(--color-text-muted)" : CHART_COLORS[i % CHART_COLORS.length];
+}
+
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 10) return "Jó reggelt";
@@ -198,7 +203,7 @@ export function Dashboard() {
             <StatCard
               label={`Elhunytak (${currentYear})`}
               value={stats.elhunytakIdenre}
-              to={linkTo(`/haztartasok?elhunyt=true${gy}`)}
+              to={linkTo("/temeto")}
               icon={IconCross}
               tone="muted"
             />
@@ -249,13 +254,14 @@ export function Dashboard() {
         {stats && (
           <div className="card stack" style={{ flex: "2 1 420px" }}>
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Kor szerinti megoszlás</h2>
+            <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Az év végi életkor szerint (ugyanígy számol az egyházfenntartói díjszabás is).</p>
             <div className="row" style={{ alignItems: "center", flexWrap: "nowrap", gap: "var(--space-3)" }}>
               <div style={{ width: 180, height: 180, flexShrink: 0, position: "relative" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={stats.korEloszlas} dataKey="count" nameKey="label" innerRadius={55} outerRadius={82} paddingAngle={2} stroke="none">
                       {stats.korEloszlas.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        <Cell key={i} fill={sliceColor(stats.korEloszlas[i].label, i)} />
                       ))}
                     </Pie>
                   </PieChart>
@@ -279,7 +285,7 @@ export function Dashboard() {
                 {stats.korEloszlas.map((b, i) => (
                   <div key={b.label} className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                     <span className="row" style={{ alignItems: "center", gap: 8 }}>
-                      <span style={{ width: 11, height: 11, borderRadius: "50%", background: CHART_COLORS[i % CHART_COLORS.length], display: "inline-block" }} />
+                      <span style={{ width: 11, height: 11, borderRadius: "50%", background: sliceColor(b.label, i), display: "inline-block" }} />
                       {b.label}
                     </span>
                     <strong>

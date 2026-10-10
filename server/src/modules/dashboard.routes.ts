@@ -30,12 +30,14 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const where = gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {};
 
     const currentYear = new Date().getFullYear();
-    // Csak a folyó évben elhunytak száma - az áttekintő mindig csak az adott évi
-    // elhalálozásokat mutatja (a teljes, minden korábbi évet összesítő szám a
-    // Háztartások "Elhunytak" szűrőjén keresztül továbbra is elérhető).
+    // Az idei elhunytak száma a TEMETŐ adataiból jön: a folyó évben rögzített (temetési dátumú) temetések
+    // száma - a kártyára kattintva a Temető oldal nyílik meg, ugyanezekkel az adatokkal.
     const [elhunytakIdenre, ferfiak, nok, eloTagok] = await Promise.all([
-      prisma.person.count({
-        where: { ...where, elhunyt: true, elhunytDatuma: { gte: new Date(currentYear, 0, 1), lte: new Date(currentYear, 11, 31, 23, 59, 59) } },
+      prisma.burial.count({
+        where: {
+          person: where,
+          datuma: { gte: new Date(currentYear, 0, 1), lte: new Date(currentYear, 11, 31, 23, 59, 59) },
+        },
       }),
       prisma.person.count({ where: { ...where, nem: "FERFI", elhunyt: false } }),
       prisma.person.count({ where: { ...where, nem: "NO", elhunyt: false } }),
@@ -44,7 +46,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
         select: { szuletesiDatum: true },
       }),
     ]);
-    const osszlétszám = ferfiak + nok; // élő tagok (elhunytak nélkül)
+
+    const osszlétszám = ferfiak + nok; // élő tagok (elhunytak és kiköltözöttek nélkül)
+    // Az élő tagok közül azok, akiknek nincs rögzített születési dátuma - a kormegoszlásban külön sor, hogy a
+    // sávok összege mindig kiadja az összlétszámot.
+    const ismeretlenKor = osszlétszám - eloTagok.length;
 
     const now = new Date();
     let konfirmaloKoruak = 0;
@@ -63,10 +69,16 @@ export async function dashboardRoutes(app: FastifyInstance) {
       const age = ageOn(p.szuletesiDatum, now);
       if (age >= 12 && age <= 14) konfirmaloKoruak++;
       if (age < 18) fiatalkoruak++;
-      const bucket = korBuckets.find((b) => age >= b.min && age <= b.max);
+      // A kormegoszlás - a díjszabással (kedvezményes/mentes sávok) azonos módon - az adott év végi életkor
+      // szerint számol, így a "70+" sáv pontosan a 70 éves kori kedvezmény alá eső tagokat jelenti.
+      const evVegiKor = ageOn(p.szuletesiDatum, new Date(currentYear, 11, 31));
+      const bucket = korBuckets.find((b) => evVegiKor >= b.min && evVegiKor <= b.max);
       if (bucket) bucket.count++;
     }
-    const korEloszlas = korBuckets.map((b) => ({ label: b.label, count: b.count }));
+    const korEloszlas = [
+      ...korBuckets.map((b) => ({ label: b.label, count: b.count })),
+      ...(ismeretlenKor > 0 ? [{ label: "Nincs születési dátum", count: ismeretlenKor }] : []),
+    ];
 
     const [presbiterek, gondnokok, noszovetseg] = await Promise.all([
       prisma.position.count({ where: { tisztseg: { in: ["PRESBITER", "POTPRESBITER"] }, vege: null, person: { elhunyt: false, elkoltozott: false }, ...(gyulekezetIds ? { gyulekezetId: { in: gyulekezetIds } } : {}) } }),
