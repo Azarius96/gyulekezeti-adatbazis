@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 export interface ActorInfo {
-  userId: string;
+  /** Üres, ha nem felhasználó végzi a módosítást (pl. egyszeri adatjavító szkript - ilyenkor a userNev a végrehajtó neve). */
+  userId: string | null;
   userNev: string;
 }
 
