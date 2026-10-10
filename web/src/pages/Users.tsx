@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { DateInput } from "../components/DateInput";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
@@ -327,7 +328,7 @@ function PaymentEditor({ user, onChanged }: { user: UserRow; onChanged: () => vo
       <div className="row" style={{ alignItems: "flex-end" }}>
         <div className="field" style={{ marginBottom: 0 }}>
           <label>Mikor fizetett</label>
-          <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          <DateInput value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label>Érvényesség hossza</label>
@@ -341,7 +342,7 @@ function PaymentEditor({ user, onChanged }: { user: UserRow; onChanged: () => vo
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label>Érvényes eddig</label>
-          <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          <DateInput value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
         </div>
         <button className="btn btn-secondary" type="button" disabled={saving} onClick={save}>
           {saving ? "Mentés..." : "Mentés"}

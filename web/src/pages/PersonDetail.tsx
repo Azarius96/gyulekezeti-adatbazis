@@ -1142,7 +1142,7 @@ function MoveAwayForm({
       )}
       <div className="field">
         <label>Költözés/indulás dátuma</label>
-        <input type="date" value={kezdemenyezve} onChange={(e) => setKezdemenyezve(e.target.value)} />
+        <DateInput value={kezdemenyezve} onChange={(e) => setKezdemenyezve(e.target.value)} />
       </div>
       <div className="field">
         <label>Oka (megjegyzés)</label>
