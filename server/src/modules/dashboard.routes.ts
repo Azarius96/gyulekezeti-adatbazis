@@ -2,7 +2,61 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, isStatsOnly } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { ageOn } from "../lib/age.js";
+import { Prisma } from "@prisma/client";
+
+const KOR_SAVOK = [
+  { label: "0–14 év", min: 0, max: 14 },
+  { label: "15–29 év", min: 15, max: 29 },
+  { label: "30–49 év", min: 30, max: 49 },
+  { label: "50–69 év", min: 50, max: 69 },
+  { label: "70+ év", min: 70, max: 999 },
+];
+
+/**
+ * Az élő (nem elhunyt, nem kiköltözött, nem törölt) tagok statisztikája EGYETLEN adatbázis-lekérdezéssel:
+ * nemek, kor szerinti sávok (év végi életkor), konfirmáló korúak (12-14 év, mai életkor), 18 év alattiak
+ * és a születési dátum nélküliek. Az összesítést az adatbázis végzi (nem töltjük le a tagok sorait), ezért
+ * az adatmennyiséggel alig lassul. Az életkor számítása ugyanaz, mint a korábbi (befejezett évek száma).
+ */
+async function eloTagokStatisztika(gyulekezetIds: string[] | undefined, currentYear: number) {
+  const now = new Date();
+  const ma = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const evVege = `${currentYear}-12-31`;
+  const scope =
+    gyulekezetIds === undefined
+      ? Prisma.empty
+      : gyulekezetIds.length === 0
+        ? Prisma.sql`AND false`
+        : Prisma.sql`AND "gyulekezetId" IN (${Prisma.join(gyulekezetIds)})`;
+  const savFeltetelek = KOR_SAVOK.map(
+    (b, i) => Prisma.sql`count(*) FILTER (WHERE ev_kor BETWEEN ${b.min} AND ${b.max})::int AS ${Prisma.raw(`sav${i}`)}`
+  );
+  const rows = await prisma.$queryRaw<Record<string, number>[]>`
+    WITH t AS (
+      SELECT nem, "szuletesiDatum" AS sz,
+        date_part('year', age(${ma}::date, "szuletesiDatum"::date))::int AS ma_kor,
+        date_part('year', age(${evVege}::date, "szuletesiDatum"::date))::int AS ev_kor
+      FROM "Person"
+      WHERE "deletedAt" IS NULL AND elhunyt = false AND elkoltozott = false ${scope}
+    )
+    SELECT
+      count(*) FILTER (WHERE nem = 'FERFI')::int AS ferfiak,
+      count(*) FILTER (WHERE nem = 'NO')::int AS nok,
+      count(*) FILTER (WHERE sz IS NULL)::int AS ismeretlen,
+      count(*) FILTER (WHERE ma_kor BETWEEN 12 AND 14)::int AS konfirmalo,
+      count(*) FILTER (WHERE ma_kor < 18)::int AS fiatal,
+      ${Prisma.join(savFeltetelek)}
+    FROM t`;
+  const r = rows[0];
+  return {
+    ferfiak: Number(r.ferfiak),
+    nok: Number(r.nok),
+    ismeretlenKor: Number(r.ismeretlen),
+    konfirmaloKoruak: Number(r.konfirmalo),
+    fiatalkoruak: Number(r.fiatal),
+    savok: KOR_SAVOK.map((_, i) => Number(r[`sav${i}`])),
+  };
+}
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -32,51 +86,24 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const currentYear = new Date().getFullYear();
     // Az idei elhunytak száma a TEMETŐ adataiból jön: a folyó évben rögzített (temetési dátumú) temetések
     // száma - a kártyára kattintva a Temető oldal nyílik meg, ugyanezekkel az adatokkal.
-    const [elhunytakIdenre, ferfiak, nok, eloTagok] = await Promise.all([
+    const [elhunytakIdenre, kor] = await Promise.all([
       prisma.burial.count({
         where: {
           person: where,
           datuma: { gte: new Date(currentYear, 0, 1), lte: new Date(currentYear, 11, 31, 23, 59, 59) },
         },
       }),
-      prisma.person.count({ where: { ...where, nem: "FERFI", elhunyt: false } }),
-      prisma.person.count({ where: { ...where, nem: "NO", elhunyt: false } }),
-      prisma.person.findMany({
-        where: { ...where, elhunyt: false, szuletesiDatum: { not: null } },
-        select: { szuletesiDatum: true },
-      }),
+      eloTagokStatisztika(gyulekezetIds, currentYear),
     ]);
-
+    const { ferfiak, nok, ismeretlenKor, konfirmaloKoruak, fiatalkoruak } = kor;
     const osszlétszám = ferfiak + nok; // élő tagok (elhunytak és kiköltözöttek nélkül)
-    // Az élő tagok közül azok, akiknek nincs rögzített születési dátuma - a kormegoszlásban külön sor, hogy a
-    // sávok összege mindig kiadja az összlétszámot.
-    const ismeretlenKor = osszlétszám - eloTagok.length;
 
-    const now = new Date();
-    let konfirmaloKoruak = 0;
-    let fiatalkoruak = 0;
-
-    // Kor szerinti megoszlás (élő tagok) - az áttekintő kördiagramjához.
-    const korBuckets = [
-      { label: "0–14 év", min: 0, max: 14, count: 0 },
-      { label: "15–29 év", min: 15, max: 29, count: 0 },
-      { label: "30–49 év", min: 30, max: 49, count: 0 },
-      { label: "50–69 év", min: 50, max: 69, count: 0 },
-      { label: "70+ év", min: 70, max: 999, count: 0 },
-    ];
-    for (const p of eloTagok) {
-      if (!p.szuletesiDatum) continue;
-      const age = ageOn(p.szuletesiDatum, now);
-      if (age >= 12 && age <= 14) konfirmaloKoruak++;
-      if (age < 18) fiatalkoruak++;
-      // A kormegoszlás - a díjszabással (kedvezményes/mentes sávok) azonos módon - az adott év végi életkor
-      // szerint számol, így a "70+" sáv pontosan a 70 éves kori kedvezmény alá eső tagokat jelenti.
-      const evVegiKor = ageOn(p.szuletesiDatum, new Date(currentYear, 11, 31));
-      const bucket = korBuckets.find((b) => evVegiKor >= b.min && evVegiKor <= b.max);
-      if (bucket) bucket.count++;
-    }
+    // Kor szerinti megoszlás (élő tagok) - az áttekintő kördiagramjához. Az adott év végi életkor szerint
+    // számol, a díjszabással (kedvezményes/mentes sávok) azonos módon, így a "70+" sáv pontosan a 70 éves
+    // kori kedvezmény alá eső tagokat jelenti. A "nincs születési dátum" külön sor, hogy a sávok összege
+    // mindig kiadja az összlétszámot.
     const korEloszlas = [
-      ...korBuckets.map((b) => ({ label: b.label, count: b.count })),
+      ...KOR_SAVOK.map((b, i) => ({ label: b.label, count: kor.savok[i] })),
       ...(ismeretlenKor > 0 ? [{ label: "Nincs születési dátum", count: ismeretlenKor }] : []),
     ];
 

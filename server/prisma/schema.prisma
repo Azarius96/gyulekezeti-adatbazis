@@ -267,6 +267,8 @@ model Person {
   deletedAt DateTime?
 
   @@index([deletedAt])
+  // A statisztikák, listák és számlálók szokásos szűrése: gyülekezet + aktív (nem törölt/elhunyt/kiköltözött) tag.
+  @@index([gyulekezetId, deletedAt, elhunyt, elkoltozott])
 }
 
 model FamilyLink {
