@@ -304,6 +304,7 @@ export async function duesRoutes(app: FastifyInstance) {
       nev: `${p.person.vezeteknev} ${p.person.keresztnev}`,
       ev: p.ev,
       osszeg: Number(p.osszeg),
+      celja: p.megjegyzes,
       fizetesDatuma: p.fizetesDatuma,
     }));
   });
@@ -385,6 +386,7 @@ export async function duesRoutes(app: FastifyInstance) {
       personId: z.string(),
       ev: z.number().int().min(1900).max(3000),
       osszeg: z.number().positive(),
+      megjegyzes: z.string().optional().nullable(),
       fizetesDatuma: z.string().optional().nullable(),
     });
     const parsed = schema.safeParse(req.body);
@@ -404,6 +406,7 @@ export async function duesRoutes(app: FastifyInstance) {
         personId: parsed.data.personId,
         ev: parsed.data.ev,
         osszeg: parsed.data.osszeg,
+        megjegyzes: parsed.data.megjegyzes?.trim() || null,
         fizetesDatuma: parsed.data.fizetesDatuma ? new Date(parsed.data.fizetesDatuma) : new Date(),
         gyulekezetIdEkkor: person.gyulekezetId,
       },
@@ -461,7 +464,7 @@ export async function duesRoutes(app: FastifyInstance) {
 
   app.put("/api/dues-payments/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const parsed = editSchema.safeParse(req.body);
+    const parsed = editSchema.extend({ megjegyzes: z.string().optional().nullable() }).safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const existing = await prisma.duesPayment.findUnique({ where: { id } });
     if (!existing) return reply.code(404).send({ error: "Nem található" });
@@ -472,6 +475,7 @@ export async function duesRoutes(app: FastifyInstance) {
       data: {
         ...(parsed.data.ev !== undefined ? { ev: parsed.data.ev } : {}),
         ...(parsed.data.osszeg !== undefined ? { osszeg: parsed.data.osszeg } : {}),
+        ...(parsed.data.megjegyzes !== undefined ? { megjegyzes: parsed.data.megjegyzes?.trim() || null } : {}),
         ...(parsed.data.fizetesDatuma !== undefined
           ? { fizetesDatuma: parsed.data.fizetesDatuma ? new Date(parsed.data.fizetesDatuma) : new Date() }
           : {}),
@@ -503,7 +507,7 @@ export async function duesRoutes(app: FastifyInstance) {
       data: {
         ...(parsed.data.ev !== undefined ? { ev: parsed.data.ev } : {}),
         ...(parsed.data.osszeg !== undefined ? { osszeg: parsed.data.osszeg } : {}),
-        ...(parsed.data.celja !== undefined ? { celja: parsed.data.celja } : {}),
+        ...(parsed.data.celja !== undefined ? { celja: parsed.data.celja?.trim() || null } : {}),
         ...(parsed.data.fizetesDatuma !== undefined
           ? { fizetesDatuma: parsed.data.fizetesDatuma ? new Date(parsed.data.fizetesDatuma) : new Date() }
           : {}),

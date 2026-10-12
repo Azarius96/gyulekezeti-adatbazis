@@ -919,13 +919,19 @@ function EditablePaymentRow({
   const [editing, setEditing] = useState(false);
   const [evVal, setEvVal] = useState(String(ev));
   const [osszegVal, setOsszegVal] = useState(osszeg);
+  const [megjegyzesVal, setMegjegyzesVal] = useState(extra ?? "");
   const [saving, setSaving] = useState(false);
   const base = kind === "dues" ? "/api/dues-payments" : "/api/donations";
 
   async function save() {
     setSaving(true);
     try {
-      await api.put(`${base}/${id}`, { ev: Number(evVal), osszeg: Number(osszegVal) });
+      // Az egyházfenntartónál "megjegyzes", az adománynál a "celja" mező a szabad szöveges megjegyzés.
+      await api.put(`${base}/${id}`, {
+        ev: Number(evVal),
+        osszeg: Number(osszegVal),
+        [kind === "dues" ? "megjegyzes" : "celja"]: megjegyzesVal.trim() || null,
+      });
       setEditing(false);
       onChanged();
     } finally {
@@ -943,6 +949,12 @@ function EditablePaymentRow({
       <div className="row" style={{ justifyContent: "space-between" }}>
         <input type="number" style={{ width: 100 }} value={evVal} onChange={(e) => setEvVal(e.target.value)} />
         <input type="number" style={{ width: 130 }} value={osszegVal} onChange={(e) => setOsszegVal(e.target.value)} />
+        <input
+          style={{ flex: 1, minWidth: 160 }}
+          placeholder="Megjegyzés"
+          value={megjegyzesVal}
+          onChange={(e) => setMegjegyzesVal(e.target.value)}
+        />
         <button className="btn btn-secondary btn-sm" disabled={saving} onClick={save}>
           Mentés
         </button>
@@ -996,6 +1008,7 @@ function QuickPaymentForm({
   const [open, setOpen] = useState(false);
   const [ev, setEv] = useState(String(new Date().getFullYear()));
   const [osszeg, setOsszeg] = useState(kind === "dues" && defaultOsszeg !== null ? String(defaultOsszeg) : "");
+  const [megjegyzes, setMegjegyzes] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -1006,8 +1019,10 @@ function QuickPaymentForm({
         personId,
         ev: Number(ev),
         osszeg: Number(osszeg),
+        [kind === "dues" ? "megjegyzes" : "celja"]: megjegyzes.trim() || null,
       });
       setOsszeg("");
+      setMegjegyzes("");
       setOpen(false);
       onAdded();
     } finally {
@@ -1032,6 +1047,12 @@ function QuickPaymentForm({
         style={{ width: 140 }}
         value={osszeg}
         onChange={(e) => setOsszeg(e.target.value)}
+      />
+      <input
+        style={{ flex: 1, minWidth: 180 }}
+        placeholder="Megjegyzés (nem kötelező)"
+        value={megjegyzes}
+        onChange={(e) => setMegjegyzes(e.target.value)}
       />
       <button className="btn" type="button" disabled={saving} onClick={handleSave}>
         Mentés
@@ -1413,6 +1434,7 @@ export function PersonDetail() {
                 ev={pay.ev}
                 osszeg={pay.osszeg}
                 kind="dues"
+                extra={pay.megjegyzes}
                 createdAt={pay.createdAt}
                 updatedAt={pay.updatedAt}
                 onChanged={load}

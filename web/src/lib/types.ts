@@ -150,7 +150,7 @@ export interface PersonDetail extends PersonListItem {
   baptism: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
   confirmation: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
   positions: { id: string; tisztseg: string; kezdete: string; vege: string | null }[];
-  duesPayments: { id: string; ev: number; osszeg: string; createdAt: string; updatedAt: string }[];
+  duesPayments: { id: string; ev: number; osszeg: string; megjegyzes: string | null; createdAt: string; updatedAt: string }[];
   donations: { id: string; ev: number; osszeg: string; celja: string | null; createdAt: string; updatedAt: string }[];
   egyhazfenntarto: DuesResult;
   /** Igaz, ha nincs rögzített születési dátum, ezért az általános (sztenderd) díjszabás szerinti összeg szerepel. */

@@ -363,6 +363,8 @@ model DuesPayment {
   personId     String
   ev           Int
   osszeg       Decimal
+  // Szabad szöveges megjegyzés a befizetéshez (pl. a könyvelési tétel hivatkozása, kinek a nevében fizették).
+  megjegyzes   String?
   fizetesDatuma DateTime @default(now())
   gyulekezetIdEkkor String // melyik gyülekezetnek fizetett akkor
   createdAt    DateTime @default(now())
