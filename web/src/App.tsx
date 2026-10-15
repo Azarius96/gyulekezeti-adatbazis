@@ -25,6 +25,7 @@ import { SzemelyiAdatlap } from "./pages/SzemelyiAdatlap";
 import { HivatalosIgazolasok } from "./pages/HivatalosIgazolasok";
 import { ValtozasTortenet } from "./pages/ValtozasTortenet";
 import { Papirkosar } from "./pages/Papirkosar";
+import { Tovabbkepzesek } from "./pages/Tovabbkepzesek";
 import { pendingLelkeszRole, isStatsOnly } from "./lib/types";
 
 function PrivateArea() {
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="dokumentumok" element={<Dokumentumok />} />
         <Route path="valtozas-tortenet" element={<ValtozasTortenet />} />
         <Route path="papirkosar" element={<Papirkosar />} />
+        <Route path="tovabbkepzesek" element={<Tovabbkepzesek />} />
       </Route>
     </Routes>
   );

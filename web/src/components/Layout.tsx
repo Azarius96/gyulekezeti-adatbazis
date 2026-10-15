@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { isAdmin, isStatsOnly, ownGyulekezetIds } from "../lib/types";
+import { isAdmin, isStatsOnly, isLelkesz, canManageTovabbkepzes, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
 import { GyulekezetSelect } from "./GyulekezetSelect";
 import { useGyulekezetContext } from "../context/GyulekezetContext";
@@ -40,6 +40,8 @@ const szervezetNavItem = { to: "/szervezet", label: "Szervezeti felépítés", e
 
 const lelekszamNavItem = { to: "/lelekszam-jelentes", label: "Lélekszám jelentés", end: false, icon: IconBook, tone: "purple" };
 
+const tovabbkepzesNavItem = { to: "/tovabbkepzesek", label: "Lelkészek továbbképzése", end: false, icon: IconBook, tone: "purple" };
+
 const gyulekezetekNavItem = { to: "/gyulekezetek", label: "Gyülekezetek", end: false, icon: IconChurch, tone: "indigo" };
 
 const adminNavItems = [
@@ -72,6 +74,7 @@ export function Layout() {
         ...navItems,
         ...(admin || isEsperesOrPuspok ? [szervezetNavItem] : []),
         ...(admin ? adminNavItems : isEsperes || ownGyulekezetIds(user).length > 0 ? [gyulekezetekNavItem] : []),
+        ...(canManageTovabbkepzes(user) || isLelkesz(user) ? [tovabbkepzesNavItem] : []),
       ];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

@@ -102,6 +102,29 @@ model User {
   // Nincs kitöltve = nincs fizetési korlátozás (visszamenőleg nem zár ki senkit).
   paymentPaidAt      DateTime?
   paymentValidUntil  DateTime?
+
+  // "Lelkészértekezleti elnök" rang: a jelölt lelkész rögzítheti és módosíthatja a lelkészek továbbképzéseit
+  // (a rendszergazda mellett). A rangot a rendszergazda adja a Felhasználók oldalon, jelölőnégyzettel.
+  lelkeszertekezletiElnok Boolean @default(false)
+
+  tovabbkepzesek Tovabbkepzes[]
+}
+
+// Egy lelkész továbbképzése: milyen képzésen vett részt, hány kreditet kapott érte, és mikor.
+model Tovabbkepzes {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  megnevezes String
+  kredit     Int
+  // Mikor kapta a kreditet / mikor zárult a képzés
+  datum      DateTime
+  megjegyzes String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([userId, deletedAt])
 }
 
 model UserRole {

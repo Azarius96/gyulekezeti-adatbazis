@@ -59,6 +59,7 @@ const AUDITED_MODELS = new Set([
   "Event",
   "TeendoTeljesites",
   "UserRole",
+  "Tovabbkepzes",
 ]);
 
 // Ezeknél a ".delete()" hívás valódi törlés helyett a "deletedAt" mezőt állítja be - a séma
@@ -77,6 +78,7 @@ export const SOFT_DELETE_MODELS = new Set([
   "ChurchDuesConfig",
   "GravePriceConfig",
   "User",
+  "Tovabbkepzes",
 ]);
 
 function modelDelegateName(model: string): string {

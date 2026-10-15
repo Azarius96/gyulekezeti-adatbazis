@@ -14,6 +14,7 @@ interface UserRow {
   roles: UserRoleEntry[];
   paymentPaidAt: string | null;
   paymentValidUntil: string | null;
+  lelkeszertekezletiElnok: boolean;
 }
 
 interface DeletedUserRow {
@@ -149,6 +150,11 @@ export function Users() {
                   {!u.active ? " · inaktív" : ""}
                   {u.lockedUntil && new Date(u.lockedUntil) > new Date() ? " · zárolva" : ""}
                 </div>
+                {u.lelkeszertekezletiElnok && (
+                  <div style={{ color: "var(--color-primary-dark)", fontSize: "var(--font-size-sm)", fontWeight: 700 }}>
+                    Lelkészértekezleti elnök
+                  </div>
+                )}
                 {u.paymentValidUntil && (
                   <div style={{ color: new Date(u.paymentValidUntil) < new Date() ? "var(--color-danger)" : "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
                     Fizetési érvényesség: {new Date(u.paymentValidUntil).toLocaleDateString("hu-HU")}
@@ -173,6 +179,7 @@ export function Users() {
             </div>
             {expandedId === u.id && (
               <div className="stack" style={{ padding: "0 24px 20px 24px" }}>
+                <ElnokCheckbox user={u} onChanged={load} />
                 <PasswordResetForm userId={u.id} />
                 <PaymentEditor user={u} onChanged={load} />
                 <RoleEditor
@@ -221,6 +228,46 @@ export function Users() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** "Lelkészértekezleti elnök" rang: aki megkapja, a lelkészek továbbképzéseit rögzítheti és módosíthatja. */
+function ElnokCheckbox({ user, onChanged }: { user: UserRow; onChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lelkesz = user.roles.some((r) => r.szerepKor === "LELKESZ");
+
+  async function toggle(value: boolean) {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put(`/api/users/${user.id}/lelkeszertekezleti-elnok`, { value });
+      onChanged();
+    } catch {
+      setError("Nem sikerült menteni");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card stack" style={{ background: "var(--color-bg)", gap: 6 }}>
+      <label className="row" style={{ alignItems: "center", gap: 10, cursor: lelkesz ? "pointer" : "not-allowed" }}>
+        <input
+          type="checkbox"
+          style={{ width: 18, height: 18 }}
+          checked={user.lelkeszertekezletiElnok}
+          disabled={saving || (!lelkesz && !user.lelkeszertekezletiElnok)}
+          onChange={(e) => toggle(e.target.checked)}
+        />
+        <strong>Lelkészértekezleti elnök</strong>
+      </label>
+      <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+        Ez a rang a lelkészek továbbképzéseinek (milyen képzés, hány kredit, mikor) rögzítésére és módosítására jogosít.
+        {!lelkesz && " Csak lelkész szerepkörű felhasználóhoz adható."}
+      </span>
+      {error && <span style={{ color: "var(--color-danger)", fontSize: "var(--font-size-sm)" }}>{error}</span>}
     </div>
   );
 }

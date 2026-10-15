@@ -91,6 +91,7 @@ export async function authRoutes(app: FastifyInstance) {
       email: u.email,
       roles: u.roles,
       paymentValidUntil: u.paymentValidUntil,
+      lelkeszertekezletiElnok: u.lelkeszertekezletiElnok,
     };
   });
 }

@@ -8,6 +8,7 @@ import fastifyStatic from "@fastify/static";
 import fs from "node:fs";
 import { authPlugin } from "./auth/plugin.js";
 import { authRoutes } from "./modules/auth.routes.js";
+import { tovabbkepzesRoutes } from "./modules/tovabbkepzes.routes.js";
 import { personRoutes } from "./modules/person.routes.js";
 import { householdRoutes } from "./modules/household.routes.js";
 import { orgRoutes } from "./modules/org.routes.js";
@@ -94,6 +95,7 @@ export async function buildApp() {
   await app.register(auditRoutes);
   await app.register(trashRoutes);
   await app.register(movingRoutes);
+  await app.register(tovabbkepzesRoutes);
   await app.register(publicRoutes);
 
   app.get("/api/health", async () => ({ ok: true }));

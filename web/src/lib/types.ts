@@ -14,6 +14,8 @@ export interface CurrentUser {
   email: string;
   roles: UserRoleEntry[];
   paymentValidUntil: string | null;
+  /** "Lelkészértekezleti elnök" rang: szerkesztheti a lelkészek továbbképzéseit. */
+  lelkeszertekezletiElnok?: boolean;
 }
 
 export function isAdmin(user: CurrentUser | null): boolean {
@@ -37,6 +39,16 @@ export function isStatsOnly(user: CurrentUser | null): boolean {
   if (!user) return false;
   const kinds = new Set(user.roles.map((r) => r.szerepKor));
   return kinds.has("PUSPOK") && !kinds.has("ADMIN") && !kinds.has("ESPERES") && !kinds.has("LELKESZ") && !kinds.has("DELEGALT");
+}
+
+/** A lelkészek továbbképzéseit rögzítheti/módosíthatja: a rendszergazda és a lelkészértekezleti elnök. */
+export function canManageTovabbkepzes(user: CurrentUser | null): boolean {
+  return isAdmin(user) || !!user?.lelkeszertekezletiElnok;
+}
+
+/** Van LELKESZ szerepköre (a saját továbbképzéseit láthatja). */
+export function isLelkesz(user: CurrentUser | null): boolean {
+  return !!user?.roles.some((r) => r.szerepKor === "LELKESZ");
 }
 
 export function ownGyulekezetIds(user: CurrentUser | null): string[] {

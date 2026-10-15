@@ -43,6 +43,7 @@ export async function userRoutes(app: FastifyInstance) {
         roles: true,
         paymentPaidAt: true,
         paymentValidUntil: true,
+        lelkeszertekezletiElnok: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -163,6 +164,15 @@ export async function userRoutes(app: FastifyInstance) {
       select: { id: true },
     });
     return { ok: true, id: user.id };
+  });
+
+  // "Lelkészértekezleti elnök" rang adása/elvétele - ez a jogosultság a lelkészek továbbképzésének szerkesztésére.
+  app.put("/api/users/:id/lelkeszertekezleti-elnok", async (req, reply) => {
+    if (!requireAdmin(req, reply)) return;
+    const { id } = req.params as { id: string };
+    const parsed = z.object({ value: z.boolean() }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    return prisma.user.update({ where: { id }, data: { lelkeszertekezletiElnok: parsed.data.value }, select: { id: true, lelkeszertekezletiElnok: true } });
   });
 
   app.put("/api/users/:id/active", async (req, reply) => {
