@@ -4,6 +4,7 @@ import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import type { UserRoleEntry } from "../lib/types";
+import { TovabbkepzesSzekcio, Tovabbkepzesek } from "./Tovabbkepzesek";
 
 interface UserRow {
   id: string;
@@ -41,13 +42,16 @@ const szerepLabels: Record<string, string> = {
 export function Users() {
   const [selectedGyulekezetId] = useSelectedGyulekezet();
   const [allUsers, setUsers] = useState<UserRow[]>([]);
-  const users = selectedGyulekezetId
+  const szurtUsers = selectedGyulekezetId
     ? allUsers.filter((u) => u.roles.some((r) => r.gyulekezetId === selectedGyulekezetId))
     : allUsers;
   const [deletedUsers, setDeletedUsers] = useState<DeletedUserRow[]>([]);
   const [showDeleted, setShowDeleted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"felhasznalok" | "tovabbkepzesek">("felhasznalok");
+  // Egy felhasználó megnyitásakor csak az ő adatai látszanak (nem az egész lista alatta).
+  const users = expandedId ? allUsers.filter((u) => u.id === expandedId) : szurtUsers;
   const [error, setError] = useState<string | null>(null);
   const [egyhazmegyek, setEgyhazmegyek] = useState<EgyhazmegyeOption[]>([]);
   const [keruletek, setKeruletek] = useState<EgyhazmegyeOption[]>([]);
@@ -103,15 +107,35 @@ export function Users() {
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Felhasználók</h1>
-        <button className="btn" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Mégse" : "Új lelkész / felhasználó"}
+      {expandedId ? (
+        <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setExpandedId(null)}>
+          ← Vissza a felhasználókhoz
         </button>
-      </div>
+      ) : (
+        <>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>Felhasználók</h1>
+            {tab === "felhasznalok" && (
+              <button className="btn" onClick={() => setShowForm((v) => !v)}>
+                {showForm ? "Mégse" : "Új lelkész / felhasználó"}
+              </button>
+            )}
+          </div>
+          <div className="row">
+            <button className={tab === "felhasznalok" ? "btn" : "btn btn-secondary"} onClick={() => setTab("felhasznalok")}>
+              Felhasználók
+            </button>
+            <button className={tab === "tovabbkepzesek" ? "btn" : "btn btn-secondary"} onClick={() => setTab("tovabbkepzesek")}>
+              Lelkészek továbbképzése
+            </button>
+          </div>
+        </>
+      )}
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
 
-      {showForm && (
+      {tab === "tovabbkepzesek" && !expandedId && <Tovabbkepzesek />}
+
+      {tab === "felhasznalok" && showForm && !expandedId && (
         <NewUserForm
           gyulekezetek={gyulekezetek}
           egyhazmegyek={egyhazmegyek}
@@ -123,6 +147,7 @@ export function Users() {
         />
       )}
 
+      {(tab === "felhasznalok" || expandedId) && (
       <div className="card" style={{ padding: 0 }}>
         {users.map((u) => (
           <div key={u.id} style={{ borderBottom: "1px solid var(--color-border)" }}>
@@ -180,6 +205,7 @@ export function Users() {
             {expandedId === u.id && (
               <div className="stack" style={{ padding: "0 24px 20px 24px" }}>
                 <ElnokCheckbox user={u} onChanged={load} />
+                {u.roles.some((r) => r.szerepKor === "LELKESZ") && <TovabbkepzesSzekcio userId={u.id} />}
                 <PasswordResetForm userId={u.id} />
                 <PaymentEditor user={u} onChanged={load} />
                 <RoleEditor
@@ -197,8 +223,9 @@ export function Users() {
           </div>
         ))}
       </div>
+      )}
 
-      {deletedUsers.length > 0 && (
+      {tab === "felhasznalok" && deletedUsers.length > 0 && !expandedId && (
         <div className="stack">
           <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowDeleted((v) => !v)}>
             {showDeleted ? "Törölt felhasználók elrejtése" : `Törölt felhasználók megjelenítése (${deletedUsers.length})`}

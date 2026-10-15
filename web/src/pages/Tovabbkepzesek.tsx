@@ -58,11 +58,50 @@ export function Tovabbkepzesek() {
   );
 }
 
-function LelkeszKartya({ lelkesz, szerkesztheto, onChanged }: { lelkesz: Lelkesz; szerkesztheto: boolean; onChanged: () => void }) {
+/** Egy lelkész továbbképzései önállóan (pl. a Felhasználók oldal lelkész-adatlapján): lista és rögzítés/szerkesztés. */
+export function TovabbkepzesSzekcio({ userId }: { userId: string }) {
+  const [adat, setAdat] = useState<Adat | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    api
+      .get<Adat>("/api/tovabbkepzesek")
+      .then(setAdat)
+      .catch(() => setError("Nem sikerült betölteni a továbbképzéseket"));
+  }
+
+  useEffect(load, [userId]);
+
+  const lelkesz = adat?.lelkeszek.find((l) => l.id === userId);
+  return (
+    <div className="card stack" style={{ background: "var(--color-bg)" }}>
+      <strong>Továbbképzések</strong>
+      {error && <p style={{ color: "var(--color-danger)", margin: 0 }}>{error}</p>}
+      {adat && !lelkesz && (
+        <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
+          Ehhez a felhasználóhoz nem rögzíthető továbbképzés (csak aktív, lelkész szerepkörű felhasználóhoz).
+        </p>
+      )}
+      {adat && lelkesz && <LelkeszKartya lelkesz={lelkesz} szerkesztheto={adat.szerkesztheto} onChanged={load} beagyazott />}
+    </div>
+  );
+}
+
+function LelkeszKartya({
+  lelkesz,
+  szerkesztheto,
+  onChanged,
+  beagyazott = false,
+}: {
+  lelkesz: Lelkesz;
+  szerkesztheto: boolean;
+  onChanged: () => void;
+  beagyazott?: boolean;
+}) {
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="card stack">
+    <div className={beagyazott ? "stack" : "card stack"}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <strong style={{ fontSize: "var(--font-size-lg)" }}>{lelkesz.nev}</strong>

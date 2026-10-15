@@ -74,7 +74,8 @@ export function Layout() {
         ...navItems,
         ...(admin || isEsperesOrPuspok ? [szervezetNavItem] : []),
         ...(admin ? adminNavItems : isEsperes || ownGyulekezetIds(user).length > 0 ? [gyulekezetekNavItem] : []),
-        ...(canManageTovabbkepzes(user) || isLelkesz(user) ? [tovabbkepzesNavItem] : []),
+        // A rendszergazda a Felhasználók oldal "Lelkészek továbbképzése" fülén éri el; a lelkészértekezleti elnök és a lelkészek külön menüpontból.
+        ...(!admin && (canManageTovabbkepzes(user) || isLelkesz(user)) ? [tovabbkepzesNavItem] : []),
       ];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
