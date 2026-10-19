@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { Suspense, useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { isAdmin, isStatsOnly, isLelkesz, canManageTovabbkepzes, ownGyulekezetIds } from "../lib/types";
@@ -221,7 +221,9 @@ export function Layout() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <TopBar onMenuClick={() => setMobileNavOpen((v) => !v)} />
         <main className="app-main" style={{ flex: 1, width: "100%", maxWidth: 1440, margin: "0 auto" }}>
-          <Outlet />
+          <Suspense fallback={<p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

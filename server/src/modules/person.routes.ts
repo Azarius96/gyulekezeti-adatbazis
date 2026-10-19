@@ -129,7 +129,9 @@ export async function personRoutes(app: FastifyInstance) {
       include: {
         baptism: true,
         confirmation: true,
-        householdMemberships: { include: { household: { include: { address: true } } } },
+        householdMemberships: {
+          include: { household: { include: { address: true, _count: { select: { members: { where: { vege: null } } } } } } },
+        },
         positions: true,
         duesPayments: { orderBy: { ev: "desc" } },
         donations: { orderBy: { ev: "desc" } },
@@ -213,6 +215,80 @@ export async function personRoutes(app: FastifyInstance) {
     }
 
     return person;
+  });
+
+  // Egy személy lakcímének megváltoztatása. Két eset:
+  //  - koltozott = true: valódi költözés - a régi háztartási tagság lezárul (a régi cím a történetben megmarad,
+  //    az adatlapon az új cím alatt kisebben látszik), az újnál új tagság kezdődik;
+  //  - koltozott = false: címjavítás - a tagság egyszerűen az új címhez kerül, a régi címről semmilyen nyom nem marad.
+  // `egeszHaztartas`: a háztartás többi (aktív) tagja is vele megy.
+  app.post("/api/persons/:id/cim", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const schema = z.object({
+      telepules: z.string().trim().min(1),
+      utca: z.string().trim().min(1),
+      hazszam: z.string().trim().min(1),
+      emeletAjto: z.string().trim().optional().nullable(),
+      koltozott: z.boolean(),
+      datum: z.string().optional().nullable(),
+      egeszHaztartas: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok - a település, az utca és a házszám kötelező" });
+    const data = parsed.data;
+
+    const person = await prisma.person.findUnique({ where: { id } });
+    if (!person) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!canEditGyulekezet(user, person.gyulekezetId) && !isAdmin(user)) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+
+    const address = await prisma.address.upsert({
+      where: {
+        telepules_utca_hazszam_emeletAjto: {
+          telepules: data.telepules,
+          utca: data.utca,
+          hazszam: data.hazszam,
+          emeletAjto: data.emeletAjto ?? "",
+        },
+      },
+      create: { telepules: data.telepules, utca: data.utca, hazszam: data.hazszam, emeletAjto: data.emeletAjto ?? "" },
+      update: {},
+    });
+    let target = await prisma.household.findFirst({ where: { addressId: address.id, gyulekezetId: person.gyulekezetId } });
+    const own = await prisma.householdMember.findFirst({ where: { personId: id, vege: null }, include: { household: true } });
+    if (own && target && own.householdId === target.id) return { ok: true, valtozott: false };
+    if (!target) target = await prisma.household.create({ data: { addressId: address.id, gyulekezetId: person.gyulekezetId } });
+
+    const mikor = data.datum ? new Date(data.datum) : new Date();
+
+    if (!own) {
+      // még nincs háztartása - az új címen kap egyet
+      const vanMasTag = await prisma.householdMember.count({ where: { householdId: target.id, vege: null } });
+      await prisma.householdMember.create({
+        data: { householdId: target.id, personId: id, szerep: vanMasTag ? "EGYEB" : "CSALADFO", kezdete: mikor },
+      });
+      return { ok: true, valtozott: true };
+    }
+
+    const tagok = data.egeszHaztartas
+      ? await prisma.householdMember.findMany({ where: { householdId: own.householdId, vege: null } })
+      : [own];
+    for (const m of tagok) {
+      if (data.koltozott) {
+        await prisma.householdMember.update({ where: { id: m.id }, data: { vege: mikor < m.kezdete ? m.kezdete : mikor } });
+        await prisma.householdMember.create({ data: { householdId: target.id, personId: m.personId, szerep: m.szerep, kezdete: mikor } });
+      } else {
+        await prisma.householdMember.update({ where: { id: m.id }, data: { householdId: target.id } });
+      }
+    }
+    // Címjavításnál a régi, üresen maradt háztartás nem marad szellemként a listákban
+    if (!data.koltozott) {
+      const maradt = await prisma.householdMember.count({ where: { householdId: own.householdId } });
+      if (maradt === 0) await prisma.household.delete({ where: { id: own.householdId } });
+    }
+    return { ok: true, valtozott: true };
   });
 
   app.put("/api/persons/:id", async (req, reply) => {

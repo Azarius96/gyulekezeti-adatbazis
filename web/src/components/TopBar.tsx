@@ -222,6 +222,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
       )}
       <header
+        className="topbar-glass"
       style={{
         display: "flex",
         alignItems: "center",

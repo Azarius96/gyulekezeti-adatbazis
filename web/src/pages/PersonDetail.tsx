@@ -90,6 +90,24 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
   const [megjegyzes, setMegjegyzes] = useState(person.megjegyzes ?? "");
   const [nyitoTartozas, setNyitoTartozas] = useState(String(Number(person.nyitoTartozas) || 0));
 
+  // Lakcím: a jelenlegi (aktív) háztartási tagság címe. Ha módosítod, a "költözött" jelölőnégyzet dönti el, hogy
+  // valódi költözés (a régi cím megmarad a történetben) vagy csak címjavítás (a régi címről nem marad nyom).
+  const aktivTagsag = person.householdMemberships.find((hm) => !hm.vege) ?? null;
+  const regiCim = aktivTagsag?.household.address;
+  const [telepules, setTelepules] = useState(regiCim?.telepules ?? "");
+  const [utca, setUtca] = useState(regiCim?.utca ?? "");
+  const [hazszam, setHazszam] = useState(regiCim?.hazszam ?? "");
+  const [emeletAjto, setEmeletAjto] = useState(regiCim?.emeletAjto ?? "");
+  const [koltozott, setKoltozott] = useState(false);
+  const [koltozesDatum, setKoltozesDatum] = useState(new Date().toISOString().slice(0, 10));
+  const tobbiTag = Math.max(0, (aktivTagsag?.household._count?.members ?? 1) - 1);
+  const [egeszHaztartas, setEgeszHaztartas] = useState(true);
+  const cimValtozott =
+    telepules.trim() !== (regiCim?.telepules ?? "") ||
+    utca.trim() !== (regiCim?.utca ?? "") ||
+    hazszam.trim() !== (regiCim?.hazszam ?? "") ||
+    emeletAjto.trim() !== (regiCim?.emeletAjto ?? "");
+
   const [keresztelesDatum, setKeresztelesDatum] = useState(toDateInput(person.baptism?.datuma));
   const [keresztelesHelye, setKeresztelesHelye] = useState(person.baptism?.helye ?? "");
   const [keresztelesLelkesz, setKeresztelesLelkesz] = useState(person.baptism?.lelkeszNeve ?? "");
@@ -123,6 +141,17 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           ? { konfirmacio: { datuma: konfirmacioDatum, helye: konfirmacioHelye || null, lelkeszNeve: konfirmacioLelkesz || null } }
           : {}),
       });
+      if (cimValtozott && telepules.trim() && utca.trim() && hazszam.trim()) {
+        await api.post(`/api/persons/${person.id}/cim`, {
+          telepules: telepules.trim(),
+          utca: utca.trim(),
+          hazszam: hazszam.trim(),
+          emeletAjto: emeletAjto.trim() || null,
+          koltozott,
+          datum: koltozott ? koltozesDatum : null,
+          egeszHaztartas: tobbiTag > 0 ? egeszHaztartas : false,
+        });
+      }
       onSaved();
     } catch {
       setError("Nem sikerült menteni a módosításokat");
@@ -143,6 +172,52 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           <label>Keresztnév</label>
           <input required value={keresztnev} onChange={(e) => setKeresztnev(e.target.value)} />
         </div>
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        <div className="row">
+          <div className="field" style={{ flex: 1, minWidth: 160 }}>
+            <label>Település</label>
+            <input value={telepules} onChange={(e) => setTelepules(e.target.value)} />
+          </div>
+          <div className="field" style={{ flex: 2, minWidth: 200 }}>
+            <label>Utca</label>
+            <input value={utca} onChange={(e) => setUtca(e.target.value)} />
+          </div>
+          <div className="field" style={{ width: 110 }}>
+            <label>Házszám</label>
+            <input value={hazszam} onChange={(e) => setHazszam(e.target.value)} />
+          </div>
+          <div className="field" style={{ width: 130 }}>
+            <label>Emelet/ajtó</label>
+            <input value={emeletAjto} onChange={(e) => setEmeletAjto(e.target.value)} />
+          </div>
+        </div>
+        {cimValtozott && (
+          <div className="stack" style={{ gap: 8, padding: "10px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
+            <label className="row" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input type="checkbox" style={{ width: 18, height: 18 }} checked={koltozott} onChange={(e) => setKoltozott(e.target.checked)} />
+              <span>
+                <strong>Elköltözött</strong> - a régi címről az újra költözött (a régi cím megmarad az új alatt, kisebben)
+              </span>
+            </label>
+            {koltozott ? (
+              <div className="field" style={{ width: 180 }}>
+                <label>Költözés dátuma</label>
+                <DateInput value={koltozesDatum} onChange={(e) => setKoltozesDatum(e.target.value)} />
+              </div>
+            ) : (
+              <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                Jelölőnégyzet nélkül ez címjavítás: a régi címről nem marad semmilyen nyom.
+              </span>
+            )}
+            {tobbiTag > 0 && (
+              <label className="row" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" style={{ width: 18, height: 18 }} checked={egeszHaztartas} onChange={(e) => setEgeszHaztartas(e.target.checked)} />
+                <span>A háztartás többi tagjával ({tobbiTag} fő) együtt</span>
+              </label>
+            )}
+          </div>
+        )}
       </div>
       <div className="row">
         <div className="field">
@@ -1279,6 +1354,15 @@ export function PersonDetail() {
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
     person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0] ?? null;
+  // Költözés esetén a korábbi cím (a legutóbb lezárult tagság, ha van aktív és az más címen volt) kisebben az új alatt.
+  const korabbiCim = (() => {
+    const aktiv = person.householdMemberships.find((hm) => !hm.vege);
+    if (!aktiv) return null;
+    const lezart = person.householdMemberships
+      .filter((hm) => hm.vege && hm.household.id !== aktiv.household.id)
+      .sort((a, b) => new Date(b.vege!).getTime() - new Date(a.vege!).getTime())[0];
+    return lezart ? { address: lezart.household.address, vege: lezart.vege } : null;
+  })();
 
   return (
     <div className="stack">
@@ -1313,6 +1397,7 @@ export function PersonDetail() {
         <div className="card stack">
           <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Alapadatok</h2>
           {currentAddressMembership ? (
+            <>
             <Link
               to={`/haztartasok/${currentAddressMembership.household.id}`}
               title="Ki lakik ezen a címen?"
@@ -1341,6 +1426,14 @@ export function PersonDetail() {
                 Ki lakik itt? →
               </span>
             </Link>
+            {korabbiCim && (
+              <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginTop: -6 }}>
+                Korábbi cím: {korabbiCim.address.telepules}, {korabbiCim.address.utca} {korabbiCim.address.hazszam}
+                {korabbiCim.address.emeletAjto ? `, ${korabbiCim.address.emeletAjto}` : ""}
+                {korabbiCim.vege ? ` (költözés: ${new Date(korabbiCim.vege).toLocaleDateString("hu-HU")})` : ""}
+              </div>
+            )}
+            </>
           ) : (
             <div style={{ color: "var(--color-text-muted)" }}>
               <strong>Lakcím:</strong> nincs háztartáshoz rendelve

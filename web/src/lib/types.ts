@@ -175,7 +175,13 @@ export interface PersonDetail extends PersonListItem {
     id: string;
     szerep: string;
     vege: string | null;
-    household: { id: string; nev: string | null; address: { telepules: string; utca: string; hazszam: string; emeletAjto?: string | null } };
+    household: {
+      id: string;
+      nev: string | null;
+      address: { telepules: string; utca: string; hazszam: string; emeletAjto?: string | null };
+      /** Aktív tagok száma a háztartásban. */
+      _count?: { members: number };
+    };
   }[];
   csalad: FamilyOverview;
   elhunytDatuma: string | null;

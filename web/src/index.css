@@ -107,16 +107,28 @@ html, body, #root {
 body {
   margin: 0;
   background: var(--color-bg);
-  background-image: radial-gradient(circle at 15% 8%, rgba(90, 160, 255, 0.35), transparent 42%),
-    radial-gradient(circle at 88% 0%, rgba(120, 90, 230, 0.28), transparent 45%),
-    radial-gradient(circle at 50% 100%, rgba(10, 60, 150, 0.4), transparent 60%),
-    linear-gradient(160deg, #142b5c 0%, #0b1730 55%, #0a1128 100%);
-  background-attachment: fixed;
   color: var(--color-text);
   font-family: var(--font-base);
   font-size: var(--font-size-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* A színátmenetes háttér külön, rögzített (fixed) rétegen van, NEM `background-attachment: fixed`-del:
+   az iPad/iPhone Safariban az utóbbi görgetéskor újrafestést okoz (villogás, "mikroakadás", lemaradó
+   elemek), a külön GPU-réteg viszont simán görgethető. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--color-bg);
+  background-image: radial-gradient(circle at 15% 8%, rgba(90, 160, 255, 0.35), transparent 42%),
+    radial-gradient(circle at 88% 0%, rgba(120, 90, 230, 0.28), transparent 45%),
+    radial-gradient(circle at 50% 100%, rgba(10, 60, 150, 0.4), transparent 60%),
+    linear-gradient(160deg, #142b5c 0%, #0b1730 55%, #0a1128 100%);
+  transform: translateZ(0);
 }
 
 h1, h2, h3 {
@@ -368,15 +380,37 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .card {
+  /* Nincs backdrop-filter a kártyákon: az már így is szinte átlátszatlan háttéren (--glass-bg) alig látszik,
+     viszont oldalanként tucatnyi elmosott réteg az iPad Safariban akadozást és lemaradó elemeket okoz. */
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-3);
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: box-shadow 0.35s var(--ease-spring), transform 0.35s var(--ease-spring), border-color 0.35s var(--ease-out);
   animation: fadeInUp 0.4s var(--ease-out) backwards;
+}
+
+/* Érintőképernyős eszközökön (iPad/telefon) nincs belépő animáció és nehéz árnyék a kártyákon, és az üveg-elmosás
+   (oldalsáv, felső sáv, menük) is kikapcsol - ezek újrafestése görgetés közben villogást és akadozást okozott. */
+@media (hover: none) {
+  .card {
+    animation: none;
+    box-shadow: var(--shadow-sm);
+    transition: none;
+  }
+  .menu-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgb(22, 34, 61);
+    animation: none;
+  }
+  nav.app-sidebar,
+  .topbar-glass {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgb(14, 22, 46) !important;
+  }
 }
 
 a.card:hover {
