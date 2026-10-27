@@ -141,12 +141,11 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           ? { konfirmacio: { datuma: konfirmacioDatum, helye: konfirmacioHelye || null, lelkeszNeve: konfirmacioLelkesz || null } }
           : {}),
       });
-      if (cimValtozott && telepules.trim() && utca.trim() && hazszam.trim()) {
+      const teljesCim = cimValtozott && telepules.trim() && utca.trim() && hazszam.trim();
+      if (koltozott || teljesCim) {
         await api.post(`/api/persons/${person.id}/cim`, {
-          telepules: telepules.trim(),
-          utca: utca.trim(),
-          hazszam: hazszam.trim(),
-          emeletAjto: emeletAjto.trim() || null,
+          // Elköltözésnél az (átírt) cím az ÚJ cím - ha nem módosítottad, az új cím ismeretlen
+          ...(teljesCim ? { telepules: telepules.trim(), utca: utca.trim(), hazszam: hazszam.trim(), emeletAjto: emeletAjto.trim() || null } : {}),
           koltozott,
           datum: koltozott ? koltozesDatum : null,
           egeszHaztartas: tobbiTag > 0 ? egeszHaztartas : false,
@@ -192,25 +191,33 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
             <input value={emeletAjto} onChange={(e) => setEmeletAjto(e.target.value)} />
           </div>
         </div>
-        {cimValtozott && (
+        {aktivTagsag && (
           <div className="stack" style={{ gap: 8, padding: "10px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
             <label className="row" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}>
               <input type="checkbox" style={{ width: 18, height: 18 }} checked={koltozott} onChange={(e) => setKoltozott(e.target.checked)} />
               <span>
-                <strong>Elköltözött</strong> - a régi címről az újra költözött (a régi cím megmarad az új alatt, kisebben)
+                <strong>Elköltözött</strong> - kikerül a családból és a statisztikából, az elköltözöttek nyilvántartásába kerül
               </span>
             </label>
             {koltozott ? (
-              <div className="field" style={{ width: 180 }}>
-                <label>Költözés dátuma</label>
-                <DateInput value={koltozesDatum} onChange={(e) => setKoltozesDatum(e.target.value)} />
-              </div>
+              <>
+                <div className="field" style={{ width: 180 }}>
+                  <label>Költözés dátuma</label>
+                  <DateInput value={koltozesDatum} onChange={(e) => setKoltozesDatum(e.target.value)} />
+                </div>
+                <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                  Régi cím: a jelenlegi cím ({regiCim?.utca} {regiCim?.hazszam}).{" "}
+                  {cimValtozott ? "A fenti módosított cím az új cím lesz." : "Új címet nem adtál meg (ismeretlen) - ha tudod, írd át fent a címet."}
+                </span>
+              </>
             ) : (
-              <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                Jelölőnégyzet nélkül ez címjavítás: a régi címről nem marad semmilyen nyom.
-              </span>
+              cimValtozott && (
+                <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                  Jelölőnégyzet nélkül ez címjavítás: a régi címről nem marad semmilyen nyom.
+                </span>
+              )
             )}
-            {tobbiTag > 0 && (
+            {tobbiTag > 0 && (koltozott || cimValtozott) && (
               <label className="row" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}>
                 <input type="checkbox" style={{ width: 18, height: 18 }} checked={egeszHaztartas} onChange={(e) => setEgeszHaztartas(e.target.checked)} />
                 <span>A háztartás többi tagjával ({tobbiTag} fő) együtt</span>
