@@ -364,6 +364,7 @@ function Hazassagok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
 
 interface KoltozesData {
   id: string;
+  personId: string;
   regiCim: string;
   ujCim: string;
   indoklas: string | null;
@@ -468,7 +469,7 @@ function KoltozesRow({
     <div className="stack" style={{ gap: 6, padding: "12px 16px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <span style={{ minWidth: 0, flex: 1 }}>
-          <Link to={`/szemelyek/${item.person.id}`} style={{ fontWeight: 700 }}>
+          <Link to={`/szemelyek/${item.personId}`} style={{ fontWeight: 700 }}>
             {item.person.vezeteknev} {item.person.keresztnev}
           </Link>
           {showGyulekezetNev && <span style={{ color: "var(--color-text-muted)" }}> — {item.person.gyulekezet.nev}</span>}

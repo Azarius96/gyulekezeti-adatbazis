@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { isAdmin, isStatsOnly, isLelkesz, canManageTovabbkepzes, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { GyulekezetSelect } from "./GyulekezetSelect";
 import { useGyulekezetContext } from "../context/GyulekezetContext";
 import {
@@ -221,9 +222,11 @@ export function Layout() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <TopBar onMenuClick={() => setMobileNavOpen((v) => !v)} />
         <main className="app-main" style={{ flex: 1, width: "100%", maxWidth: 1440, margin: "0 auto" }}>
-          <Suspense fallback={<p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}>
-            <Outlet />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

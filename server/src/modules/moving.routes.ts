@@ -75,7 +75,7 @@ export async function movingRoutes(app: FastifyInstance) {
       where,
       orderBy: { kezdemenyezve: "desc" },
       include: {
-        person: { select: { vezeteknev: true, keresztnev: true, gyulekezet: { select: { nev: true } } } },
+        person: { select: { id: true, vezeteknev: true, keresztnev: true, gyulekezet: { select: { nev: true } } } },
         celGyulekezet: { select: { nev: true } },
       },
     });
