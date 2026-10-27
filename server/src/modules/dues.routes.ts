@@ -262,6 +262,24 @@ export async function duesRoutes(app: FastifyInstance) {
     const tartozokSzama = debtors.filter((d) => d.evek.length > 0).length;
     const osszesTartozas = debtors.reduce((sum, d) => sum + d.evek.reduce((s, e) => s + e.hianyzo, 0), 0);
     const nyitoTartozasSzemelyek = debtors.filter((d) => d.korabbiTartozas > 0).length;
+
+    // Elmaradás-csoportok a MAI állapot szerint (nem a kiválasztott évtől függően): hány évre van elmaradása valakinek
+    // az utolsó 5 évben. A rendszer bevezetése előtti (nyitó) tartozás a "több mint 2 év" csoportba számít.
+    const elmaradasok = await computeDebtors(scope.gyulekezetWhere, currentYear - 4, currentYear);
+    const csoport = () => ({ fo: 0, osszeg: 0 });
+    const elmaradasCsoportok = { csakIdei: csoport(), egyEv: csoport(), ketEv: csoport(), tobbEv: csoport() };
+    for (const d of elmaradasok) {
+      const hianyzoEvek = d.evek.length;
+      const nyito = d.korabbiTartozas > 0.01;
+      const cel = nyito || hianyzoEvek > 2 ? elmaradasCsoportok.tobbEv : hianyzoEvek === 2 ? elmaradasCsoportok.ketEv : hianyzoEvek === 1 ? elmaradasCsoportok.egyEv : null;
+      if (!cel) continue;
+      cel.fo++;
+      cel.osszeg += d.osszesTartozas;
+      if (!nyito && hianyzoEvek === 1 && d.evek[0].ev === currentYear) {
+        elmaradasCsoportok.csakIdei.fo++;
+        elmaradasCsoportok.csakIdei.osszeg += d.osszesTartozas;
+      }
+    }
     const nyitoTartozasOsszeg = debtors.reduce((sum, d) => sum + d.korabbiTartozas, 0);
 
     return {
@@ -279,6 +297,7 @@ export async function duesRoutes(app: FastifyInstance) {
       nyitoTartozasOsszeg,
       mentesSzemelyek,
       kedvezmenyesSzemelyek,
+      elmaradasCsoportok,
     };
   });
 

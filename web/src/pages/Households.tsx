@@ -156,6 +156,23 @@ export function Households() {
     setSearchParams(params);
   }
 
+  // Korosztály szerinti szűrő: a megadott életkor-tartomány (évtől-évig) szerinti élő tagok; a találatot meg is számoljuk.
+  const korTol = searchParams.get("korTol") ?? "";
+  const korIg = searchParams.get("korIg") ?? "";
+  function setKor(kulcs: "korTol" | "korIg", ertek: string) {
+    const params = new URLSearchParams(searchParams);
+    if (ertek.trim() === "" || Number.isNaN(Number(ertek))) params.delete(kulcs);
+    else params.set(kulcs, String(Math.max(0, Math.round(Number(ertek)))));
+    // Korosztály szerinti szűrésnél csak az élő tagokat listázzuk
+    if (params.has("korTol") || params.has("korIg")) {
+      if (!params.has("elhunyt")) params.set("elhunyt", "false");
+    } else if (params.get("elhunyt") === "false") {
+      params.delete("elhunyt");
+    }
+    setSearchParams(params);
+  }
+  const talalatTagok = households.reduce((sum, h) => sum + h.tagok.length, 0);
+
   function clearExtraFilters() {
     const params = new URLSearchParams();
     if (gyulekezetId) params.set("gyulekezetId", gyulekezetId);
@@ -204,10 +221,26 @@ export function Households() {
         />
       )}
 
-      <div className="field" style={{ maxWidth: 420 }}>
-        <label htmlFor="search">Keresés név vagy cím szerint</label>
-        <input id="search" value={query} onChange={(e) => setQ(e.target.value)} placeholder="pl. Kovács, vagy Fő utca" />
+      <div className="row" style={{ alignItems: "flex-end" }}>
+        <div className="field" style={{ flex: 1, minWidth: 240, maxWidth: 420 }}>
+          <label htmlFor="search">Keresés név vagy cím szerint</label>
+          <input id="search" value={query} onChange={(e) => setQ(e.target.value)} placeholder="pl. Kovács, vagy Fő utca" />
+        </div>
+        <div className="field" style={{ width: 130 }}>
+          <label htmlFor="kor-tol">Életkor-tól (év)</label>
+          <input id="kor-tol" type="number" min="0" inputMode="numeric" value={korTol} onChange={(e) => setKor("korTol", e.target.value)} placeholder="pl. 18" />
+        </div>
+        <div className="field" style={{ width: 130 }}>
+          <label htmlFor="kor-ig">Életkor-ig (év)</label>
+          <input id="kor-ig" type="number" min="0" inputMode="numeric" value={korIg} onChange={(e) => setKor("korIg", e.target.value)} placeholder="pl. 35" />
+        </div>
       </div>
+
+      {(korTol !== "" || korIg !== "") && (
+        <p style={{ margin: 0, fontWeight: 600 }}>
+          {korTol !== "" ? korTol : "0"}–{korIg !== "" ? korIg : "…"} éves élő tagok: {talalatTagok} fő, {households.length} háztartásban
+        </p>
+      )}
 
       {households.length === 0 && <p>Nincs találat.</p>}
       <div className="stack">

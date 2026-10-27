@@ -44,6 +44,7 @@ interface OsszesitoData {
   nyitoTartozasOsszeg: number;
   mentesSzemelyek: number;
   kedvezmenyesSzemelyek: number;
+  elmaradasCsoportok: Record<"csakIdei" | "egyEv" | "ketEv" | "tobbEv", { fo: number; osszeg: number }>;
 }
 
 function HeroStatCard({
@@ -193,6 +194,30 @@ function Osszesito({ gyulekezetId }: { gyulekezetId: string; showGyulekezetNev: 
             >
               <span>{r.label}</span>
               <strong>{r.value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data && (
+        <div className="card stack" style={{ gap: 6 }}>
+          <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Elmaradások száma (a mai állapot szerint)</h2>
+          <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+            Hány évre van elmaradása a tagoknak az utolsó 5 évben. A rendszer bevezetése előtti (korábbi) tartozás a "több mint 2 évre" csoportba számít.
+          </p>
+          {(
+            [
+              ["Csak az idei évre elmaradt", data.elmaradasCsoportok.csakIdei],
+              ["1 évre elmaradt (összesen)", data.elmaradasCsoportok.egyEv],
+              ["2 évre elmaradt", data.elmaradasCsoportok.ketEv],
+              ["Több mint 2 évre elmaradt", data.elmaradasCsoportok.tobbEv],
+            ] as const
+          ).map(([label, c]) => (
+            <div key={label} className="row" style={{ justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid var(--color-border)" }}>
+              <span>{label}</span>
+              <strong>
+                {c.fo} fő <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>· {Math.round(c.osszeg)} lej</span>
+              </strong>
             </div>
           ))}
         </div>
