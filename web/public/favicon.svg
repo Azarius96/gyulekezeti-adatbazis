@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <title>Református címer</title>
-  <path d="M8 6h48v26c0 13-9 21-24 27C17 53 8 45 8 32z" fill="#1d3f7a" stroke="#c9a227" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M30 11h4v6h5v4h-5v6h-4v-6h-5v-4h5z" fill="#c9a227"/>
-  <path d="M20 31h24c0 7-4.500 11-10 11.500V49h6v4H24v-4h6v-6.500C24.500 42 20 38 20 31z" fill="#fff"/>
-</svg>

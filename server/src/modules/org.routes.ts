@@ -157,7 +157,8 @@ export async function orgRoutes(app: FastifyInstance) {
   app.get("/api/gyulekezetek/:id/beallitasok", async (req, reply) => {
     const { id } = req.params as { id: string };
     const user = req.currentUser!;
-    if (!isAdmin(user) && !canEditGyulekezet(user, id)) {
+    // A díjszabást minden megtekintheti, aki a gyülekezet adataihoz hozzáfér (pl. esperes); szerkeszteni továbbra is csak a szerkesztők tudnak.
+    if (!isAdmin(user) && !(await canAccessGyulekezet(user, id))) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
     const [duesConfigs, gravePriceConfigs] = await Promise.all([

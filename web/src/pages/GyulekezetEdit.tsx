@@ -355,6 +355,7 @@ export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
   const [gravePriceConfigs, setGravePriceConfigs] = useState<GravePriceConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [alapadatokNyitva, setAlapadatokNyitva] = useState(false);
+  const [beallitasokHiba, setBeallitasokHiba] = useState(false);
 
   const [nev, setNev] = useState("");
   const [cim, setCim] = useState("");
@@ -396,8 +397,9 @@ export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
       .then((d) => {
         setDuesConfigs(d.duesConfigs);
         setGravePriceConfigs(d.gravePriceConfigs);
+        setBeallitasokHiba(false);
       })
-      .catch(() => {});
+      .catch(() => setBeallitasokHiba(true));
     api.get<EgyhazmegyeOption[]>("/api/egyhazmegyek").then(setEgyhazmegyek).catch(() => {});
   }
 
@@ -558,7 +560,8 @@ export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
           évjárat attól az évtől érvényes, amíg egy újabbat fel nem vesz. Amelyik korra egy évjáratban nincs sáv
           megadva, azt a rendszer mentesnek tekinti.
         </p>
-        {duesConfigs.length === 0 && <p style={{ margin: 0 }}>Még nincs beállítva díjszabás.</p>}
+        {beallitasokHiba && <p style={{ margin: 0, color: "var(--color-danger)" }}>A díjszabás nem tölthető be.</p>}
+        {!beallitasokHiba && duesConfigs.length === 0 && <p style={{ margin: 0 }}>Még nincs beállítva díjszabás.</p>}
         <div className="stack" style={{ gap: 10 }}>
           {duesYearGroups.map((g) => (
             <DuesYearBlock key={g.year} group={g} canEdit={canEdit} onChanged={load} />
@@ -636,7 +639,7 @@ export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
           </div>
           <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Sírhelymegváltás díja</h2>
         </div>
-        {gravePriceConfigs.length === 0 && <p style={{ margin: 0 }}>Még nincs beállítva díjszabás.</p>}
+        {!beallitasokHiba && gravePriceConfigs.length === 0 && <p style={{ margin: 0 }}>Még nincs beállítva díjszabás.</p>}
         <div className="stack" style={{ gap: 10 }}>
           {sirYearGroups.map((g) => (
             <div
