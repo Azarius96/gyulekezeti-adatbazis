@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
 import { burialHelye } from "../lib/types";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
@@ -160,7 +160,10 @@ function PersonRow({
 export function Anyakonyvek() {
   const gyulekezetek = useGyulekezetek();
   const [gyulekezetId] = useSelectedGyulekezet();
-  const [tab, setTab] = useState<Tab>("osszesito");
+  // A főoldali statisztikából érkező link (?ful=koltozesek) közvetlenül a megfelelő fület nyitja meg
+  const [searchParams] = useSearchParams();
+  const ful = searchParams.get("ful");
+  const [tab, setTab] = useState<Tab>(TABS.some((t) => t.id === ful) ? (ful as Tab) : "osszesito");
   const showGyulekezetNev = gyulekezetek.length > 1;
 
   return (

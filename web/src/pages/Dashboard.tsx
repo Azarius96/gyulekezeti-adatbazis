@@ -10,6 +10,7 @@ import { EventsBoard } from "../components/EventsBoard";
 import {
   IconUsers,
   IconCross,
+  IconMapPin,
   IconOrgChart,
   IconHome,
   IconWallet,
@@ -206,6 +207,13 @@ export function Dashboard() {
               to={linkTo("/temeto")}
               icon={IconCross}
               tone="muted"
+            />
+            <StatCard
+              label={`Elköltözöttek (${currentYear})`}
+              value={stats.elkoltoztekIdenre}
+              to={linkTo("/anyakonyvek?ful=koltozesek")}
+              icon={IconMapPin}
+              tone="accent"
             />
           </div>
 

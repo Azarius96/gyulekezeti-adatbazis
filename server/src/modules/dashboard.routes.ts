@@ -86,11 +86,20 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const currentYear = new Date().getFullYear();
     // Az idei elhunytak száma a TEMETŐ adataiból jön: a folyó évben rögzített (temetési dátumú) temetések
     // száma - a kártyára kattintva a Temető oldal nyílik meg, ugyanezekkel az adatokkal.
-    const [elhunytakIdenre, kor] = await Promise.all([
+    const [elhunytakIdenre, elkoltoztekIdenre, kor] = await Promise.all([
       prisma.burial.count({
         where: {
           person: where,
           datuma: { gte: new Date(currentYear, 0, 1), lte: new Date(currentYear, 11, 31, 23, 59, 59) },
+        },
+      }),
+      // Az idén elköltözöttek: a gyülekezetből ténylegesen kikerült (ismeretlen célba költözött és most is kiköltözött, vagy
+      // másik gyülekezetbe átadott) tagok, a költözés (kezdeményezés) dátuma szerint az idei évben.
+      prisma.movingRequest.count({
+        where: {
+          ...(gyulekezetIds ? { forrasGyulekezetId: { in: gyulekezetIds } } : {}),
+          kezdemenyezve: { gte: new Date(currentYear, 0, 1), lte: new Date(currentYear, 11, 31, 23, 59, 59) },
+          OR: [{ status: "ELFOGADVA" }, { status: "ISMERETLEN_CELBA", person: { elkoltozott: true } }],
         },
       }),
       eloTagokStatisztika(gyulekezetIds, currentYear),
@@ -166,6 +175,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return {
       osszlétszám,
       elhunytakIdenre,
+      elkoltoztekIdenre,
       ferfiak,
       nok,
       konfirmaloKoruak,

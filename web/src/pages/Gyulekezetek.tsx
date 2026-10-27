@@ -64,6 +64,7 @@ function StatGrid({ stats }: { stats: DashboardStats }) {
       <StatTile label="Gondnokok" value={stats.gondnokok} />
       <StatTile label="Nőszövetség" value={stats.noszovetseg} />
       <StatTile label="Elhunytak idén" value={stats.elhunytakIdenre} />
+      <StatTile label="Elköltözöttek idén" value={stats.elkoltoztekIdenre} />
     </div>
   );
 }

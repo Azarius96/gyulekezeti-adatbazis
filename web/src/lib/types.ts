@@ -215,6 +215,8 @@ export interface Gyulekezet {
 export interface DashboardStats {
   osszlétszám: number;
   elhunytakIdenre: number;
+  /** Az idén elköltözött (a gyülekezetből kikerült) tagok száma. */
+  elkoltoztekIdenre: number;
   ferfiak: number;
   nok: number;
   konfirmaloKoruak: number;
