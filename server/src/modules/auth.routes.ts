@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { signToken } from "../auth/jwt.js";
-import { isPaymentExpired, type AuthUser } from "../auth/scope.js";
+import { isPaymentExpired, isReadOnly, type AuthUser } from "../auth/scope.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -92,6 +92,7 @@ export async function authRoutes(app: FastifyInstance) {
       roles: u.roles,
       paymentValidUntil: u.paymentValidUntil,
       lelkeszertekezletiElnok: u.lelkeszertekezletiElnok,
+      csakOlvaso: isReadOnly(u),
     };
   });
 }

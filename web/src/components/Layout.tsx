@@ -222,6 +222,11 @@ export function Layout() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <TopBar onMenuClick={() => setMobileNavOpen((v) => !v)} />
         <main className="app-main" style={{ flex: 1, width: "100%", maxWidth: 1440, margin: "0 auto" }}>
+          {user?.csakOlvaso && (
+            <p className="card" style={{ margin: "0 0 16px", color: "var(--color-text-muted)" }}>
+              Csak olvasó teszt fiók: minden megtekinthető és kipróbálható, de a módosítások nem mentődnek.
+            </p>
+          )}
           <ErrorBoundary>
             <Suspense fallback={<p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}>
               <Outlet />

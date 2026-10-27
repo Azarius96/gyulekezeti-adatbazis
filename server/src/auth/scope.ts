@@ -1,7 +1,7 @@
 import { prisma } from "../lib/prisma.js";
-import type { User, UserRole } from "@prisma/client";
+import type { User, UserRole, UserCapability } from "@prisma/client";
 
-export type AuthUser = User & { roles: UserRole[] };
+export type AuthUser = User & { roles: UserRole[]; capabilities?: UserCapability[] };
 
 export function isAdmin(user: AuthUser): boolean {
   return user.roles.some((r) => r.szerepKor === "ADMIN");
@@ -15,6 +15,23 @@ export function isAdmin(user: AuthUser): boolean {
 export function isStatsOnly(user: AuthUser): boolean {
   const kinds = new Set(user.roles.map((r) => r.szerepKor));
   return kinds.has("PUSPOK") && !["ADMIN", "ESPERES", "LELKESZ", "DELEGALT"].some((k) => kinds.has(k as never));
+}
+
+/** A "csak olvasó" (teszt / bemutató) jogosultság kódja: az ilyen fiók mindent megnézhet, de semmit nem módosíthat. */
+export const CSAK_OLVASO = "CSAK_OLVASO";
+
+export function isReadOnly(user: AuthUser): boolean {
+  return (user.capabilities ?? []).some((c) => c.kod === CSAK_OLVASO);
+}
+
+/** A csak olvasó fiók számára tiltott kérések: minden módosítás (a kijelentkezés kivételével), valamint az
+ * adatbázis-mentések letöltése/listázása (azokban a teljes éles adat benne van). */
+export function isBlockedForReadOnly(method: string, url: string): boolean {
+  const path = url.split("?")[0].replace(/\/+$/, "");
+  if (!path.startsWith("/api/")) return false;
+  if (path.startsWith("/api/backups")) return true;
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return false;
+  return !(method === "POST" && (path === "/api/auth/logout" || path === "/api/auth/login"));
 }
 
 /** Azok az (olvasó) végpontok, amelyeket a csak-statisztika fiók elérhet - minden más (köztük bármilyen módosítás) tiltott. */

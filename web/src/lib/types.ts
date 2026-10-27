@@ -16,6 +16,8 @@ export interface CurrentUser {
   paymentValidUntil: string | null;
   /** "Lelkészértekezleti elnök" rang: szerkesztheti a lelkészek továbbképzéseit. */
   lelkeszertekezletiElnok?: boolean;
+  /** Csak olvasó (teszt) fiók: semmit nem módosíthat. */
+  csakOlvaso?: boolean;
 }
 
 export function isAdmin(user: CurrentUser | null): boolean {
