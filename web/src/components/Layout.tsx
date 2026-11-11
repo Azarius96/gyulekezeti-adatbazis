@@ -1,6 +1,7 @@
 import { Suspense, useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { PaymentSessionWidget } from "./PaymentSessionWidget";
 import { isAdmin, isStatsOnly, isLelkesz, canManageTovabbkepzes, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -233,6 +234,7 @@ export function Layout() {
             </Suspense>
           </ErrorBoundary>
         </main>
+        <PaymentSessionWidget />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { usePaymentSession } from "../context/PaymentSessionContext";
 import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconTrash, IconCross, IconMapPin } from "../components/icons";
@@ -918,7 +919,8 @@ function DeleteFamilyLinkButton({ linkId, onDone }: { linkId: string; onDone: ()
   );
 }
 
-function PayOffOpeningDebtButton({ personId, osszeg, onDone }: { personId: string; osszeg: number; onDone: () => void }) {
+function PayOffOpeningDebtButton({ personId, nev, osszeg, onDone }: { personId: string; nev: string; osszeg: number; onDone: () => void }) {
+  const { record } = usePaymentSession();
   const [open, setOpen] = useState(false);
   const [fizetettOsszeg, setFizetettOsszeg] = useState(String(osszeg));
   const [saving, setSaving] = useState(false);
@@ -935,6 +937,7 @@ function PayOffOpeningDebtButton({ personId, osszeg, onDone }: { personId: strin
     try {
       const remaining = Math.max(0, osszeg - paid);
       await api.put(`/api/persons/${personId}`, { nyitoTartozas: remaining });
+      record({ personId, nev, kind: "dues", ev: null, osszeg: paid });
       onDone();
     } catch {
       setError("Nem sikerült rögzíteni a kifizetést");
@@ -1078,15 +1081,18 @@ function EditablePaymentRow({
 
 function QuickPaymentForm({
   personId,
+  nev,
   kind,
   defaultOsszeg,
   onAdded,
 }: {
   personId: string;
+  nev: string;
   kind: "dues" | "donation";
   defaultOsszeg: number | null;
   onAdded: () => void;
 }) {
+  const { record } = usePaymentSession();
   const [open, setOpen] = useState(false);
   const [ev, setEv] = useState(String(new Date().getFullYear()));
   const [osszeg, setOsszeg] = useState(kind === "dues" && defaultOsszeg !== null ? String(defaultOsszeg) : "");
@@ -1103,6 +1109,7 @@ function QuickPaymentForm({
         osszeg: Number(osszeg),
         [kind === "dues" ? "megjegyzes" : "celja"]: megjegyzes.trim() || null,
       });
+      record({ personId, nev, kind, ev: Number(ev), osszeg: Number(osszeg) });
       setOsszeg("");
       setMegjegyzes("");
       setOpen(false);
@@ -1358,6 +1365,19 @@ export function PersonDetail() {
     .reduce((sum, p) => sum + Number(p.osszeg), 0);
   const idenKifizetve = person.elkoltozott || person.elhunyt || (idenEsedekes > 0 && idenFizetve >= idenEsedekes);
   const nyitoTartozasOsszeg = Number(person.nyitoTartozas);
+  // Első ránézésre látszódjon, rendezett-e a fizetés: tartozás (nyitó + elmúlt évek + idei hiány) esetén kiemelt jelzés, egyébként "rendezve".
+  const fizetesAllapot: { szoveg: string; bg: string; fg: string } | null =
+    person.elkoltozott || person.elhunyt
+      ? null
+      : person.tartozasOsszeg > 0.01
+        ? person.tobbEveElmaradt
+          ? { szoveg: `⚠ Fizetés rendezetlen: ${tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}`, bg: "rgba(255, 69, 58, 0.18)", fg: "#ff7a70" }
+          : { szoveg: `Fizetés rendezetlen: ${tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}`, bg: "rgba(255, 159, 10, 0.16)", fg: "#ffb340" }
+        : person.egyhazfenntarto.mentes
+          ? { szoveg: "Mentes az egyházfenntartó alól", bg: "rgba(52, 199, 89, 0.12)", fg: "#3dd873" }
+          : (person.egyhazfenntarto.esedekesOsszeg ?? 0) > 0
+            ? { szoveg: "✓ Fizetés rendezve", bg: "rgba(52, 199, 89, 0.16)", fg: "#3dd873" }
+            : null;
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
     person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0] ?? null;
@@ -1379,25 +1399,30 @@ export function PersonDetail() {
       <div className="row">
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
           {person.vezeteknev} {person.keresztnev}
-          {person.fizetveIdenre && (
-            <span
-              title="Idén már fizetett"
-              style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)", fontWeight: 400, marginLeft: 8 }}
-            >
-              ✓ idén fizetett
-            </span>
-          )}
           {person.elhunyt && (
             <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-danger)", marginLeft: 12 }}>
               elhunyt
             </span>
           )}
-          {person.tobbEveElmaradt && (
-            <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-danger)", fontWeight: 700, marginLeft: 12 }}>
-              ⚠ tartozás: {tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}
-            </span>
-          )}
         </h1>
+        {fizetesAllapot && (
+          <span
+            title="Az egyházfenntartói díj rendezettsége (a nyitó tartozást és az elmúlt évek hiányát is beleszámítva)"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "5px 14px",
+              borderRadius: 999,
+              fontWeight: 600,
+              fontSize: "var(--font-size-sm)",
+              background: fizetesAllapot.bg,
+              color: fizetesAllapot.fg,
+              border: `1.5px solid ${fizetesAllapot.fg}`,
+            }}
+          >
+            {fizetesAllapot.szoveg}
+          </span>
+        )}
       </div>
 
       {!editing && (
@@ -1474,7 +1499,10 @@ export function PersonDetail() {
       )}
 
       {!editing && (
-          <div className="card stack">
+          <div
+            className="card stack"
+            style={fizetesAllapot ? { borderLeft: `5px solid ${fizetesAllapot.fg}` } : undefined}
+          >
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházfenntartó</h2>
             {!idenKifizetve && (
             <div
@@ -1522,7 +1550,7 @@ export function PersonDetail() {
                     <strong>Korábbi (nyitó) tartozás: {nyitoTartozasOsszeg} lej</strong>
                     <span style={{ fontWeight: 400 }}> — a rendszer bevezetése előttről áthozott hátralék</span>
                   </span>
-                  {canEdit && !person.elhunyt && <PayOffOpeningDebtButton personId={person.id} osszeg={nyitoTartozasOsszeg} onDone={load} />}
+                  {canEdit && !person.elhunyt && <PayOffOpeningDebtButton personId={person.id} nev={`${person.vezeteknev} ${person.keresztnev}`} osszeg={nyitoTartozasOsszeg} onDone={load} />}
                 </div>
               </div>
             )}
@@ -1544,6 +1572,7 @@ export function PersonDetail() {
             {canEdit && !person.elhunyt && (
               <QuickPaymentForm
                 personId={person.id}
+                nev={`${person.vezeteknev} ${person.keresztnev}`}
                 kind="dues"
                 defaultOsszeg={person.egyhazfenntarto.esedekesOsszeg}
                 onAdded={load}
@@ -1570,7 +1599,7 @@ export function PersonDetail() {
               canEdit={canEdit}
             />
           ))}
-          {canEdit && !person.elhunyt && <QuickPaymentForm personId={person.id} kind="donation" defaultOsszeg={null} onAdded={load} />}
+          {canEdit && !person.elhunyt && <QuickPaymentForm personId={person.id} nev={`${person.vezeteknev} ${person.keresztnev}`} kind="donation" defaultOsszeg={null} onAdded={load} />}
         </div>
       )}
 

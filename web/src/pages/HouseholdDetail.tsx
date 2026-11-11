@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
+import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { memberHighlight, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
@@ -86,6 +87,7 @@ export function HouseholdDetail() {
   }
 
   useEffect(load, [id]);
+  useReloadOnPayment(load);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
   if (!household) return <p>Betöltés...</p>;
@@ -164,6 +166,7 @@ export function HouseholdDetail() {
               {!m.person.elhunyt && canEdit && (
                 <QuickPay
                   personId={m.person.id}
+                  nev={`${m.person.vezeteknev} ${m.person.keresztnev}`}
                   defaultOsszeg={m.egyhazfenntarto.esedekesOsszeg}
                   fizetveIdenre={m.fizetveIdenre}
                 />

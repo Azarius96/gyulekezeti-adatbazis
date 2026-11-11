@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
+import { usePaymentSession } from "../context/PaymentSessionContext";
 
 interface HianyzoEv {
   ev: number;
@@ -17,13 +18,17 @@ interface HianyzoEv {
  */
 export function QuickPay({
   personId,
+  nev,
   defaultOsszeg,
   fizetveIdenre,
 }: {
   personId: string;
+  nev: string;
   defaultOsszeg: number | null;
   fizetveIdenre: boolean;
 }) {
+  const { record } = usePaymentSession();
+  const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"dues" | "donation">("dues");
   const [hianyzoEvek, setHianyzoEvek] = useState<HianyzoEv[] | null>(null);
@@ -61,12 +66,14 @@ export function QuickPay({
   async function handleSave() {
     if (!osszeg) return;
     setSaving(true);
+    setError(null);
     try {
       await api.post(kind === "dues" ? "/api/dues-payments" : "/api/donations", {
         personId,
         ev: Number(ev),
         osszeg: Number(osszeg),
       });
+      record({ personId, nev, kind, ev: Number(ev), osszeg: Number(osszeg) });
       setOsszeg("");
       setHianyzoEvek(null);
       setSaved(true);
@@ -74,6 +81,8 @@ export function QuickPay({
         setSaved(false);
         setOpen(false);
       }, 700);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nem sikerült rögzíteni");
     } finally {
       setSaving(false);
     }
@@ -126,6 +135,7 @@ export function QuickPay({
       <button className="btn btn-secondary btn-sm" onClick={() => setOpen(false)}>
         Mégse
       </button>
+      {error && <span style={{ color: "var(--color-danger)", fontSize: "var(--font-size-sm)" }}>{error}</span>}
     </span>
   );
 }

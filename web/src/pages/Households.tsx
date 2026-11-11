@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { QuickPay } from "../components/QuickPay";
+import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { IconDownload } from "../components/icons";
 import { DateInput } from "../components/DateInput";
 import { memberHighlight, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
@@ -115,6 +116,8 @@ export function Households() {
       .then((rows) => requestId === loadRequestId.current && setHouseholds(rows))
       .catch(() => requestId === loadRequestId.current && setHouseholds([]));
   }
+
+  useReloadOnPayment(load);
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -310,7 +313,7 @@ export function Households() {
                         )}
                       </Link>
                       {!t.elhunyt && canEdit && (
-                        <QuickPay personId={t.id} defaultOsszeg={t.egyhazfenntarto.esedekesOsszeg} fizetveIdenre={t.fizetveIdenre} />
+                        <QuickPay personId={t.id} nev={`${t.vezeteknev} ${t.keresztnev}`} defaultOsszeg={t.egyhazfenntarto.esedekesOsszeg} fizetveIdenre={t.fizetveIdenre} />
                       )}
                       {!t.elhunyt && !canEdit && t.fizetveIdenre && (
                         <span className="badge-sm" style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)" }}>

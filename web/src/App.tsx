@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GyulekezetProvider } from "./context/GyulekezetContext";
+import { PaymentSessionProvider } from "./context/PaymentSessionContext";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
@@ -81,7 +82,9 @@ export default function App() {
   return (
     <AuthProvider>
       <GyulekezetProvider>
-        <AppRoutes />
+        <PaymentSessionProvider>
+          <AppRoutes />
+        </PaymentSessionProvider>
       </GyulekezetProvider>
     </AuthProvider>
   );
