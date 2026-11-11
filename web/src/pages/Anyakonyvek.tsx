@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from "react";
+import { PageLoader } from "../components/Loading";
 import { burialHelye } from "../lib/types";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
@@ -420,7 +421,7 @@ function Koltozesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
         tartozók között. A bejegyzés törlése visszaállítja őket aktív tagnak.
       </p>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      {loading && <p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}
+      {loading && <PageLoader compact />}
       <div className="stack" style={{ gap: 10 }}>
         {items.map((k) => (
           <KoltozesRow key={k.id} item={k} showGyulekezetNev={showGyulekezetNev} onChanged={load} />

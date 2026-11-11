@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "../components/Loading";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { PersonDetail } from "../lib/types";
@@ -92,7 +93,7 @@ export function SzemelyiAdatlap() {
   }, [id]);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
-  if (!person || !gyulekezet) return <p>Betöltés...</p>;
+  if (!person || !gyulekezet) return <PageLoader />;
 
   const hm = person.householdMemberships[0];
   const cim = hm ? `${hm.household.address.telepules}, ${hm.household.address.utca} ${hm.household.address.hazszam}` : "";

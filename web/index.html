@@ -12,10 +12,26 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
+    <meta name="theme-color" content="#0e1a38" />
     <title>Gyülekezeti adatbázis</title>
+    <style>
+      /* Indulási betöltő: a JavaScript-csomag megérkezéséig látszik, a React az első rendereléskor lecseréli. */
+      html, body { margin: 0; background: #0e1a38; }
+      .boot { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+        font-family: "Manrope", "Inter", "Segoe UI", Arial, sans-serif; color: #f5f7fb; }
+      .boot img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 10px 28px rgba(10, 132, 255, 0.45));
+        animation: bootPulse 2s ease-in-out infinite; }
+      .boot b { font-size: 26px; font-weight: 800; }
+      .boot i { position: relative; display: block; width: 180px; height: 4px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.095); }
+      .boot i::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: 999px;
+        background: linear-gradient(90deg, transparent, #0a84ff, #5ac8ff); animation: bootSlide 1.3s ease-in-out infinite; }
+      @keyframes bootPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+      @keyframes bootSlide { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+      @media (prefers-reduced-motion: reduce) { .boot img, .boot i::after { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" role="status"><img src="/favicon.png" alt="" /><b>Gyülekezeti adatbázis</b><i></i></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

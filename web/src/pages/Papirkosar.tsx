@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "../components/Loading";
 import { api, ApiError } from "../lib/api";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 
@@ -74,7 +75,7 @@ export function Papirkosar() {
       </div>
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      {loading && <p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}
+      {loading && <PageLoader compact />}
       {!loading && items.length === 0 && <p style={{ color: "var(--color-text-muted)" }}>A papírkosár üres.</p>}
 
       <div className="stack" style={{ gap: 6 }}>

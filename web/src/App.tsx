@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GyulekezetProvider } from "./context/GyulekezetContext";
 import { PaymentSessionProvider } from "./context/PaymentSessionContext";
 import { Layout } from "./components/Layout";
+import { AppLoader } from "./components/Loading";
 import { Login } from "./pages/Login";
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const PersonDetail = lazy(() => import("./pages/PersonDetail").then((m) => ({ default: m.PersonDetail })));
@@ -33,7 +34,7 @@ import { pendingLelkeszRole, isStatsOnly } from "./lib/types";
 function PrivateArea() {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <p style={{ padding: 40 }}>Betöltés...</p>;
+  if (loading) return <AppLoader />;
   if (!user) return <Navigate to="/bejelentkezes" replace />;
   if (pendingLelkeszRole(user) && location.pathname !== "/gyulekezet-setup") {
     return <Navigate to="/gyulekezet-setup" replace />;

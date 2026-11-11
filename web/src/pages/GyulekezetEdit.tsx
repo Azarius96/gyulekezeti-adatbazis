@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { PageLoader } from "../components/Loading";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../lib/api";
@@ -471,7 +472,7 @@ export function GyulekezetEdit({ embeddedId }: { embeddedId?: string } = {}) {
   }
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
-  if (!gyulekezet) return <p>Betöltés...</p>;
+  if (!gyulekezet) return <PageLoader />;
 
   const canEdit = canEditGyulekezet(user, gyulekezet.id);
   const admin = isAdmin(user);

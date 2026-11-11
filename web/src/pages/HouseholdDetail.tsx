@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "../components/Loading";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
@@ -93,7 +94,7 @@ export function HouseholdDetail() {
   useReloadOnPayment(load);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
-  if (!household) return <p>Betöltés...</p>;
+  if (!household) return <PageLoader />;
 
   const canEdit = canEditGyulekezet(user, household.gyulekezetId);
 

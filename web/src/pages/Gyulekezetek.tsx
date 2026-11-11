@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { InlineLoader } from "../components/Loading";
 import { useSelectedGyulekezet, useSelectedMegye } from "../context/GyulekezetContext";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -107,7 +108,7 @@ function EsperesMegyeiNezet() {
 
       <div className="card stack">
         <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Egyházmegyei statisztika (összesítve)</h2>
-        {megyeStats ? <StatGrid stats={megyeStats} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Betöltés...</p>}
+        {megyeStats ? <StatGrid stats={megyeStats} /> : <InlineLoader />}
       </div>
 
       <div
@@ -197,7 +198,7 @@ function PuspokNezet({ selectedId, megyeId }: { selectedId: string; megyeId: str
 
       <div className="card stack">
         <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>{cim}</h2>
-        {osszes ? <StatGrid stats={osszes} /> : <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Betöltés...</p>}
+        {osszes ? <StatGrid stats={osszes} /> : <InlineLoader />}
       </div>
 
       {(selectedId ? [["", ""] as [string, string]] : megyek.length > 0 ? megyek : [["", ""] as [string, string]]).map(([id, nev]) => {

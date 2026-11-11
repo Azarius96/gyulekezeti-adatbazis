@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "../components/Loading";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
@@ -262,7 +263,7 @@ export function ValtozasTortenet() {
         </div>
       </div>
 
-      {loading && <p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}
+      {loading && <PageLoader compact />}
       {!loading && items.length === 0 && <p style={{ color: "var(--color-text-muted)" }}>Nincs a szűrésnek megfelelő bejegyzés.</p>}
 
       {groups.map(([nev, groupItems]) => (

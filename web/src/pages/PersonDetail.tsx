@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { PageLoader } from "../components/Loading";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
@@ -1366,7 +1367,7 @@ export function PersonDetail() {
   useEffect(load, [id]);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
-  if (!person) return <p>Betöltés...</p>;
+  if (!person) return <PageLoader />;
 
   const age = calcAge(person.szuletesiDatum);
   const personDuesColor = memberHighlight(person.egyhazfenntarto, person.tobbEveElmaradt, person.reszbenFizetett);

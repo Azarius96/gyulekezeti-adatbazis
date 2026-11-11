@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageLoader } from "../components/Loading";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { burialHelye, type PersonDetail } from "../lib/types";
@@ -445,7 +446,7 @@ export function HivatalosIgazolasok() {
   }, [id]);
 
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
-  if (!person || !gyulekezet) return <p>Betöltés...</p>;
+  if (!person || !gyulekezet) return <PageLoader />;
 
   const eletkor = computeAge(person.szuletesiDatum);
   const ctx = buildCtx(person, gyulekezet, {

@@ -2,6 +2,7 @@ import { Suspense, useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { PaymentSessionWidget } from "./PaymentSessionWidget";
+import { PageLoader } from "./Loading";
 import { isAdmin, isStatsOnly, isLelkesz, canManageTovabbkepzes, ownGyulekezetIds } from "../lib/types";
 import { TopBar } from "./TopBar";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -229,7 +230,7 @@ export function Layout() {
             </p>
           )}
           <ErrorBoundary>
-            <Suspense fallback={<p style={{ color: "var(--color-text-muted)" }}>Betöltés...</p>}>
+            <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>
           </ErrorBoundary>
