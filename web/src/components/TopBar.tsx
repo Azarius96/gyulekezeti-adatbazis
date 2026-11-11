@@ -13,6 +13,9 @@ interface PersonResult {
   vezeteknev: string;
   keresztnev: string;
   elhunyt: boolean;
+  szuletesiDatum: string | null;
+  /** Jelenlegi lakcím: "utca házszám, település". */
+  cim: string | null;
 }
 
 interface PendingEvent {
@@ -322,9 +325,27 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                   >
                     {initials(`${p.vezeteknev} ${p.keresztnev}`)}
                   </span>
-                  <span>
-                    {p.vezeteknev} {p.keresztnev}
-                    {p.elhunyt && <span style={{ color: "var(--color-text-muted)" }}> (elhunyt)</span>}
+                  <span style={{ minWidth: 0, textAlign: "left" }}>
+                    <span>
+                      {p.vezeteknev} {p.keresztnev}
+                      {p.szuletesiDatum && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> · {p.szuletesiDatum.slice(0, 4)}</span>}
+                      {p.elhunyt && <span style={{ color: "var(--color-text-muted)" }}> (elhunyt)</span>}
+                    </span>
+                    {p.cim && (
+                      <span
+                        style={{
+                          display: "block",
+                          color: "var(--color-text-muted)",
+                          fontSize: "var(--font-size-sm)",
+                          fontWeight: 400,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {p.cim}
+                      </span>
+                    )}
                   </span>
                 </button>
               ))

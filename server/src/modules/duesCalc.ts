@@ -186,7 +186,14 @@ export function isMultiYearOverdue(params: {
 export interface MemberDuesInfo {
   egyhazfenntarto: DuesResult;
   egyhazfenntartoBecsult: boolean;
+  /** Igaz, ha az idei díj TELJES egészében ki van fizetve (ismert esedékes összegnél); ismeretlen/mentes esetben ha van idei befizetés. */
   fizetveIdenre: boolean;
+  /** Az idén eddig befizetett egyházfenntartó összesen (a részfizetések összeadva). */
+  idenFizetett: number;
+  /** Igaz, ha idén már fizetett, de még nem a teljes esedékes összeget. */
+  reszbenFizetett: boolean;
+  /** Az idei hátralék (esedékes - befizetett), ha van esedékes összeg; egyébként 0. */
+  idenHianyzo: number;
   tobbEveElmaradt: boolean;
   /** A nyitó (korábbi) tartozás + a tavalyi és a folyó évből hiányzó összeg lejben - ugyanaz a szám,
    * amit a Pénzügyek / Tartozók lista alapértelmezett (tavalyi-idei) időszaka mutat. */
@@ -223,7 +230,13 @@ export function computeMemberDuesInfo(
     currentYear - 1,
     bandsByYear.get(currentYear - 1) ?? []
   );
-  const fizetveIdenre = person.duesPayments.some((p) => p.ev === currentYear);
+  const idenFizetett =
+    Math.round(person.duesPayments.filter((p) => p.ev === currentYear).reduce((sum, p) => sum + Number(p.osszeg ?? 0), 0) * 100) / 100;
+  const idenEsedekes = egyhazfenntarto.esedekesOsszeg ?? 0;
+  const idenHianyzo = idenEsedekes > 0 ? Math.max(0, Math.round((idenEsedekes - idenFizetett) * 100) / 100) : 0;
+  const reszbenFizetett = idenEsedekes > 0 && idenFizetett > 0.01 && idenHianyzo > 0.01;
+  // Csak akkor "fizetve", ha tényleg a teljes összeg befizetésre került; ha nincs ismert esedékes összeg, bármely idei befizetés számít.
+  const fizetveIdenre = idenEsedekes > 0 ? idenHianyzo <= 0.01 && idenFizetett > 0.01 : idenFizetett > 0.01;
   const hasPrevYearPayment = person.duesPayments.some((p) => p.ev === currentYear - 1);
 
   const tartozasEvek: MemberDuesInfo["tartozasEvek"] = [];
@@ -253,5 +266,15 @@ export function computeMemberDuesInfo(
     ? 0
     : Math.round((Number(person.nyitoTartozas) + tartozasEvek.reduce((sum, e) => sum + e.hianyzo, 0)) * 100) / 100;
 
-  return { egyhazfenntarto, egyhazfenntartoBecsult, fizetveIdenre, tobbEveElmaradt, tartozasOsszeg, tartozasEvek };
+  return {
+    egyhazfenntarto,
+    egyhazfenntartoBecsult,
+    fizetveIdenre,
+    idenFizetett,
+    reszbenFizetett,
+    idenHianyzo,
+    tobbEveElmaradt,
+    tartozasOsszeg,
+    tartozasEvek,
+  };
 }

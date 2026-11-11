@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
 import { useReloadOnPayment } from "../context/PaymentSessionContext";
-import { memberHighlight, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
+import { memberHighlight, reszfizetesSzoveg, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 
@@ -12,6 +12,9 @@ interface HouseholdMemberView {
   szerep: string;
   egyhazfenntarto: DuesResult;
   fizetveIdenre: boolean;
+  idenFizetett: number;
+  reszbenFizetett: boolean;
+  idenHianyzo: number;
   egyhazfenntartoBecsult: boolean;
   tobbEveElmaradt: boolean;
   tartozasOsszeg: number;
@@ -110,7 +113,7 @@ export function HouseholdDetail() {
       <div className="card" style={{ padding: 0 }}>
         {household.members.map((m) => {
           const age = calcAge(m.person.szuletesiDatum);
-          const color = memberHighlight(m.egyhazfenntarto, m.tobbEveElmaradt);
+          const color = memberHighlight(m.egyhazfenntarto, m.tobbEveElmaradt, m.reszbenFizetett);
           return (
             <div
               key={m.id}
@@ -155,6 +158,12 @@ export function HouseholdDetail() {
                     · tartozás: {tartozasSzoveg(m.tartozasOsszeg, m.tartozasEvek)}
                   </span>
                 )}
+                {m.reszbenFizetett && (
+                  <span style={{ color: "#ffb340", fontWeight: 700, fontSize: "var(--font-size-sm)" }}>
+                    {" "}
+                    · {reszfizetesSzoveg(m.idenFizetett, m.egyhazfenntarto.esedekesOsszeg, m.idenHianyzo)}
+                  </span>
+                )}
               </Link>
               {canEdit ? (
                 <SzerepEditor memberId={m.id} szerep={m.szerep} onChanged={load} />
@@ -167,13 +176,19 @@ export function HouseholdDetail() {
                 <QuickPay
                   personId={m.person.id}
                   nev={`${m.person.vezeteknev} ${m.person.keresztnev}`}
-                  defaultOsszeg={m.egyhazfenntarto.esedekesOsszeg}
+                  defaultOsszeg={m.reszbenFizetett ? m.idenHianyzo : m.egyhazfenntarto.esedekesOsszeg}
                   fizetveIdenre={m.fizetveIdenre}
+                  reszbenFizetett={m.reszbenFizetett}
                 />
               )}
               {!m.person.elhunyt && !canEdit && m.fizetveIdenre && (
                 <span className="badge-sm" style={{ borderColor: "var(--color-primary)", color: "var(--color-primary-dark)" }}>
                   ✓ Befizetve
+                </span>
+              )}
+              {!m.person.elhunyt && !canEdit && m.reszbenFizetett && (
+                <span className="badge-sm" style={{ borderColor: "#ffb340", color: "#ffb340" }}>
+                  Részben fizetve
                 </span>
               )}
             </div>

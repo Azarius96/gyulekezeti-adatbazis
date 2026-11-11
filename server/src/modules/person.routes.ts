@@ -92,7 +92,7 @@ export async function personRoutes(app: FastifyInstance) {
         elhunyt: true,
         gyulekezetId: true,
         householdMemberships: {
-          select: { household: { select: { address: { select: { utca: true, telepules: true, hazszam: true } } } } },
+          select: { vege: true, household: { select: { address: { select: { utca: true, telepules: true, hazszam: true } } } } },
         },
       },
       take: 1000,
@@ -118,7 +118,12 @@ export async function personRoutes(app: FastifyInstance) {
       });
     }
 
-    return persons.slice(0, 500).map(({ householdMemberships, ...p }) => p);
+    // A keresőben a név mellé a jelenlegi (nem lezárt) lakcím is kerül.
+    return persons.slice(0, 500).map(({ householdMemberships, ...p }) => {
+      const hm = householdMemberships.find((m) => !m.vege) ?? householdMemberships[0];
+      const a = hm?.household.address;
+      return { ...p, cim: a ? `${a.utca} ${a.hazszam}, ${a.telepules}` : null };
+    });
   });
 
   app.get("/api/persons/:id", async (req, reply) => {

@@ -21,11 +21,16 @@ export function QuickPay({
   nev,
   defaultOsszeg,
   fizetveIdenre,
+  reszbenFizetett = false,
 }: {
   personId: string;
   nev: string;
+  /** Az előtöltött összeg: részfizetésnél a hátralék. */
   defaultOsszeg: number | null;
+  /** Igaz, ha az idei díj teljes egészében ki van fizetve. */
   fizetveIdenre: boolean;
+  /** Igaz, ha idén már fizetett, de még nem a teljes összeget. */
+  reszbenFizetett?: boolean;
 }) {
   const { record } = usePaymentSession();
   const [error, setError] = useState<string | null>(null);
@@ -92,12 +97,14 @@ export function QuickPay({
     return (
       <button
         className={fizetveIdenre ? "btn btn-sm" : "btn btn-secondary btn-sm"}
+        style={reszbenFizetett ? { borderColor: "#ffb340", color: "#ffb340" } : undefined}
+        title={reszbenFizetett ? "Részben fizetett - a hátralék előtöltődik" : undefined}
         onClick={(e) => {
           e.preventDefault();
           setOpen(true);
         }}
       >
-        {fizetveIdenre ? "✓ Befizetve" : "Befizetés"}
+        {fizetveIdenre ? "✓ Befizetve" : reszbenFizetett ? "Részben fizetve" : "Befizetés"}
       </button>
     );
   }

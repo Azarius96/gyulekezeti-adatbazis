@@ -1084,12 +1084,15 @@ function QuickPaymentForm({
   nev,
   kind,
   defaultOsszeg,
+  defaultEv,
   onAdded,
 }: {
   personId: string;
   nev: string;
   kind: "dues" | "donation";
+  /** Az előtöltött összeg: egyházfenntartónál a legkorábbi hiányzó év hátraléka (részfizetésnél a még hiányzó rész). */
   defaultOsszeg: number | null;
+  defaultEv?: number;
   onAdded: () => void;
 }) {
   const { record } = usePaymentSession();
@@ -1121,7 +1124,16 @@ function QuickPaymentForm({
 
   if (!open) {
     return (
-      <button className="btn btn-secondary" type="button" onClick={() => setOpen(true)}>
+      <button
+        className="btn btn-secondary"
+        type="button"
+        onClick={() => {
+          // Megnyitáskor mindig a friss hátralék töltődik elő (új befizetésként rögzül, a korábbiak megmaradnak).
+          setEv(String(defaultEv ?? new Date().getFullYear()));
+          setOsszeg(kind === "dues" && defaultOsszeg !== null && defaultOsszeg > 0 ? String(defaultOsszeg) : "");
+          setOpen(true);
+        }}
+      >
         {kind === "dues" ? "Egyházfenntartó rögzítése" : "Adomány rögzítése"}
       </button>
     );
@@ -1357,7 +1369,7 @@ export function PersonDetail() {
   if (!person) return <p>Betöltés...</p>;
 
   const age = calcAge(person.szuletesiDatum);
-  const personDuesColor = memberHighlight(person.egyhazfenntarto, person.tobbEveElmaradt);
+  const personDuesColor = memberHighlight(person.egyhazfenntarto, person.tobbEveElmaradt, person.reszbenFizetett);
   // Ha az idei díj már teljes egészében ki van fizetve, nincs mit jelezni - az "Idei esedékes összeg" sáv ilyenkor nem jelenik meg.
   const idenEsedekes = person.egyhazfenntarto.esedekesOsszeg ?? 0;
   const idenFizetve = person.duesPayments
@@ -1372,12 +1384,39 @@ export function PersonDetail() {
       : person.tartozasOsszeg > 0.01
         ? person.tobbEveElmaradt
           ? { szoveg: `⚠ Fizetés rendezetlen: ${tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}`, bg: "rgba(255, 69, 58, 0.18)", fg: "#ff7a70" }
-          : { szoveg: `Fizetés rendezetlen: ${tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}`, bg: "rgba(255, 159, 10, 0.16)", fg: "#ffb340" }
+          : person.reszbenFizetett
+            ? {
+                szoveg: `Csak részben fizetett: ${person.idenFizetett} / ${person.egyhazfenntarto.esedekesOsszeg} lej — hátralék: ${person.idenHianyzo} lej`,
+                bg: "rgba(255, 159, 10, 0.16)",
+                fg: "#ffb340",
+              }
+            : { szoveg: `Fizetés rendezetlen: ${tartozasSzoveg(person.tartozasOsszeg, person.tartozasEvek)}`, bg: "rgba(255, 159, 10, 0.16)", fg: "#ffb340" }
         : person.egyhazfenntarto.mentes
           ? { szoveg: "Mentes az egyházfenntartó alól", bg: "rgba(52, 199, 89, 0.12)", fg: "#3dd873" }
           : (person.egyhazfenntarto.esedekesOsszeg ?? 0) > 0
             ? { szoveg: "✓ Fizetés rendezve", bg: "rgba(52, 199, 89, 0.16)", fg: "#3dd873" }
             : null;
+  // Évenkénti csoportosítás: a részfizetések összeadva; részben fizetett évnél a hátralékkal együtt jelezzük.
+  const evCsoportok = (() => {
+    const mostEv = new Date().getFullYear();
+    const csoportok = new Map<number, PersonDetailType["duesPayments"]>();
+    for (const pay of person.duesPayments) csoportok.set(pay.ev, [...(csoportok.get(pay.ev) ?? []), pay]);
+    return Array.from(csoportok.entries())
+      .sort((a, b) => b[0] - a[0])
+      .map(([ev, befizetesek]) => {
+        const fizetett = Math.round(befizetesek.reduce((sum, p) => sum + Number(p.osszeg), 0) * 100) / 100;
+        const hiany = person.tartozasEvek.find((e) => e.ev === ev);
+        const esedekes = hiany ? Math.round((fizetett + hiany.hianyzo) * 100) / 100 : ev === mostEv ? person.egyhazfenntarto.esedekesOsszeg : null;
+        const reszben = !!hiany && fizetett > 0.01;
+        let osszegzoSzoveg: string | null = null;
+        if (reszben) {
+          osszegzoSzoveg = `${ev} összesen: ${fizetett} lej — csak részben fizetett (esedékes: ${esedekes} lej, hátralék: ${hiany!.hianyzo} lej)`;
+        } else if (befizetesek.length > 1) {
+          osszegzoSzoveg = `${ev} összesen: ${fizetett} lej${esedekes && fizetett + 0.01 >= esedekes ? " ✓ rendezve" : ""}`;
+        }
+        return { ev, befizetesek, reszben, osszegzoSzoveg };
+      });
+  })();
   const canEdit = canEditGyulekezet(user, person.gyulekezetId);
   const currentAddressMembership =
     person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0] ?? null;
@@ -1555,26 +1594,45 @@ export function PersonDetail() {
               </div>
             )}
             {person.duesPayments.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs rögzített befizetés.</p>}
-            {person.duesPayments.map((pay) => (
-              <EditablePaymentRow
-                key={pay.id}
-                id={pay.id}
-                ev={pay.ev}
-                osszeg={pay.osszeg}
-                kind="dues"
-                extra={pay.megjegyzes}
-                createdAt={pay.createdAt}
-                updatedAt={pay.updatedAt}
-                onChanged={load}
-                canEdit={canEdit}
-              />
+            {evCsoportok.map((g) => (
+              <div key={g.ev} className="stack" style={{ gap: 8 }}>
+                {g.osszegzoSzoveg && (
+                  <div
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "var(--radius-sm)",
+                      fontWeight: 600,
+                      fontSize: "var(--font-size-sm)",
+                      background: g.reszben ? "rgba(255, 159, 10, 0.16)" : "rgba(52, 199, 89, 0.12)",
+                      color: g.reszben ? "#ffb340" : "#3dd873",
+                    }}
+                  >
+                    {g.osszegzoSzoveg}
+                  </div>
+                )}
+                {g.befizetesek.map((pay) => (
+                  <EditablePaymentRow
+                    key={pay.id}
+                    id={pay.id}
+                    ev={pay.ev}
+                    osszeg={pay.osszeg}
+                    kind="dues"
+                    extra={pay.megjegyzes}
+                    createdAt={pay.createdAt}
+                    updatedAt={pay.updatedAt}
+                    onChanged={load}
+                    canEdit={canEdit}
+                  />
+                ))}
+              </div>
             ))}
             {canEdit && !person.elhunyt && (
               <QuickPaymentForm
                 personId={person.id}
                 nev={`${person.vezeteknev} ${person.keresztnev}`}
                 kind="dues"
-                defaultOsszeg={person.egyhazfenntarto.esedekesOsszeg}
+                defaultOsszeg={person.tartozasEvek[0]?.hianyzo ?? null}
+                defaultEv={person.tartozasEvek[0]?.ev}
                 onAdded={load}
               />
             )}

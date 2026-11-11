@@ -120,10 +120,20 @@ export function duesColor(d: DuesResult): { bg: string; fg: string } | null {
   return null;
 }
 
-/** Több éve elmaradt = piros, ez mindig felülírja a mentesség/kedvezmény színét. */
-export function memberHighlight(d: DuesResult, tobbEveElmaradt: boolean): { bg: string; fg: string } | null {
+/** Több éve elmaradt = piros; részben fizetett = narancs; ezek felülírják a mentesség/kedvezmény színét. */
+export function memberHighlight(
+  d: DuesResult,
+  tobbEveElmaradt: boolean,
+  reszbenFizetett = false
+): { bg: string; fg: string } | null {
   if (tobbEveElmaradt) return { bg: "rgba(255, 69, 58, 0.18)", fg: "#ff7a70" };
+  if (reszbenFizetett) return { bg: "rgba(255, 159, 10, 0.16)", fg: "#ffb340" };
   return duesColor(d);
+}
+
+/** "Részben fizetett: 100 / 220 lej (hátralék: 120 lej)" - az idei részfizetés szövege. */
+export function reszfizetesSzoveg(fizetett: number, esedekes: number | null, hianyzo: number): string {
+  return `részben fizetett: ${fizetett} / ${esedekes ?? "?"} lej (hátralék: ${hianyzo} lej)`;
 }
 
 /** Egy temetés helye szövegesen - parcellázott temetőben "Temető, parcella/sírhely", egyébként csak a temető neve. */
@@ -169,7 +179,12 @@ export interface PersonDetail extends PersonListItem {
   egyhazfenntarto: DuesResult;
   /** Igaz, ha nincs rögzített születési dátum, ezért az általános (sztenderd) díjszabás szerinti összeg szerepel. */
   egyhazfenntartoBecsult: boolean;
+  /** Igaz, ha az idei díj teljes egészében ki van fizetve. */
   fizetveIdenre: boolean;
+  /** Az idén eddig befizetett egyházfenntartó összesen (részfizetések összeadva). */
+  idenFizetett: number;
+  reszbenFizetett: boolean;
+  idenHianyzo: number;
   tobbEveElmaradt: boolean;
   tartozasOsszeg: number;
   tartozasEvek: TartozasEv[];

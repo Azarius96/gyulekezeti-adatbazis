@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { assertCanEditPerson, getAccessibleGyulekezetIds, isAdmin, type AuthUser } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getDuesBandsForYear, resolveDuesForYear, resolveDuesForYearOrEstimate } from "./duesCalc.js";
+import { getDuesBandsForYear, resolveDuesForYearOrEstimate } from "./duesCalc.js";
 
 /**
  * Egységesen eldönti, hogy a felhasználó lekérdezheti-e a kért gyülekezet (vagy az összes
@@ -181,7 +181,6 @@ export async function duesRoutes(app: FastifyInstance) {
       select: { szuletesiDatum: true, gyulekezetId: true, duesPayments: { where: { deletedAt: null }, select: { ev: true, osszeg: true } } },
     });
     if (!person) return reply.code(404).send({ error: "Nem található" });
-    if (!person.szuletesiDatum) return { evek: [] };
 
     const paidByYear = new Map<number, number>();
     for (const p of person.duesPayments) {
@@ -189,15 +188,16 @@ export async function duesRoutes(app: FastifyInstance) {
     }
 
     const currentYear = new Date().getFullYear();
-    const evek: { ev: number; esedekesOsszeg: number; fizetve: number; hianyzo: number }[] = [];
+    const evek: { ev: number; esedekesOsszeg: number; fizetve: number; hianyzo: number; becsult: boolean }[] = [];
     for (let ev = currentYear - 5; ev <= currentYear; ev++) {
       const bands = await getDuesBandsForYear(person.gyulekezetId, ev);
-      const dues = resolveDuesForYear(person.szuletesiDatum, ev, bands);
+      // Születési dátum nélkül a gyülekezet sztenderd díja a (becsült) esedékes összeg - ugyanúgy, mint a tartozók listájában.
+      const { dues, becsult } = resolveDuesForYearOrEstimate(person.szuletesiDatum, ev, bands);
       if (!dues.ismertDijszabas || !dues.esedekesOsszeg || dues.esedekesOsszeg <= 0) continue;
       const fizetve = paidByYear.get(ev) ?? 0;
-      const hianyzo = dues.esedekesOsszeg - fizetve;
+      const hianyzo = Math.round((dues.esedekesOsszeg - fizetve) * 100) / 100;
       if (hianyzo > 0.01) {
-        evek.push({ ev, esedekesOsszeg: dues.esedekesOsszeg, fizetve, hianyzo });
+        evek.push({ ev, esedekesOsszeg: dues.esedekesOsszeg, fizetve, hianyzo, becsult });
       }
     }
     return { evek };
