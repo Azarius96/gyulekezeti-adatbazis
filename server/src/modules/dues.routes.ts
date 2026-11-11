@@ -79,7 +79,7 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
       nyitoTartozas: true,
       gyulekezet: { select: { nev: true } },
       duesPayments: {
-        where: { ev: { gte: evTol, lte: evIg } },
+        where: { deletedAt: null, ev: { gte: evTol, lte: evIg } },
         select: { ev: true, osszeg: true },
       },
     },
@@ -178,7 +178,7 @@ export async function duesRoutes(app: FastifyInstance) {
     }
     const person = await prisma.person.findUnique({
       where: { id },
-      select: { szuletesiDatum: true, gyulekezetId: true, duesPayments: { select: { ev: true, osszeg: true } } },
+      select: { szuletesiDatum: true, gyulekezetId: true, duesPayments: { where: { deletedAt: null }, select: { ev: true, osszeg: true } } },
     });
     if (!person) return reply.code(404).send({ error: "Nem található" });
     if (!person.szuletesiDatum) return { evek: [] };

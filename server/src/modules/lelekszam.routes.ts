@@ -60,7 +60,7 @@ async function regotaNemFizetok(gyulekezetId: string, ev: number): Promise<numbe
 
   const persons = await prisma.person.findMany({
     where: { gyulekezetId, elhunyt: false },
-    select: { szuletesiDatum: true, duesPayments: { select: { ev: true, osszeg: true } } },
+    select: { szuletesiDatum: true, duesPayments: { where: { deletedAt: null }, select: { ev: true, osszeg: true } } },
   });
 
   let count = 0;

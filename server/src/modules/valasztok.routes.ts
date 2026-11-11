@@ -19,7 +19,7 @@ export async function computeEligibleVoters(gyulekezetId: string, ev: number) {
     where: { gyulekezetId, elhunyt: false },
     include: {
       confirmation: true,
-      duesPayments: { where: { ev: ev - 1 } },
+      duesPayments: { where: { deletedAt: null, ev: ev - 1 } },
       householdMemberships: { include: { household: { include: { address: true } } } },
     },
     orderBy: [{ vezeteknev: "asc" }, { keresztnev: "asc" }],

@@ -20,7 +20,7 @@ const memberPersonSelect = {
   marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
   positions: { where: { vege: null }, select: { tisztseg: true } },
   confirmation: { select: { id: true } },
-  duesPayments: { select: { ev: true, osszeg: true } },
+  duesPayments: { where: { deletedAt: null }, select: { ev: true, osszeg: true } },
 } as const;
 
 interface HouseholdListQuery {

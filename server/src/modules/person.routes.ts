@@ -133,8 +133,8 @@ export async function personRoutes(app: FastifyInstance) {
           include: { household: { include: { address: true, _count: { select: { members: { where: { vege: null } } } } } } },
         },
         positions: true,
-        duesPayments: { orderBy: { ev: "desc" } },
-        donations: { orderBy: { ev: "desc" } },
+        duesPayments: { where: { deletedAt: null }, orderBy: { ev: "desc" } },
+        donations: { where: { deletedAt: null }, orderBy: { ev: "desc" } },
         burial: { include: { sirhely: { include: { parcella: { include: { cemetery: true } } } }, cemetery: true } },
         movingHistory: {
           orderBy: { kezdemenyezve: "desc" },
