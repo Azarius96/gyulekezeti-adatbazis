@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 import { paymentDaysLeft, isStatsOnly } from "../lib/types";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
@@ -328,7 +329,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                   <span style={{ minWidth: 0, textAlign: "left" }}>
                     <span>
                       {p.vezeteknev} {p.keresztnev}
-                      {p.szuletesiDatum && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> · {p.szuletesiDatum.slice(0, 4)}</span>}
+                      {p.szuletesiDatum && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> · {calcAge(p.szuletesiDatum)} év</span>}
                       {p.elhunyt && <span style={{ color: "var(--color-text-muted)" }}> (elhunyt)</span>}
                     </span>
                     {p.cim && (
