@@ -5,6 +5,7 @@ import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/
 import { requireAuth } from "../auth/plugin.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { ageOn } from "../lib/age.js";
+import { kapcsolatokHaztartasbol } from "./family.js";
 import { matchesAllWords } from "../lib/search.js";
 
 const memberPersonSelect = {
@@ -95,12 +96,21 @@ export async function householdRoutes(app: FastifyInstance) {
     const bandsByYear = await loadDuesBandsByYear(household.gyulekezetId);
     const vallasTipus = household.vallasTipusManualis ?? (vallasokOfMembers(household.members).size <= 1 ? "EGYEZO" : "VEGYES");
 
+    // Rokoni kapcsolatok tagonként: a gyereknek a szülei, a szülőnek a gyerekei ÉS a saját szülei is
+    const tagIds = household.members.map((m) => m.personId);
+    const [szuloLinkek, gyerekLinkek] = await Promise.all([
+      prisma.familyLink.findMany({ where: { childId: { in: tagIds } }, include: { parent: { select: { id: true, vezeteknev: true, keresztnev: true } } } }),
+      prisma.familyLink.findMany({ where: { parentId: { in: tagIds } }, include: { child: { select: { id: true, vezeteknev: true, keresztnev: true } } } }),
+    ]);
+
     return {
       ...household,
       vallasTipus,
       members: household.members.map((m) => ({
         ...m,
         ...computeMemberDuesInfo(m.person, bandsByYear),
+        szulok: szuloLinkek.filter((l) => l.childId === m.personId).map((l) => l.parent),
+        gyermekek: gyerekLinkek.filter((l) => l.parentId === m.personId).map((l) => l.child),
       })),
     };
   });
@@ -307,6 +317,20 @@ export async function householdRoutes(app: FastifyInstance) {
     }
 
     const updated = await prisma.householdMember.update({ where: { id }, data: { szerep: parsed.data.szerep } });
-    return updated;
+    // A szerep (apa/anya/gyerek) alapján a hiányzó szülő-gyermek kapcsolatok létrejönnek
+    const kapcsolatok = await kapcsolatokHaztartasbol(existing.householdId);
+    return { ...updated, kapcsolatok };
+  });
+
+  // A háztartás szerepeiből (apa/anya/gyerek) a hiányzó szülő-gyermek kapcsolatok létrehozása - meglévőt nem módosít.
+  app.post("/api/households/:id/kapcsolatok", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const household = await prisma.household.findUnique({ where: { id } });
+    if (!household) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !canEditGyulekezet(user, household.gyulekezetId)) {
+      return reply.code(403).send({ error: "Nincs jogosultság" });
+    }
+    return kapcsolatokHaztartasbol(id);
   });
 }

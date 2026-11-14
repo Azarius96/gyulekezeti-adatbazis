@@ -199,3 +199,47 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
   }
   return { szerep: null, indok: "A kapcsolat a család fejével nem állapítható meg biztosan", tagok };
 }
+
+// ---------- Háztartási szerepekből szülő-gyermek kapcsolatok ----------
+
+/** A szülő legalább ennyivel idősebb legyen a gyermeknél (ha mindkettőjük születési dátuma ismert), különben nem hozunk létre kapcsolatot. */
+const SZULO_MIN_KORKULONBSEG = 12;
+
+/**
+ * A háztartás szerepeiből (apa/anya = családfő és házastárs, gyerek) létrehozza a hiányzó szülő-gyermek kapcsolatokat:
+ * minden "gyerek" szerepű tag szülője lesz a háztartás minden "apa/anya" szerepű (élő) tagja. Meglévő kapcsolatot
+ * nem módosít és nem töröl. Ha mindkét személy születési dátuma ismert, és a "szülő" nem legalább 12 évvel idősebb,
+ * az adott párt kihagyja (valószínűleg hibás szerep) - ezeket a `kihagyva` listában adja vissza.
+ */
+export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ letrehozva: number; kihagyva: string[] }> {
+  const tagok = await prisma.householdMember.findMany({
+    where: { householdId, vege: null },
+    include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
+  });
+  const elok = tagok.filter((m) => !m.person.elkoltozott);
+  const szulok = elok.filter((m) => (m.szerep === "CSALADFO" || m.szerep === "HAZASTARS") && !m.person.elhunyt);
+  const gyerekek = elok.filter((m) => m.szerep === "GYERMEK");
+  if (szulok.length === 0 || gyerekek.length === 0) return { letrehozva: 0, kihagyva: [] };
+
+  const meglevo = await prisma.familyLink.findMany({
+    where: { parentId: { in: szulok.map((s) => s.personId) }, childId: { in: gyerekek.map((g) => g.personId) } },
+    select: { parentId: true, childId: true },
+  });
+  const van = new Set(meglevo.map((l) => `${l.parentId}:${l.childId}`));
+  let letrehozva = 0;
+  const kihagyva: string[] = [];
+  for (const sz of szulok) {
+    for (const gy of gyerekek) {
+      if (sz.personId === gy.personId || van.has(`${sz.personId}:${gy.personId}`)) continue;
+      const szd = sz.person.szuletesiDatum;
+      const gyd = gy.person.szuletesiDatum;
+      if (szd && gyd && (gyd.getTime() - szd.getTime()) / (365.25 * 24 * 3600 * 1000) < SZULO_MIN_KORKULONBSEG) {
+        kihagyva.push(`${sz.person.vezeteknev} ${sz.person.keresztnev} → ${gy.person.vezeteknev} ${gy.person.keresztnev}`);
+        continue;
+      }
+      await prisma.familyLink.create({ data: { parentId: sz.personId, childId: gy.personId } });
+      letrehozva++;
+    }
+  }
+  return { letrehozva, kihagyva };
+}

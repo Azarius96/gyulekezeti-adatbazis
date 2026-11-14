@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, assertCanEditPerson, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath, javasoltHaztartasiSzerep } from "./family.js";
+import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath, javasoltHaztartasiSzerep, kapcsolatokHaztartasbol } from "./family.js";
 import { ageOn } from "../lib/age.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { matchesAllWords } from "../lib/search.js";
@@ -335,7 +335,9 @@ export async function personRoutes(app: FastifyInstance) {
     if (!own) {
       // még nincs háztartása - az új címen kap egyet, a (felismert vagy megadott) szerepével
       await prisma.householdMember.create({ data: { householdId: target.id, personId: id, szerep: szerep ?? "EGYEB" } });
-      return { ok: true, valtozott: true, szerep, szerepIndok };
+      // A szerepből szülő-gyermek kapcsolat: a gyerek szülei / a szülő gyerekei ezen a családon belül
+      const kapcsolatok = await kapcsolatokHaztartasbol(target.id);
+      return { ok: true, valtozott: true, szerep, szerepIndok, kapcsolatok };
     }
 
     const tagok = data.egeszHaztartas
@@ -351,7 +353,8 @@ export async function personRoutes(app: FastifyInstance) {
     // Az üresen maradt régi háztartás nem marad szellemként a listákban
     const maradt = await prisma.householdMember.count({ where: { householdId: own.householdId } });
     if (maradt === 0) await prisma.household.delete({ where: { id: own.householdId } });
-    return { ok: true, valtozott: true, szerep, szerepIndok };
+    const kapcsolatok = szerep ? await kapcsolatokHaztartasbol(target.id) : undefined;
+    return { ok: true, valtozott: true, szerep, szerepIndok, kapcsolatok };
   });
 
   app.put("/api/persons/:id", async (req, reply) => {

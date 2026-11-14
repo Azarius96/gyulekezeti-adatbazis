@@ -3,8 +3,9 @@ import { PageLoader } from "../components/Loading";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
+import { SzerepRokonok } from "../components/Rokonok";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
-import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
+import { memberHighlight, szerepNev, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconTrash, IconCross, IconMapPin } from "../components/icons";
 import { DateInput } from "../components/DateInput";
@@ -1552,6 +1553,12 @@ export function PersonDetail() {
           ) : (
             <div style={{ color: "var(--color-text-muted)" }}>
               <strong>Lakcím:</strong> nincs háztartáshoz rendelve
+            </div>
+          )}
+          {currentAddressMembership && !currentAddressMembership.vege && (
+            <div>
+              <strong>Szerepe a családban:</strong> {szerepNev(currentAddressMembership.szerep, person.nem)}
+              <SzerepRokonok szerep={currentAddressMembership.szerep} szulok={person.csalad.szulok} gyermekek={person.csalad.gyermekek} />
             </div>
           )}
           <div className="row">

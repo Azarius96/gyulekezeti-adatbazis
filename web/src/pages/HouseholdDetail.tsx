@@ -7,10 +7,13 @@ import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { memberHighlight, reszfizetesSzoveg, szerepNev, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
+import { SzerepRokonok, type RokonRef } from "../components/Rokonok";
 
 interface HouseholdMemberView {
   id: string;
   szerep: string;
+  szulok: RokonRef[];
+  gyermekek: RokonRef[];
   egyhazfenntarto: DuesResult;
   fizetveIdenre: boolean;
   idenFizetett: number;
@@ -100,6 +103,25 @@ export function HouseholdDetail() {
   useEffect(load, [id]);
   useReloadOnPayment(load);
 
+  // A szerepekből (apa/anya/gyerek) a hiányzó szülő-gyermek kapcsolatok létrehozása
+  const [szinkronBusy, setSzinkronBusy] = useState(false);
+  const [szinkronUzenet, setSzinkronUzenet] = useState<string | null>(null);
+  async function kapcsolatokSzinkron() {
+    setSzinkronBusy(true);
+    setSzinkronUzenet(null);
+    try {
+      const r = await api.post<{ letrehozva: number; kihagyva: string[] }>(`/api/households/${id}/kapcsolatok`);
+      setSzinkronUzenet(
+        `${r.letrehozva} új szülő-gyermek kapcsolat létrejött${r.kihagyva.length ? `; kihagyva (a korkülönbség miatt valószínűleg hibás szerep): ${r.kihagyva.join(", ")}` : ""}`
+      );
+      load();
+    } catch {
+      setSzinkronUzenet("Nem sikerült a kapcsolatok felismerése");
+    } finally {
+      setSzinkronBusy(false);
+    }
+  }
+
   if (error) return <p style={{ color: "var(--color-danger)" }}>{error}</p>;
   if (!household) return <PageLoader />;
 
@@ -118,6 +140,15 @@ export function HouseholdDetail() {
         </p>
       )}
 
+      {canEdit && (
+        <div className="row" style={{ alignItems: "center" }}>
+          <button className="btn btn-secondary btn-sm" disabled={szinkronBusy} onClick={kapcsolatokSzinkron}>
+            {szinkronBusy ? "Felismerés..." : "Rokoni kapcsolatok felismerése a szerepekből"}
+          </button>
+          {szinkronUzenet && <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{szinkronUzenet}</span>}
+        </div>
+      )}
+
       <div className="card" style={{ padding: 0 }}>
         {household.members.map((m) => {
           const age = calcAge(m.person.szuletesiDatum);
@@ -134,9 +165,10 @@ export function HouseholdDetail() {
                 background: color?.bg ?? "transparent",
               }}
             >
+              <div style={{ flex: 1 }}>
               <Link
                 to={`/szemelyek/${m.person.id}`}
-                style={{ textDecoration: "none", color: "var(--color-text)", flex: 1 }}
+                style={{ textDecoration: "none", color: "var(--color-text)", display: "block" }}
               >
                 <span style={{ fontWeight: 600, color: color?.fg ?? "inherit" }}>
                   {m.person.vezeteknev} {m.person.keresztnev}
@@ -173,6 +205,8 @@ export function HouseholdDetail() {
                   </span>
                 )}
               </Link>
+                <SzerepRokonok szerep={m.szerep} szulok={m.szulok} gyermekek={m.gyermekek} />
+              </div>
               {canEdit ? (
                 <SzerepEditor
                   memberId={m.id}
