@@ -202,19 +202,22 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
 
 // ---------- Háztartási szerepekből szülő-gyermek kapcsolatok ----------
 
-/** A szülő legalább ennyivel idősebb legyen a gyermeknél (ha mindkettőjük születési dátuma ismert), különben nem hozunk létre kapcsolatot. */
-const SZULO_MIN_KORKULONBSEG = 12;
+/** A szülő és a gyermek közötti elfogadható korkülönbség (év): anyánál 16-47, apánál 16-60. Ezen kívül (pl. nagyszülő-unoka) nem hozunk létre kapcsolatot. */
+const SZULO_MIN_KORKULONBSEG = 16;
+const ANYA_MAX_KORKULONBSEG = 47;
+const APA_MAX_KORKULONBSEG = 60;
 
 /**
  * A háztartás szerepeiből (apa/anya = családfő és házastárs, gyerek) létrehozza a hiányzó szülő-gyermek kapcsolatokat:
- * minden "gyerek" szerepű tag szülője lesz a háztartás minden "apa/anya" szerepű (élő) tagja. Meglévő kapcsolatot
- * nem módosít és nem töröl. Ha mindkét személy születési dátuma ismert, és a "szülő" nem legalább 12 évvel idősebb,
- * az adott párt kihagyja (valószínűleg hibás szerep) - ezeket a `kihagyva` listában adja vissza.
+ * a "gyerek" szerepű tag szülője lesz a háztartás "apa/anya" szerepű (élő) tagja - DE csak akkor, ha mindkettőjük
+ * születési dátuma ismert, és a korkülönbség elfogadható (a "gyerek" szerep unokát is jelölhet, ezért nagyszülő-unoka párt
+ * soha nem kötünk össze). Meglévő kapcsolatot nem módosít és nem töröl. Amit nem tud biztosan megállapítani, a `kihagyva`
+ * listában adja vissza, indoklással - ezeket a felhasználó a személy lapján kézzel rögzítheti.
  */
 export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ letrehozva: number; kihagyva: string[] }> {
   const tagok = await prisma.householdMember.findMany({
     where: { householdId, vege: null },
-    include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
+    include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
   });
   const elok = tagok.filter((m) => !m.person.elkoltozott);
   const szulok = elok.filter((m) => (m.szerep === "CSALADFO" || m.szerep === "HAZASTARS") && !m.person.elhunyt);
@@ -233,8 +236,15 @@ export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ le
       if (sz.personId === gy.personId || van.has(`${sz.personId}:${gy.personId}`)) continue;
       const szd = sz.person.szuletesiDatum;
       const gyd = gy.person.szuletesiDatum;
-      if (szd && gyd && (gyd.getTime() - szd.getTime()) / (365.25 * 24 * 3600 * 1000) < SZULO_MIN_KORKULONBSEG) {
-        kihagyva.push(`${sz.person.vezeteknev} ${sz.person.keresztnev} → ${gy.person.vezeteknev} ${gy.person.keresztnev}`);
+      const nevPar = `${sz.person.vezeteknev} ${sz.person.keresztnev} → ${gy.person.vezeteknev} ${gy.person.keresztnev}`;
+      if (!szd || !gyd) {
+        kihagyva.push(`${nevPar} (nincs születési dátum)`);
+        continue;
+      }
+      const kulonbseg = (gyd.getTime() - szd.getTime()) / (365.25 * 24 * 3600 * 1000);
+      const maxKulonbseg = sz.person.nem === "NO" ? ANYA_MAX_KORKULONBSEG : APA_MAX_KORKULONBSEG;
+      if (kulonbseg < SZULO_MIN_KORKULONBSEG || kulonbseg > maxKulonbseg) {
+        kihagyva.push(`${nevPar} (${Math.round(kulonbseg)} év korkülönbség - valószínűleg nagyszülő vagy más rokon)`);
         continue;
       }
       await prisma.familyLink.create({ data: { parentId: sz.personId, childId: gy.personId } });

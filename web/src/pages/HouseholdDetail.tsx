@@ -112,7 +112,7 @@ export function HouseholdDetail() {
     try {
       const r = await api.post<{ letrehozva: number; kihagyva: string[] }>(`/api/households/${id}/kapcsolatok`);
       setSzinkronUzenet(
-        `${r.letrehozva} új szülő-gyermek kapcsolat létrejött${r.kihagyva.length ? `; kihagyva (a korkülönbség miatt valószínűleg hibás szerep): ${r.kihagyva.join(", ")}` : ""}`
+        `${r.letrehozva} új szülő-gyermek kapcsolat létrejött${r.kihagyva.length ? `; nem biztos, ezért kihagyva (kézzel a személy lapján rögzíthető): ${r.kihagyva.join(", ")}` : ""}`
       );
       load();
     } catch {
