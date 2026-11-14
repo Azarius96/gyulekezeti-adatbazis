@@ -10,6 +10,7 @@ import { DateInput } from "../components/DateInput";
 import { memberHighlight, reszfizetesSzoveg, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
+import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 
 interface HouseholdMemberTag {
   id: string;
@@ -220,6 +221,10 @@ export function Households() {
         <NewPersonForm
           gyulekezetek={editableGyulekezetek}
           defaultGyulekezetId={(gyulekezetId && editableGyulekezetek.some((g) => g.id === gyulekezetId) ? gyulekezetId : "") || (ownGyulekezetIds(user)[0] ?? editableGyulekezetek[0]?.id ?? "")}
+          cimJavaslatok={{
+            telepulesek: Array.from(new Set(households.map((h) => h.address.telepules))).sort(),
+            utcak: Array.from(new Set(households.map((h) => h.address.utca))).sort(),
+          }}
           onCreated={() => {
             setShowForm(false);
             load();
@@ -355,10 +360,13 @@ export function Households() {
 function NewPersonForm({
   gyulekezetek,
   defaultGyulekezetId,
+  cimJavaslatok,
   onCreated,
 }: {
   gyulekezetek: Gyulekezet[];
   defaultGyulekezetId: string;
+  /** A már ismert települések és utcák - az űrlap ezeket ajánlja fel a lakcím beírásakor. */
+  cimJavaslatok: { telepulesek: string[]; utcak: string[] };
   onCreated: () => void;
 }) {
   const [vezeteknev, setVezeteknev] = useState("");
@@ -383,13 +391,50 @@ function NewPersonForm({
   const [vanTisztseg, setVanTisztseg] = useState(false);
   const [tisztseg, setTisztseg] = useState("PRESBITER");
 
+  // Lakcím: ha megadod, a személy rögtön a címhez tartozó családba kerül, a szerepét (apa/anya/gyermek...) a rendszer próbálja felismerni
+  const [telepules, setTelepules] = useState(cimJavaslatok.telepulesek.length === 1 ? cimJavaslatok.telepulesek[0] : "");
+  const [utca, setUtca] = useState("");
+  const [hazszam, setHazszam] = useState("");
+  const [emeletAjto, setEmeletAjto] = useState("");
+
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Ha a személy már létrejött, de a címét még nem sikerült rögzíteni (hiba vagy szerep-kérdés), ne hozzuk létre újra
+  const [letrehozottId, setLetrehozottId] = useState<string | null>(null);
+  const [szerepKerdes, setSzerepKerdes] = useState<{ adat: SzerepKerdesAdat; body: Record<string, unknown> } | null>(null);
+
+  async function cimRogzites(personId: string, body: Record<string, unknown>, szerep?: HaztartasiSzerep) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.post<{ szerepKerdes?: boolean; indok?: string; tagok?: SzerepKerdesAdat["tagok"] }>(`/api/persons/${personId}/cim`, {
+        ...body,
+        ...(szerep ? { szerep } : {}),
+      });
+      if (res.szerepKerdes) {
+        setSzerepKerdes({ adat: { indok: res.indok ?? "", tagok: res.tagok ?? [] }, body });
+        return;
+      }
+      onCreated();
+    } catch {
+      setError("A személy létrejött, de a lakcímét nem sikerült rögzíteni - a személy adatlapján pótolható.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const teljesCim = telepules.trim() && utca.trim() && hazszam.trim();
+    const cimBody = { telepules: telepules.trim(), utca: utca.trim(), hazszam: hazszam.trim(), emeletAjto: emeletAjto.trim() || null, koltozott: false };
+    if (letrehozottId) {
+      if (teljesCim) await cimRogzites(letrehozottId, cimBody);
+      return;
+    }
+    setSaving(true);
     try {
-      await api.post("/api/persons", {
+      const created = await api.post<{ id: string }>("/api/persons", {
         vezeteknev,
         keresztnev,
         nem,
@@ -406,17 +451,44 @@ function NewPersonForm({
         ...(vanKoltozes && koltozottHonnan ? { koltozottHonnan } : {}),
         ...(vanTisztseg ? { tisztseg } : {}),
       });
+      setLetrehozottId(created.id);
+      if (teljesCim) {
+        setSaving(false);
+        await cimRogzites(created.id, cimBody);
+        return;
+      }
       onCreated();
     } catch {
       setError("Nem sikerült létrehozni a személyt");
+    } finally {
+      setSaving(false);
     }
+  }
+
+  if (szerepKerdes && letrehozottId) {
+    return (
+      <div className="card stack">
+        <p style={{ margin: 0 }}>
+          <strong>{vezeteknev} {keresztnev}</strong> létrejött, a lakcíme: {utca} {hazszam}, {telepules}.
+        </p>
+        <SzerepKerdes
+          nev={`${vezeteknev} ${keresztnev}`}
+          adat={szerepKerdes.adat}
+          foglalt={saving}
+          onChoose={(szerep) => cimRogzites(letrehozottId, szerepKerdes.body, szerep)}
+          onSkip={onCreated}
+          skipFelirat="Később, cím nélkül"
+        />
+        {error && <p style={{ color: "var(--color-danger)", margin: 0 }}>{error}</p>}
+      </div>
+    );
   }
 
   return (
     <form onSubmit={handleSubmit} className="card stack">
       <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-        Az új személy létrehozás után még nincs háztartáshoz rendelve — ezt a háztartás adatlapján, vagy Excel
-        importtal lehet elvégezni.
+        Ha megadod a lakcímet, az új személy a címhez tartozó családba kerül, és a rendszer felismeri, hogy apa, anya vagy gyermek
+        (ha nem tudja, megkérdezi). Cím nélkül a személy később is hozzárendelhető egy családhoz.
       </p>
       <div className="row">
         <div className="field" style={{ flex: 1 }}>
@@ -457,6 +529,35 @@ function NewPersonForm({
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="row">
+        <div className="field" style={{ flex: 1, minWidth: 160 }}>
+          <label>Település</label>
+          <input list="uj-szemely-telepulesek" value={telepules} onChange={(e) => setTelepules(e.target.value)} />
+          <datalist id="uj-szemely-telepulesek">
+            {cimJavaslatok.telepulesek.map((t) => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+        </div>
+        <div className="field" style={{ flex: 2, minWidth: 200 }}>
+          <label>Utca</label>
+          <input list="uj-szemely-utcak" value={utca} onChange={(e) => setUtca(e.target.value)} />
+          <datalist id="uj-szemely-utcak">
+            {cimJavaslatok.utcak.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </div>
+        <div className="field" style={{ width: 110 }}>
+          <label>Házszám</label>
+          <input value={hazszam} onChange={(e) => setHazszam(e.target.value)} />
+        </div>
+        <div className="field" style={{ width: 130 }}>
+          <label>Emelet/ajtó</label>
+          <input value={emeletAjto} onChange={(e) => setEmeletAjto(e.target.value)} />
         </div>
       </div>
 
@@ -527,8 +628,8 @@ function NewPersonForm({
       )}
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      <button className="btn" type="submit">
-        Mentés
+      <button className="btn" type="submit" disabled={saving}>
+        {saving ? "Mentés..." : letrehozottId ? "Lakcím mentése újra" : "Mentés"}
       </button>
     </form>
   );

@@ -3,6 +3,7 @@ import { PageLoader } from "../components/Loading";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
+import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconTrash, IconCross, IconMapPin } from "../components/icons";
@@ -120,6 +121,28 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Ha a rendszer nem tudja megállapítani, mi a személy szerepe az új címen élő családban, rákérdez (a többi módosítás ekkor már mentve van).
+  const [szerepKerdes, setSzerepKerdes] = useState<{ adat: SzerepKerdesAdat; body: Record<string, unknown> } | null>(null);
+
+  async function cimMentes(body: Record<string, unknown>, szerep?: HaztartasiSzerep) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.post<{ szerepKerdes?: boolean; indok?: string; tagok?: SzerepKerdesAdat["tagok"] }>(`/api/persons/${person.id}/cim`, {
+        ...body,
+        ...(szerep ? { szerep } : {}),
+      });
+      if (res.szerepKerdes) {
+        setSzerepKerdes({ adat: { indok: res.indok ?? "", tagok: res.tagok ?? [] }, body });
+        return;
+      }
+      onSaved();
+    } catch {
+      setError("Nem sikerült menteni a lakcímet");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -145,13 +168,15 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
       });
       const teljesCim = cimValtozott && telepules.trim() && utca.trim() && hazszam.trim();
       if (koltozott || teljesCim) {
-        await api.post(`/api/persons/${person.id}/cim`, {
+        setSaving(false);
+        await cimMentes({
           // Elköltözésnél az (átírt) cím az ÚJ cím - ha nem módosítottad, az új cím ismeretlen
           ...(teljesCim ? { telepules: telepules.trim(), utca: utca.trim(), hazszam: hazszam.trim(), emeletAjto: emeletAjto.trim() || null } : {}),
           koltozott,
           datum: koltozott ? koltozesDatum : null,
           egeszHaztartas: tobbiTag > 0 ? egeszHaztartas : false,
         });
+        return;
       }
       onSaved();
     } catch {
@@ -159,6 +184,23 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
     } finally {
       setSaving(false);
     }
+  }
+
+  if (szerepKerdes) {
+    return (
+      <div className="card stack">
+        <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Szerep a családban</h2>
+        <SzerepKerdes
+          nev={`${vezeteknev} ${keresztnev}`}
+          adat={szerepKerdes.adat}
+          foglalt={saving}
+          onChoose={(szerep) => cimMentes(szerepKerdes.body, szerep)}
+          onSkip={onSaved}
+          skipFelirat="Most nem módosítom a címet"
+        />
+        {error && <span style={{ color: "var(--color-danger)" }}>{error}</span>}
+      </div>
+    );
   }
 
   return (
