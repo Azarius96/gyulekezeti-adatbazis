@@ -244,3 +244,11 @@ export interface DashboardStats {
   korEloszlas: { label: string; count: number }[];
   legutobbiAktivitas: { id: string; personId: string; nev: string; leiras: string; idopont: string }[];
 }
+
+/** A háztartásbeli szerep megjelenített neve: a családfő és a házastárs egyaránt szülő - apa vagy anya (a nem szerint), a többi gyerek / egyéb. */
+export function szerepNev(szerep: string, nem?: "FERFI" | "NO" | null): string {
+  if (szerep === "CSALADFO" || szerep === "HAZASTARS") return nem === "FERFI" ? "apa" : nem === "NO" ? "anya" : "szülő";
+  if (szerep === "GYERMEK") return "gyerek";
+  if (szerep === "EGYEB") return "egyéb";
+  return szerep;
+}

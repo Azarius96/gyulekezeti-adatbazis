@@ -7,7 +7,7 @@ import { QuickPay } from "../components/QuickPay";
 import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { IconDownload } from "../components/icons";
 import { DateInput } from "../components/DateInput";
-import { memberHighlight, reszfizetesSzoveg, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
+import { memberHighlight, reszfizetesSzoveg, szerepNev, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
@@ -16,6 +16,7 @@ interface HouseholdMemberTag {
   id: string;
   vezeteknev: string;
   keresztnev: string;
+  nem: "FERFI" | "NO";
   szerep: string;
   szuletesiDatum: string | null;
   elhunyt: boolean;
@@ -39,13 +40,6 @@ interface HouseholdView {
   vallasTipus: string;
   tagok: HouseholdMemberTag[];
 }
-
-const szerepLabels: Record<string, string> = {
-  CSALADFO: "családfő",
-  HAZASTARS: "házastárs",
-  GYERMEK: "gyermek",
-  EGYEB: "egyéb",
-};
 
 const FILTER_LABELS: Record<string, (v: string) => string> = {
   elhunyt: (v) => (v === "true" ? "Elhunytak" : "Élő tagok"),
@@ -311,7 +305,7 @@ export function Households() {
                         )}
                         {age !== null && <span style={{ color: "var(--color-text-muted)" }}> ({age} év)</span>}{" "}
                         {t.elhunyt && <span style={{ color: "var(--color-danger)" }}>(elhunyt) </span>}
-                        <span style={{ color: "var(--color-text-muted)" }}>({szerepLabels[t.szerep] ?? t.szerep})</span>
+                        <span style={{ color: "var(--color-text-muted)" }}>({szerepNev(t.szerep, t.nem)})</span>
                         <DuesBadge dues={t.egyhazfenntarto} becsult={t.egyhazfenntartoBecsult} />
                         {t.tobbEveElmaradt && (
                           <span style={{ color: "var(--color-danger)", fontWeight: 700, fontSize: "var(--font-size-sm)" }}>
@@ -473,6 +467,7 @@ function NewPersonForm({
         </p>
         <SzerepKerdes
           nev={`${vezeteknev} ${keresztnev}`}
+          nem={nem}
           adat={szerepKerdes.adat}
           foglalt={saving}
           onChoose={(szerep) => cimRogzites(letrehozottId, szerepKerdes.body, szerep)}
@@ -487,7 +482,7 @@ function NewPersonForm({
   return (
     <form onSubmit={handleSubmit} className="card stack">
       <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
-        Ha megadod a lakcímet, az új személy a címhez tartozó családba kerül, és a rendszer felismeri, hogy apa, anya vagy gyermek
+        Ha megadod a lakcímet, az új személy a címhez tartozó családba kerül, és a rendszer felismeri, hogy apa, anya vagy gyerek
         (ha nem tudja, megkérdezi). Cím nélkül a személy később is hozzárendelhető egy családhoz.
       </p>
       <div className="row">

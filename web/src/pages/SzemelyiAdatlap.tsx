@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { PageLoader } from "../components/Loading";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
-import type { PersonDetail } from "../lib/types";
+import { szerepNev, type PersonDetail } from "../lib/types";
 import { DateInput } from "../components/DateInput";
 
 interface GyulekezetFejlec {
@@ -18,13 +18,6 @@ const csaladiAllapotLabels: Record<string, string> = {
   HAZAS: "Házas",
   OZVEGY: "Özvegy",
   ELVALT: "Elvált",
-};
-
-const szerepLabels: Record<string, string> = {
-  CSALADFO: "családfő",
-  HAZASTARS: "házastárs",
-  GYERMEK: "gyermek",
-  EGYEB: "egyéb",
 };
 
 const tisztsegLabels: Record<string, string> = {
@@ -199,7 +192,7 @@ export function SzemelyiAdatlap() {
             <Row label="Családi állapot" value={person.csaladiAllapot ? csaladiAllapotLabels[person.csaladiAllapot] : ""} />
             <Row label="Elhunyt" value={person.elhunyt ? `igen — ${fmtHu(person.elhunytDatuma)}` : ""} />
             <Row label="Cím" value={cim} />
-            <Row label="Szerepkör a háztartásban" value={hm ? szerepLabels[hm.szerep] ?? hm.szerep : ""} />
+            <Row label="Szerepkör a háztartásban" value={hm ? szerepNev(hm.szerep, person.nem) : ""} />
             <Row label="Gyülekezet" value={gyulekezet.nev} />
             <Row
               label="Keresztelés"

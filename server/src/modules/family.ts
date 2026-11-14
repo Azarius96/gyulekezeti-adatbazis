@@ -125,7 +125,7 @@ export interface SzerepJavaslat {
   szerep: HaztartasiSzerepKod | null;
   indok: string;
   /** A háztartás jelenlegi (élő) tagjai - a kérdéshez, hogy lássa a felhasználó, kivel kerül egy családba. */
-  tagok: { id: string; nev: string; szerep: string; kor: number | null }[];
+  tagok: { id: string; nev: string; szerep: string; nem: "FERFI" | "NO"; kor: number | null }[];
 }
 
 /** A korkülönbség (év), amitől a rendszer "szülő-gyermek" viszonyt feltételez a családfő és az új tag között. */
@@ -151,6 +151,7 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
     id: m.person.id,
     nev: `${m.person.vezeteknev} ${m.person.keresztnev}`,
     szerep: m.szerep as string,
+    nem: m.person.nem as "FERFI" | "NO",
     kor: m.person.szuletesiDatum ? ageOn(m.person.szuletesiDatum, most) : null,
   }));
   if (!person) return { szerep: null, indok: "A személy nem található", tagok };
@@ -170,15 +171,15 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
   if (szuloi.length > 0) return { szerep: "GYERMEK", indok: "A háztartás egyik tagjának gyermeke (rögzített kapcsolat)", tagok };
   const hazastarsId = hazassagok.map((h) => (h.spouseAId === personId ? h.spouseBId : h.spouseAId)).find((x) => x && ids.includes(x));
   if (hazastarsId) {
-    if (csaladfo?.personId === hazastarsId) return { szerep: "HAZASTARS", indok: "A családfő házastársa (rögzített házasság)", tagok };
-    if (!csaladfo) return { szerep: "CSALADFO", indok: "A háztartásban házastársával él, családfő még nincs", tagok };
+    if (csaladfo?.personId === hazastarsId) return { szerep: "HAZASTARS", indok: "A család fejének házastársa (rögzített házasság)", tagok };
+    if (!csaladfo) return { szerep: "CSALADFO", indok: "A háztartásban házastársával él, a család feje még nincs rögzítve", tagok };
   }
   if (gyermeki.length > 0) {
-    if (!csaladfo) return { szerep: "CSALADFO", indok: "A háztartás tagjának szülője, családfő még nincs", tagok };
+    if (!csaladfo) return { szerep: "CSALADFO", indok: "A háztartás tagjának szülője, a család feje még nincs rögzítve", tagok };
     if (!gyermeki.some((g) => g.childId === csaladfo.personId)) {
-      return { szerep: "HAZASTARS", indok: "A családfő gyermekének másik szülője", tagok };
+      return { szerep: "HAZASTARS", indok: "A család fejének gyermekéhez tartozó másik szülő", tagok };
     }
-    return { szerep: null, indok: "A családfő szülője - nem egyértelmű (szülő/nagyszülő)", tagok };
+    return { szerep: null, indok: "A család fejének szülője - nem egyértelmű (szülő/nagyszülő)", tagok };
   }
 
   // (3) kor és nem alapján
@@ -190,11 +191,11 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
 
   const kulonbseg = fejKor - kor; // pozitív: az új tag fiatalabb a családfőnél
   if (kulonbseg >= GYERMEK_MIN_KORKULONBSEG && kulonbseg <= GYERMEK_MAX_KORKULONBSEG) {
-    return { szerep: "GYERMEK", indok: `A családfőnél ${kulonbseg} évvel fiatalabb`, tagok };
+    return { szerep: "GYERMEK", indok: `A család fejénél ${kulonbseg} évvel fiatalabb`, tagok };
   }
   const vanHazastars = elok.some((m) => m.szerep === "HAZASTARS");
   if (Math.abs(kulonbseg) < GYERMEK_MIN_KORKULONBSEG && fej.nem !== person.nem && !vanHazastars) {
-    return { szerep: "HAZASTARS", indok: "A családfővel hasonló korú, ellenkező nemű, és még nincs házastárs rögzítve", tagok };
+    return { szerep: "HAZASTARS", indok: "A család fejével hasonló korú, ellenkező nemű, és még nincs másik szülő rögzítve", tagok };
   }
-  return { szerep: null, indok: "A kapcsolat a családfővel nem állapítható meg biztosan", tagok };
+  return { szerep: null, indok: "A kapcsolat a család fejével nem állapítható meg biztosan", tagok };
 }

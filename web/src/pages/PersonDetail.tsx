@@ -192,6 +192,7 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
         <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Szerep a családban</h2>
         <SzerepKerdes
           nev={`${vezeteknev} ${keresztnev}`}
+          nem={nem}
           adat={szerepKerdes.adat}
           foglalt={saving}
           onChoose={(szerep) => cimMentes(szerepKerdes.body, szerep)}

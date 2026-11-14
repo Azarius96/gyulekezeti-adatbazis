@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
 import { useReloadOnPayment } from "../context/PaymentSessionContext";
-import { memberHighlight, reszfizetesSzoveg, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
+import { memberHighlight, reszfizetesSzoveg, szerepNev, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 
@@ -40,25 +40,34 @@ interface HouseholdView {
   members: HouseholdMemberView[];
 }
 
-const szerepLabels: Record<string, string> = {
-  CSALADFO: "családfő",
-  HAZASTARS: "házastárs",
-  GYERMEK: "gyermek",
-  EGYEB: "egyéb",
-};
-
-/** A háztartáson belüli szerep (családfő/házastárs/gyermek/egyéb) a Person saját családi
+/** A háztartáson belüli szerep (apa-anya/gyerek/egyéb) a Person saját családi
  * állapotától (nőtlen/házas/özvegy/elvált) FÜGGETLEN mező - az egyik módosítása nem
  * frissíti automatikusan a másikat, ezért ez a kis szerkesztő közvetlenül itt teszi
  * lehetővé az utólagos javítást (pl. tömeges felvétel után, amikor a pontos rokoni
  * kapcsolat még nem volt ismert). */
-function SzerepEditor({ memberId, szerep, onChanged }: { memberId: string; szerep: string; onChanged: () => void }) {
+function SzerepEditor({
+  memberId,
+  szerep,
+  nem,
+  vanMasCsaladfo,
+  onChanged,
+}: {
+  memberId: string;
+  szerep: string;
+  nem: "FERFI" | "NO";
+  /** Igaz, ha a háztartásban egy másik tag már "családfő" - ilyenkor az újonnan szülőnek jelölt a "házastárs" szerepet kapja. */
+  vanMasCsaladfo: boolean;
+  onChanged: () => void;
+}) {
   const [saving, setSaving] = useState(false);
+  const szuloE = szerep === "CSALADFO" || szerep === "HAZASTARS";
 
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const v = e.target.value;
+    const ujSzerep = v === "SZULO" ? (vanMasCsaladfo ? "HAZASTARS" : "CSALADFO") : v;
     setSaving(true);
     try {
-      await api.put(`/api/household-members/${memberId}`, { szerep: e.target.value });
+      await api.put(`/api/household-members/${memberId}`, { szerep: ujSzerep });
       onChanged();
     } finally {
       setSaving(false);
@@ -66,12 +75,10 @@ function SzerepEditor({ memberId, szerep, onChanged }: { memberId: string; szere
   }
 
   return (
-    <select value={szerep} onChange={handleChange} disabled={saving} style={{ fontSize: "var(--font-size-sm)" }}>
-      {Object.entries(szerepLabels).map(([value, label]) => (
-        <option key={value} value={value}>
-          {label}
-        </option>
-      ))}
+    <select value={szuloE ? "SZULO" : szerep} onChange={handleChange} disabled={saving} style={{ fontSize: "var(--font-size-sm)" }}>
+      <option value="SZULO">{szerepNev("CSALADFO", nem)}</option>
+      <option value="GYERMEK">{szerepNev("GYERMEK")}</option>
+      <option value="EGYEB">{szerepNev("EGYEB")}</option>
     </select>
   );
 }
@@ -167,10 +174,16 @@ export function HouseholdDetail() {
                 )}
               </Link>
               {canEdit ? (
-                <SzerepEditor memberId={m.id} szerep={m.szerep} onChanged={load} />
+                <SzerepEditor
+                  memberId={m.id}
+                  szerep={m.szerep}
+                  nem={m.person.nem}
+                  vanMasCsaladfo={household.members.some((x) => x.id !== m.id && x.szerep === "CSALADFO")}
+                  onChanged={load}
+                />
               ) : (
                 <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                  {szerepLabels[m.szerep] ?? m.szerep}
+                  {szerepNev(m.szerep, m.person.nem)}
                 </span>
               )}
               {!m.person.elhunyt && canEdit && (
