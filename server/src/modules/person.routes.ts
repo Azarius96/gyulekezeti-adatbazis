@@ -511,6 +511,8 @@ export async function personRoutes(app: FastifyInstance) {
         datuma: z.string().optional().nullable(),
         helye: z.string().optional().nullable(),
         lelkeszNeve: z.string().optional().nullable(),
+        anyakonyviSzam: z.string().optional().nullable(),
+        tanuk: z.string().optional().nullable(),
       })
       .refine((d) => (d.kulso ? !d.spouseBId : !!d.spouseBId), {
         message: "Ha meglévő személyt választ, ne jelölje külsőnek; ha külső, ne adjon meg meglévő személyt",
@@ -535,6 +537,8 @@ export async function personRoutes(app: FastifyInstance) {
         datuma: data.datuma ? new Date(data.datuma) : null,
         helye: data.helye ?? null,
         lelkeszNeve: data.lelkeszNeve ?? null,
+        anyakonyviSzam: data.anyakonyviSzam?.trim() || null,
+        tanuk: data.tanuk?.trim() || null,
       },
     });
 
@@ -545,6 +549,31 @@ export async function personRoutes(app: FastifyInstance) {
     }
 
     return marriage;
+  });
+
+  // Egy házasság anyakönyvi adatainak módosítása: esketés ideje és helye, lelkész, anyakönyvi sorszám, tanúk.
+  app.put("/api/marriages/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = z
+      .object({ datuma: optStr, helye: optStr, lelkeszNeve: optStr, anyakonyviSzam: optStr, tanuk: optStr })
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const marriage = await prisma.marriage.findUnique({ where: { id } });
+    if (!marriage) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !(await assertCanEditPerson(user, marriage.spouseAId))) return reply.code(403).send({ error: "Nincs jogosultság" });
+    const d = parsed.data;
+    const s = (v: string | null | undefined) => (v?.trim() ? v.trim() : null);
+    return prisma.marriage.update({
+      where: { id },
+      data: {
+        ...(d.datuma !== undefined ? { datuma: d.datuma ? new Date(d.datuma) : null } : {}),
+        ...(d.helye !== undefined ? { helye: s(d.helye) } : {}),
+        ...(d.lelkeszNeve !== undefined ? { lelkeszNeve: s(d.lelkeszNeve) } : {}),
+        ...(d.anyakonyviSzam !== undefined ? { anyakonyviSzam: s(d.anyakonyviSzam) } : {}),
+        ...(d.tanuk !== undefined ? { tanuk: s(d.tanuk) } : {}),
+      },
+    });
   });
 
   // Házasság lezárása: válás esetén mindkét fél (ha ismert) "elvált" státuszba kerül.

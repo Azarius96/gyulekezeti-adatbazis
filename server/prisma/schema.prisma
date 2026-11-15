@@ -329,6 +329,9 @@ model Marriage {
   datuma     DateTime?
   helye      String?
   lelkeszNeve String?
+  // A házassági anyakönyv (papír) bejegyzésének sorszáma és a tanúk nevei
+  anyakonyviSzam String?
+  tanuk      String?
   vege       DateTime? // özvegység/válás esetén
   vegeOka    MarriageVegeOka?
   deletedAt  DateTime?

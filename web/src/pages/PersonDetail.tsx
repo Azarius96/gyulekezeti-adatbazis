@@ -468,6 +468,72 @@ function HalottiReszletek({ burial, canEdit, onChanged }: { burial: Record<strin
   );
 }
 
+/** Egy házasság anyakönyvi adatai: esketés ideje, helye, sorszám, tanúk - megjelenítés és szerkesztés. */
+function HazassagSzerkeszto({ h, canEdit, onChanged }: { h: PersonDetailType["csalad"]["hazastarsak"][number]; canEdit: boolean; onChanged: () => void }) {
+  const [szerkeszt, setSzerkeszt] = useState(false);
+  const [datuma, setDatuma] = useState(h.datuma ? h.datuma.slice(0, 10) : "");
+  const [helye, setHelye] = useState(h.helye ?? "");
+  const [szam, setSzam] = useState(h.anyakonyviSzam ?? "");
+  const [tanuk, setTanuk] = useState(h.tanuk ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function mentes() {
+    setSaving(true);
+    try {
+      await api.put(`/api/marriages/${h.marriageId}`, { datuma: datuma || null, helye: helye || null, anyakonyviSzam: szam || null, tanuk: tanuk || null });
+      setSzerkeszt(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!szerkeszt) {
+    const sorok = [
+      h.datuma ? `esküvő: ${new Date(h.datuma).toLocaleDateString("hu-HU")}` : null,
+      h.helye ? `helye: ${h.helye}` : null,
+      h.anyakonyviSzam ? `sorszám: ${h.anyakonyviSzam}` : null,
+      h.tanuk ? `tanúk: ${h.tanuk}` : null,
+    ].filter(Boolean);
+    return (
+      <span className="row" style={{ alignItems: "center", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
+        {sorok.join(" · ")}
+        {canEdit && (
+          <button className="btn btn-secondary btn-sm" onClick={() => setSzerkeszt(true)}>
+            Házassági adatok
+          </button>
+        )}
+      </span>
+    );
+  }
+  return (
+    <div className="row" style={{ alignItems: "flex-end", flexBasis: "100%", padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
+      <div className="field" style={{ width: 170 }}>
+        <label>Esketés ideje</label>
+        <DateInput value={datuma} onChange={(e) => setDatuma(e.target.value)} />
+      </div>
+      <div className="field" style={{ flex: 1, minWidth: 140 }}>
+        <label>Helye</label>
+        <input value={helye} onChange={(e) => setHelye(e.target.value)} />
+      </div>
+      <div className="field" style={{ width: 130 }}>
+        <label>Sorszám</label>
+        <input value={szam} onChange={(e) => setSzam(e.target.value)} />
+      </div>
+      <div className="field" style={{ flex: 2, minWidth: 220 }}>
+        <label>Tanúk</label>
+        <input value={tanuk} onChange={(e) => setTanuk(e.target.value)} />
+      </div>
+      <button className="btn" disabled={saving} onClick={mentes}>
+        {saving ? "Mentés..." : "Mentés"}
+      </button>
+      <button className="btn btn-secondary" onClick={() => setSzerkeszt(false)}>
+        Mégse
+      </button>
+    </div>
+  );
+}
+
 function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () => void }) {
   const [kulso, setKulso] = useState(false);
   const [spouseQuery, setSpouseQuery] = useState("");
@@ -477,6 +543,8 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
   const [kulsoVallas, setKulsoVallas] = useState("");
   const [datuma, setDatuma] = useState("");
   const [helye, setHelye] = useState("");
+  const [anyakonyviSzam, setAnyakonyviSzam] = useState("");
+  const [tanuk, setTanuk] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -510,6 +578,8 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
         kulsoHazastarsVallasa: kulso ? kulsoVallas || null : null,
         datuma: datuma || null,
         helye: helye || null,
+        anyakonyviSzam: anyakonyviSzam || null,
+        tanuk: tanuk || null,
       });
       onAdded();
     } catch {
@@ -568,6 +638,14 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
           <label>Helye</label>
           <input value={helye} onChange={(e) => setHelye(e.target.value)} />
         </div>
+        <div className="field" style={{ width: 150 }}>
+          <label>Anyakönyvi sorszám</label>
+          <input value={anyakonyviSzam} onChange={(e) => setAnyakonyviSzam(e.target.value)} />
+        </div>
+      </div>
+      <div className="field">
+        <label>Tanúk (neve)</label>
+        <input value={tanuk} onChange={(e) => setTanuk(e.target.value)} />
       </div>
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       <button className="btn btn-secondary" type="submit" disabled={saving} style={{ alignSelf: "flex-start" }}>
@@ -1871,6 +1949,7 @@ export function PersonDetail() {
                           (lezárva: {new Date(h.vege).toLocaleDateString("hu-HU")})
                         </span>
                       )}
+                      <HazassagSzerkeszto h={h} canEdit={canEdit} onChanged={load} />
                       {canEdit && !h.vege && <EndMarriageButton marriageId={h.marriageId} onDone={load} />}
                       {canEdit && <DeleteMarriageButton marriageId={h.marriageId} onDone={load} />}
                     </div>

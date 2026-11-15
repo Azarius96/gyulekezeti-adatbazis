@@ -101,7 +101,7 @@ export interface FamilyOverview {
   gyermekek: (FamilyPersonRef & { linkId: string })[];
   /** A gyermekek gyermekei (számított); `szuloje`: melyik gyermekén keresztül. */
   unokak: (FamilyPersonRef & { szuloje?: string })[];
-  hazastarsak: (FamilyPersonRef & { datuma: string | null; helye: string | null; kulso: boolean; marriageId: string; vege: string | null })[];
+  hazastarsak: (FamilyPersonRef & { datuma: string | null; helye: string | null; anyakonyviSzam?: string | null; tanuk?: string | null; kulso: boolean; marriageId: string; vege: string | null })[];
   testverek: FamilyPersonRef[];
 }
 

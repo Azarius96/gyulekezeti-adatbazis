@@ -47,6 +47,8 @@ export interface FamilyOverview {
     keresztnev: string;
     datuma: Date | null;
     helye: string | null;
+    anyakonyviSzam: string | null;
+    tanuk: string | null;
     kulso: boolean;
     marriageId: string;
     vege: Date | null;
@@ -117,12 +119,14 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
         keresztnev: "(nem gyülekezeti tag)",
         datuma: m.datuma,
         helye: m.helye,
+        anyakonyviSzam: m.anyakonyviSzam,
+        tanuk: m.tanuk,
         kulso: true,
         marriageId: m.id,
         vege: m.vege,
       };
     }
-    return { ...spouse, datuma: m.datuma, helye: m.helye, kulso: false, marriageId: m.id, vege: m.vege };
+    return { ...spouse, datuma: m.datuma, helye: m.helye, anyakonyviSzam: m.anyakonyviSzam, tanuk: m.tanuk, kulso: false, marriageId: m.id, vege: m.vege };
   });
 
   const testverekRaw = szuloIds.length
