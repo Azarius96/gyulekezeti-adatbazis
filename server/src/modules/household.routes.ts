@@ -335,6 +335,26 @@ export async function householdRoutes(app: FastifyInstance) {
     return { ...updated, kapcsolatok };
   });
 
+  // A családkönyv adatai (papír): a család folyószáma és a hivatkozás a korábbi bejegyzésre (pl. "L. 100b (2)").
+  app.put("/api/households/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = z
+      .object({ csaladkonyviSzam: z.string().optional().nullable(), csaladkonyviHivatkozas: z.string().optional().nullable() })
+      .safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const household = await prisma.household.findUnique({ where: { id } });
+    if (!household) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !canEditGyulekezet(user, household.gyulekezetId)) return reply.code(403).send({ error: "Nincs jogosultság" });
+    return prisma.household.update({
+      where: { id },
+      data: {
+        ...(parsed.data.csaladkonyviSzam !== undefined ? { csaladkonyviSzam: parsed.data.csaladkonyviSzam?.trim() || null } : {}),
+        ...(parsed.data.csaladkonyviHivatkozas !== undefined ? { csaladkonyviHivatkozas: parsed.data.csaladkonyviHivatkozas?.trim() || null } : {}),
+      },
+    });
+  });
+
   // A háztartás szerepeiből (apa/anya/gyerek) a hiányzó szülő-gyermek kapcsolatok létrehozása - meglévőt nem módosít.
   app.post("/api/households/:id/kapcsolatok", async (req, reply) => {
     const { id } = req.params as { id: string };

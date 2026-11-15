@@ -201,6 +201,10 @@ model Household {
 
   members      HouseholdMember[]
 
+  // A családkönyv bejegyzése (papír): a család folyószáma és a hivatkozás a korábbi családkönyvi bejegyzésre (pl. "L. 100b (2)")
+  csaladkonyviSzam String?
+  csaladkonyviHivatkozas String?
+
   // számított/felülírható: egyező vagy vegyes vallású család
   vallasTipusManualis String? // ha a lelkész felülírja az automatikus számítást
 
@@ -249,6 +253,8 @@ model Person {
   szuletesiDatum DateTime?
   szuletesiHely String?
   vallas        String?
+  // Foglalkozás (az anyakönyvekben minden személynél szerepel)
+  foglalkozas   String?
   csaladiAllapot CsaladiAllapot?
   elhunyt       Boolean    @default(false)
   elhunytDatuma DateTime?
@@ -320,9 +326,27 @@ model Marriage {
   spouseBId  String?
   kulsoHazastarsNeve String?
   kulsoHazastarsVallasa String?
+  // A külső (nem gyülekezeti tag) házastárs további anyakönyvi adatai
+  kulsoHazastarsSzuletesiHelye String?
+  kulsoHazastarsSzuletesiDatuma DateTime?
+  kulsoHazastarsFoglalkozasa String?
+  kulsoHazastarsLakhelye String?
   datuma     DateTime?
   helye      String?
   lelkeszNeve String?
+  // A házassági anyakönyv bejegyzése (papír anyakönyv): sorszám, lapszám, a felek állása az esküvőkor
+  // (nőtlen/hajadon, özvegy, elvált), szüleik, a tanúk, a polgári házasságkötés okmánya, családkönyvi szám
+  anyakonyviSzam String?
+  lapszam    String?
+  allasA     String?
+  allasB     String?
+  szulokA    String?
+  szulokB    String?
+  tanuk      String?
+  polgariOkmanySzam String?
+  polgariOkmanyDatuma DateTime?
+  csaladkonyviSzam String?
+  jegyzet    String?
   vege       DateTime? // özvegység/válás esetén
   vegeOka    MarriageVegeOka?
   deletedAt  DateTime?
@@ -335,7 +359,22 @@ model Baptism {
   datuma      DateTime
   helye       String?
   lelkeszNeve String?
+  // Keresztszülők: neve, lakhelye, foglalkozása (ahogy az anyakönyvben áll)
   keresztszulok String?
+  // A keresztelési anyakönyv bejegyzése (papír anyakönyv): sorszám, a bejegyzés éve, lapszám, törvényes/törvénytelen,
+  // a szülők neve/vallása/foglalkozása/lakhelye, állami anyakönyvi szám, családkönyvi szám, jegyzet
+  anyakonyviSzam String?
+  anyakonyviEv   Int?
+  lapszam     String?
+  torvenyes   String?
+  szuloApaNev String?
+  szuloAnyaNev String?
+  szulokVallasa String?
+  szulokFoglalkozasa String?
+  szulokLakhelye String?
+  allamiAnyakonyviSzam String?
+  csaladkonyviSzam String?
+  jegyzet     String?
 }
 
 model Confirmation {
@@ -345,6 +384,18 @@ model Confirmation {
   datuma      DateTime
   helye       String?
   lelkeszNeve String?
+  // A konfirmáltak anyakönyvének bejegyzése (papír anyakönyv): folyószám, lapszám, a szülők, a keresztelés helye és ideje
+  // (ahogy az anyakönyvben áll), iskolai végzettség, lakcím, jegyzet
+  anyakonyviSzam String?
+  lapszam     String?
+  szuloApaNev String?
+  szuloAnyaNev String?
+  szulokVallasa String?
+  szulokFoglalkozasa String?
+  keresztelesHelyeIdeje String?
+  iskolaiVegzettseg String?
+  lakcim      String?
+  jegyzet     String?
 }
 
 // Aktuális konfirmandus-évfolyam (manuálisan karbantartott, nem korfa alapján)
@@ -489,6 +540,16 @@ model Burial {
   // Az állami (polgári) anyakönyvi hivatal által kiállított halotti anyakönyvi kivonat száma -
   // nem kötelező, mert nem minden esetben áll rendelkezésre a rögzítéskor.
   halottiAnyakonyviSzam String?
+  // A halottak anyakönyvének bejegyzése (papír anyakönyv): sorszám, lapszám, a halál oka, lakása, a szülei illetve
+  // házastársa neve és foglalkozása, az eltemető lelkész, családkönyvi szám, jegyzet (az állami anyakönyvi szám a halottiAnyakonyviSzam)
+  sorszam    String?
+  lapszam    String?
+  halalOka   String?
+  lakhely    String?
+  szuloHazastarsNeve String?
+  lelkeszNeve String?
+  csaladkonyviSzam String?
+  jegyzet    String?
   deletedAt  DateTime?
 }
 

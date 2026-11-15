@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
 import { applyWidowhoodCascade, endPositionsOnDeath } from "./family.js";
+import { szovegesSema, szovegesMezok } from "../lib/anyakonyvMezok.js";
 
 /**
  * TEMETŐ MODUL
@@ -44,6 +45,11 @@ async function getGravePriceForYear(gyulekezetId: string, year: number) {
   });
   return all[0] ?? null;
 }
+
+// A halottak anyakönyvének (papír) további mezői - mind nem kötelező
+const HALOTTI_MEZOK = ["sorszam", "lapszam", "halalOka", "lakhely", "szuloHazastarsNeve", "lelkeszNeve", "csaladkonyviSzam", "jegyzet"] as const;
+const halottiSzovegesSema = szovegesSema(HALOTTI_MEZOK);
+const halottiMezok = (src: Record<string, unknown>) => szovegesMezok(src, HALOTTI_MEZOK);
 
 export async function cemeteryRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
@@ -278,7 +284,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       datuma: z.string(),
       elhunytDatuma: z.string(),
       halottiAnyakonyviSzam: z.string().optional().nullable(),
-    });
+    }).merge(halottiSzovegesSema);
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const parcellaJelzes = parsed.data.parcellaJelzes?.trim() || null;
@@ -328,6 +334,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
         cemeteryId: sirhelyId ? null : parsed.data.cemeteryId,
         datuma,
         halottiAnyakonyviSzam: parsed.data.halottiAnyakonyviSzam || null,
+        ...halottiMezok(parsed.data),
       },
     });
 
@@ -360,7 +367,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
       datuma: z.string().optional(),
       sirhelyId: z.string().optional(),
       halottiAnyakonyviSzam: z.string().optional().nullable(),
-    });
+    }).merge(halottiSzovegesSema);
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const burial = await prisma.burial.update({
@@ -369,6 +376,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
         ...(parsed.data.datuma !== undefined ? { datuma: new Date(parsed.data.datuma) } : {}),
         ...(parsed.data.sirhelyId !== undefined ? { sirhelyId: parsed.data.sirhelyId } : {}),
         ...(parsed.data.halottiAnyakonyviSzam !== undefined ? { halottiAnyakonyviSzam: parsed.data.halottiAnyakonyviSzam || null } : {}),
+        ...halottiMezok(parsed.data),
       },
     });
     return burial;

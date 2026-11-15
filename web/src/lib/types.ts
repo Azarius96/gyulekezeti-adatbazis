@@ -174,8 +174,10 @@ export interface PersonDetail extends PersonListItem {
   nyitoTartozas: string;
   /** Kiköltözött tag: kimarad a statisztikából és a tartozók közül, a Kiköltözöttek listában szerepel. */
   elkoltozott?: boolean;
-  baptism: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
-  confirmation: { datuma: string; helye: string | null; lelkeszNeve: string | null } | null;
+  /** A keresztelés anyakönyvi bejegyzése - az összes (papír anyakönyvi) mezővel, ld. components/AnyakonyviMezok.tsx */
+  baptism: ({ datuma: string; helye: string | null; lelkeszNeve: string | null } & Record<string, unknown>) | null;
+  confirmation: ({ datuma: string; helye: string | null; lelkeszNeve: string | null } & Record<string, unknown>) | null;
+  foglalkozas?: string | null;
   positions: { id: string; tisztseg: string; kezdete: string; vege: string | null }[];
   duesPayments: { id: string; ev: number; osszeg: string; megjegyzes: string | null; createdAt: string; updatedAt: string }[];
   donations: { id: string; ev: number; osszeg: string; celja: string | null; createdAt: string; updatedAt: string }[];

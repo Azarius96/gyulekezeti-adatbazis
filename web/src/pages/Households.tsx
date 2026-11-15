@@ -11,6 +11,7 @@ import { memberHighlight, reszfizetesSzoveg, szerepNev, ownGyulekezetIds, canEdi
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
+import { MezoLista, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, uresErtekek, torzsBol } from "../components/AnyakonyviMezok";
 
 interface HouseholdMemberTag {
   id: string;
@@ -371,13 +372,12 @@ function NewPersonForm({
   const [vallas, setVallas] = useState("");
   const [gyulekezetId, setGyulekezetId] = useState(defaultGyulekezetId);
 
+  const [foglalkozas, setFoglalkozas] = useState("");
+  // Anyakönyvi bejegyzések: a papír anyakönyv összes mezője (ld. components/AnyakonyviMezok.tsx)
   const [vanKereszteles, setVanKereszteles] = useState(false);
-  const [keresztelesDatum, setKeresztelesDatum] = useState("");
-  const [keresztelesHelye, setKeresztelesHelye] = useState("");
-
+  const [keresztelesErt, setKeresztelesErt] = useState(() => uresErtekek(KERESZTELES_MEZOK));
   const [vanKonfirmacio, setVanKonfirmacio] = useState(false);
-  const [konfirmacioDatum, setKonfirmacioDatum] = useState("");
-  const [konfirmacioHelye, setKonfirmacioHelye] = useState("");
+  const [konfirmacioErt, setKonfirmacioErt] = useState(() => uresErtekek(KONFIRMACIO_MEZOK));
 
   const [vanKoltozes, setVanKoltozes] = useState(false);
   const [koltozottHonnan, setKoltozottHonnan] = useState("");
@@ -436,12 +436,9 @@ function NewPersonForm({
         szuletesiHely: szuletesiHely || null,
         vallas: vallas || null,
         gyulekezetId,
-        ...(vanKereszteles && keresztelesDatum
-          ? { kereszteles: { datuma: keresztelesDatum, helye: keresztelesHelye || null } }
-          : {}),
-        ...(vanKonfirmacio && konfirmacioDatum
-          ? { konfirmacio: { datuma: konfirmacioDatum, helye: konfirmacioHelye || null } }
-          : {}),
+        foglalkozas: foglalkozas.trim() || null,
+        ...(vanKereszteles && keresztelesErt.datuma ? { kereszteles: torzsBol(KERESZTELES_MEZOK, keresztelesErt) } : {}),
+        ...(vanKonfirmacio && konfirmacioErt.datuma ? { konfirmacio: torzsBol(KONFIRMACIO_MEZOK, konfirmacioErt) } : {}),
         ...(vanKoltozes && koltozottHonnan ? { koltozottHonnan } : {}),
         ...(vanTisztseg ? { tisztseg } : {}),
       });
@@ -515,6 +512,10 @@ function NewPersonForm({
           <label>Vallás</label>
           <input value={vallas} onChange={(e) => setVallas(e.target.value)} placeholder="pl. református" />
         </div>
+        <div className="field">
+          <label>Foglalkozás</label>
+          <input value={foglalkozas} onChange={(e) => setFoglalkozas(e.target.value)} />
+        </div>
         <div className="field" style={{ flex: 1 }}>
           <label>Gyülekezet</label>
           <select value={gyulekezetId} onChange={(e) => setGyulekezetId(e.target.value)}>
@@ -558,37 +559,15 @@ function NewPersonForm({
 
       <label className="row" style={{ fontWeight: 600 }}>
         <input type="checkbox" checked={vanKereszteles} onChange={(e) => setVanKereszteles(e.target.checked)} />
-        Keresztelés rögzítése
+        Keresztelés rögzítése (keresztelési anyakönyv)
       </label>
-      {vanKereszteles && (
-        <div className="row">
-          <div className="field">
-            <label>Keresztelés dátuma</label>
-            <DateInput value={keresztelesDatum} onChange={(e) => setKeresztelesDatum(e.target.value)} />
-          </div>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Helye</label>
-            <input value={keresztelesHelye} onChange={(e) => setKeresztelesHelye(e.target.value)} />
-          </div>
-        </div>
-      )}
+      {vanKereszteles && <MezoLista defs={KERESZTELES_MEZOK} ertekek={keresztelesErt} onChange={setKeresztelesErt} />}
 
       <label className="row" style={{ fontWeight: 600 }}>
         <input type="checkbox" checked={vanKonfirmacio} onChange={(e) => setVanKonfirmacio(e.target.checked)} />
-        Konfirmáció rögzítése
+        Konfirmáció rögzítése (konfirmáltak anyakönyve)
       </label>
-      {vanKonfirmacio && (
-        <div className="row">
-          <div className="field">
-            <label>Konfirmáció dátuma</label>
-            <DateInput value={konfirmacioDatum} onChange={(e) => setKonfirmacioDatum(e.target.value)} />
-          </div>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Helye</label>
-            <input value={konfirmacioHelye} onChange={(e) => setKonfirmacioHelye(e.target.value)} />
-          </div>
-        </div>
-      )}
+      {vanKonfirmacio && <MezoLista defs={KONFIRMACIO_MEZOK} ertekek={konfirmacioErt} onChange={setKonfirmacioErt} />}
 
       <label className="row" style={{ fontWeight: 600 }}>
         <input type="checkbox" checked={vanKoltozes} onChange={(e) => setVanKoltozes(e.target.checked)} />

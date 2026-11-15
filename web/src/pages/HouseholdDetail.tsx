@@ -37,6 +37,8 @@ interface HouseholdMemberView {
 }
 
 interface HouseholdView {
+  csaladkonyviSzam?: string | null;
+  csaladkonyviHivatkozas?: string | null;
   id: string;
   nev: string | null;
   gyulekezetId: string;
@@ -50,6 +52,50 @@ interface HouseholdView {
  * frissíti automatikusan a másikat, ezért ez a kis szerkesztő közvetlenül itt teszi
  * lehetővé az utólagos javítást (pl. tömeges felvétel után, amikor a pontos rokoni
  * kapcsolat még nem volt ismert). */
+/** A családkönyv (papír) adatai: a család folyószáma és a hivatkozás a korábbi bejegyzésre (pl. "L. 100b (2)"). */
+function CsaladkonyvSzerkeszto({ household, canEdit, onSaved }: { household: HouseholdView; canEdit: boolean; onSaved: () => void }) {
+  const [szam, setSzam] = useState(household.csaladkonyviSzam ?? "");
+  const [hivatkozas, setHivatkozas] = useState(household.csaladkonyviHivatkozas ?? "");
+  const [saving, setSaving] = useState(false);
+  const [mentve, setMentve] = useState(false);
+  const valtozott = szam !== (household.csaladkonyviSzam ?? "") || hivatkozas !== (household.csaladkonyviHivatkozas ?? "");
+
+  if (!canEdit) {
+    if (!household.csaladkonyviSzam && !household.csaladkonyviHivatkozas) return null;
+    return (
+      <div style={{ color: "var(--color-text-muted)" }}>
+        Családkönyvi folyószám: <strong>{household.csaladkonyviSzam ?? "—"}</strong>
+        {household.csaladkonyviHivatkozas ? ` · hivatkozás: ${household.csaladkonyviHivatkozas}` : ""}
+      </div>
+    );
+  }
+  async function mentes() {
+    setSaving(true);
+    try {
+      await api.put(`/api/households/${household.id}`, { csaladkonyviSzam: szam.trim() || null, csaladkonyviHivatkozas: hivatkozas.trim() || null });
+      setMentve(true);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="row" style={{ alignItems: "flex-end" }}>
+      <div className="field" style={{ width: 200 }}>
+        <label>Családkönyvi folyószám</label>
+        <input value={szam} onChange={(e) => { setSzam(e.target.value); setMentve(false); }} />
+      </div>
+      <div className="field" style={{ width: 260 }}>
+        <label>Hivatkozás a korábbi bejegyzésre</label>
+        <input value={hivatkozas} onChange={(e) => { setHivatkozas(e.target.value); setMentve(false); }} placeholder="pl. L. 100b (2)" />
+      </div>
+      <button className="btn btn-secondary" disabled={saving || !valtozott} onClick={mentes}>
+        {mentve && !valtozott ? "Mentve ✓" : "Mentés"}
+      </button>
+    </div>
+  );
+}
+
 function SzerepEditor({
   memberId,
   szerep,
@@ -141,6 +187,8 @@ export function HouseholdDetail() {
           {household.address.emeletAjto ? `, ${household.address.emeletAjto}` : ""}
         </p>
       )}
+
+      <CsaladkonyvSzerkeszto household={household} canEdit={canEdit} onSaved={load} />
 
       {canEdit && (
         <div className="row" style={{ alignItems: "center" }}>

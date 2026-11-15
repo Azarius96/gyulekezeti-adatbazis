@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
 import { SzerepRokonok } from "../components/Rokonok";
+import { MezoLista, AnyakonyviReszletek, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, HAZASSAG_MEZOK, KULSO_HAZASTARS_MEZOK, HALOTTI_MEZOK, uresErtekek, ertekekBol, torzsBol } from "../components/AnyakonyviMezok";
 import { useCsaladSzerkeszto } from "../components/CsaladSzerkeszto";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { memberHighlight, szerepNev, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
@@ -114,13 +115,10 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
     hazszam.trim() !== (regiCim?.hazszam ?? "") ||
     emeletAjto.trim() !== (regiCim?.emeletAjto ?? "");
 
-  const [keresztelesDatum, setKeresztelesDatum] = useState(toDateInput(person.baptism?.datuma));
-  const [keresztelesHelye, setKeresztelesHelye] = useState(person.baptism?.helye ?? "");
-  const [keresztelesLelkesz, setKeresztelesLelkesz] = useState(person.baptism?.lelkeszNeve ?? "");
-
-  const [konfirmacioDatum, setKonfirmacioDatum] = useState(toDateInput(person.confirmation?.datuma));
-  const [konfirmacioHelye, setKonfirmacioHelye] = useState(person.confirmation?.helye ?? "");
-  const [konfirmacioLelkesz, setKonfirmacioLelkesz] = useState(person.confirmation?.lelkeszNeve ?? "");
+  // Anyakönyvi bejegyzések: a papír anyakönyv összes mezője (ld. components/AnyakonyviMezok.tsx)
+  const [keresztelesErt, setKeresztelesErt] = useState(() => ertekekBol(KERESZTELES_MEZOK, person.baptism));
+  const [konfirmacioErt, setKonfirmacioErt] = useState(() => ertekekBol(KONFIRMACIO_MEZOK, person.confirmation));
+  const [foglalkozas, setFoglalkozas] = useState(person.foglalkozas ?? "");
 
   const csalad = useCsaladSzerkeszto(person, szuletesiDatum || null);
   const [saving, setSaving] = useState(false);
@@ -163,12 +161,9 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
         csaladiAllapot: csaladiAllapot || null,
         megjegyzes: megjegyzes || null,
         nyitoTartozas: Number(nyitoTartozas) || 0,
-        ...(keresztelesDatum
-          ? { kereszteles: { datuma: keresztelesDatum, helye: keresztelesHelye || null, lelkeszNeve: keresztelesLelkesz || null } }
-          : {}),
-        ...(konfirmacioDatum
-          ? { konfirmacio: { datuma: konfirmacioDatum, helye: konfirmacioHelye || null, lelkeszNeve: konfirmacioLelkesz || null } }
-          : {}),
+        foglalkozas: foglalkozas.trim() || null,
+        ...(keresztelesErt.datuma ? { kereszteles: torzsBol(KERESZTELES_MEZOK, keresztelesErt) } : {}),
+        ...(konfirmacioErt.datuma ? { konfirmacio: torzsBol(KONFIRMACIO_MEZOK, konfirmacioErt) } : {}),
       });
       await csalad.alkalmaz();
       const teljesCim = cimValtozott && telepules.trim() && utca.trim() && hazszam.trim();
@@ -297,6 +292,10 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           <input value={vallas} onChange={(e) => setVallas(e.target.value)} />
         </div>
         <div className="field">
+          <label>Foglalkozás</label>
+          <input value={foglalkozas} onChange={(e) => setFoglalkozas(e.target.value)} />
+        </div>
+        <div className="field">
           <label>Családi állapot</label>
           <select value={csaladiAllapot} onChange={(e) => setCsaladiAllapot(e.target.value)}>
             <option value="">— nincs megadva —</option>
@@ -311,37 +310,11 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
 
       {csalad.szerkesztoUi}
 
-      <h3 style={{ margin: "8px 0 0" }}>Keresztelés</h3>
-      <div className="row">
-        <div className="field">
-          <label>Dátum</label>
-          <DateInput value={keresztelesDatum} onChange={(e) => setKeresztelesDatum(e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Helye</label>
-          <input value={keresztelesHelye} onChange={(e) => setKeresztelesHelye(e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Lelkész neve</label>
-          <input value={keresztelesLelkesz} onChange={(e) => setKeresztelesLelkesz(e.target.value)} />
-        </div>
-      </div>
+      <h3 style={{ margin: "8px 0 0" }}>Keresztelés (keresztelési anyakönyv)</h3>
+      <MezoLista defs={KERESZTELES_MEZOK} ertekek={keresztelesErt} onChange={setKeresztelesErt} />
 
-      <h3 style={{ margin: "8px 0 0" }}>Konfirmáció</h3>
-      <div className="row">
-        <div className="field">
-          <label>Dátum</label>
-          <DateInput value={konfirmacioDatum} onChange={(e) => setKonfirmacioDatum(e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Helye</label>
-          <input value={konfirmacioHelye} onChange={(e) => setKonfirmacioHelye(e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Lelkész neve</label>
-          <input value={konfirmacioLelkesz} onChange={(e) => setKonfirmacioLelkesz(e.target.value)} />
-        </div>
-      </div>
+      <h3 style={{ margin: "8px 0 0" }}>Konfirmáció (konfirmáltak anyakönyve)</h3>
+      <MezoLista defs={KONFIRMACIO_MEZOK} ertekek={konfirmacioErt} onChange={setKonfirmacioErt} />
 
       <div className="field">
         <label>Megjegyzés</label>
@@ -433,6 +406,171 @@ function EndPositionButton({ positionId, danger, onEnded }: { positionId: string
   );
 }
 
+interface HazassagRekord extends Record<string, unknown> {
+  id: string;
+  spouseAId: string;
+  spouseBId: string | null;
+  spouseA: { id: string; vezeteknev: string; keresztnev: string };
+  spouseB: { id: string; vezeteknev: string; keresztnev: string } | null;
+}
+
+/** Egy házasság anyakönyvi adatai: olvasó nézet és szerkesztés (a papír házassági anyakönyv összes mezője). */
+function HazassagReszletek({ marriageId, canEdit }: { marriageId: string; canEdit: boolean }) {
+  const [nyitva, setNyitva] = useState(false);
+  const [rekord, setRekord] = useState<HazassagRekord | null>(null);
+  const [szerkeszt, setSzerkeszt] = useState(false);
+  const [ert, setErt] = useState(() => uresErtekek([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK]));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function betolt() {
+    api
+      .get<HazassagRekord>(`/api/marriages/${marriageId}`)
+      .then((r) => {
+        setRekord(r);
+        setErt(ertekekBol([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK], r));
+      })
+      .catch(() => setError("Nem sikerült betölteni a házasság adatait"));
+  }
+
+  async function mentes() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put(`/api/marriages/${marriageId}`, torzsBol([...HAZASSAG_MEZOK, ...(rekord?.spouseBId ? [] : KULSO_HAZASTARS_MEZOK)], ert));
+      setSzerkeszt(false);
+      betolt();
+    } catch {
+      setError("Nem sikerült menteni");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!nyitva) {
+    return (
+      <button
+        className="btn btn-secondary btn-sm"
+        onClick={() => {
+          setNyitva(true);
+          betolt();
+        }}
+      >
+        Anyakönyvi adatok
+      </button>
+    );
+  }
+  const kulso = !!rekord && !rekord.spouseBId;
+  const nevek = rekord ? `A: ${rekord.spouseA.vezeteknev} ${rekord.spouseA.keresztnev}${rekord.spouseB ? ` · B: ${rekord.spouseB.vezeteknev} ${rekord.spouseB.keresztnev}` : " · B: külső házastárs"}` : "";
+  return (
+    <div className="stack" style={{ flexBasis: "100%", gap: 8, padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <strong>Házassági anyakönyv</strong>
+        <span className="row" style={{ alignItems: "center" }}>
+          {canEdit && !szerkeszt && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setSzerkeszt(true)}>
+              Szerkesztés
+            </button>
+          )}
+          <button className="btn btn-secondary btn-sm" onClick={() => setNyitva(false)}>
+            Bezár
+          </button>
+        </span>
+      </div>
+      {nevek && <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{nevek}</span>}
+      {error && <span style={{ color: "var(--color-danger)" }}>{error}</span>}
+      {rekord && !szerkeszt && (
+        <>
+          <AnyakonyviReszletek defs={HAZASSAG_MEZOK} rekord={rekord} />
+          {kulso && <AnyakonyviReszletek defs={KULSO_HAZASTARS_MEZOK} rekord={rekord} />}
+          {Object.keys(ertekekBol(HAZASSAG_MEZOK, rekord)).every((k) => !ertekekBol(HAZASSAG_MEZOK, rekord)[k]) && <span style={{ color: "var(--color-text-muted)" }}>Még nincs anyakönyvi adat rögzítve.</span>}
+        </>
+      )}
+      {rekord && szerkeszt && (
+        <>
+          <MezoLista defs={HAZASSAG_MEZOK} ertekek={ert} onChange={setErt} />
+          {kulso && (
+            <>
+              <h4 style={{ margin: "4px 0 0" }}>A külső házastárs adatai</h4>
+              <MezoLista defs={KULSO_HAZASTARS_MEZOK} ertekek={ert} onChange={setErt} />
+            </>
+          )}
+          <div className="row">
+            <button className="btn" disabled={saving} onClick={mentes}>
+              {saving ? "Mentés..." : "Mentés"}
+            </button>
+            <button className="btn btn-secondary" onClick={() => { setSzerkeszt(false); setErt(ertekekBol([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK], rekord)); }}>
+              Mégse
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A halotti anyakönyv (papír) bejegyzésének megjelenítése és szerkesztése egy meglévő temetésnél. */
+function HalottiReszletek({ burial, canEdit, onChanged }: { burial: Record<string, unknown> & { id: string }; canEdit: boolean; onChanged: () => void }) {
+  const [szerkeszt, setSzerkeszt] = useState(false);
+  const [ert, setErt] = useState(() => ertekekBol(HALOTTI_MEZOK, burial));
+  const [halottiSzam, setHalottiSzam] = useState(String(burial.halottiAnyakonyviSzam ?? ""));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function mentes() {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put(`/api/temeto/burials/${burial.id}`, { ...torzsBol(HALOTTI_MEZOK, ert), halottiAnyakonyviSzam: halottiSzam.trim() || null });
+      setSzerkeszt(false);
+      onChanged();
+    } catch {
+      setError("Nem sikerült menteni");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!szerkeszt) {
+    return (
+      <div className="stack" style={{ gap: 8 }}>
+        <AnyakonyviReszletek defs={HALOTTI_MEZOK} rekord={burial} />
+        {canEdit && (
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ alignSelf: "flex-start" }}
+            onClick={() => {
+              setErt(ertekekBol(HALOTTI_MEZOK, burial));
+              setHalottiSzam(String(burial.halottiAnyakonyviSzam ?? ""));
+              setSzerkeszt(true);
+            }}
+          >
+            Halotti anyakönyvi adatok szerkesztése
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="field" style={{ maxWidth: 260 }}>
+        <label>Halotti anyakönyvi szám (állami)</label>
+        <input value={halottiSzam} onChange={(e) => setHalottiSzam(e.target.value)} />
+      </div>
+      <MezoLista defs={HALOTTI_MEZOK} ertekek={ert} onChange={setErt} />
+      {error && <span style={{ color: "var(--color-danger)" }}>{error}</span>}
+      <div className="row">
+        <button className="btn" disabled={saving} onClick={mentes}>
+          {saving ? "Mentés..." : "Mentés"}
+        </button>
+        <button className="btn btn-secondary" onClick={() => { setSzerkeszt(false); setErt(ertekekBol(HALOTTI_MEZOK, burial)); }}>
+          Mégse
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () => void }) {
   const [kulso, setKulso] = useState(false);
   const [spouseQuery, setSpouseQuery] = useState("");
@@ -442,6 +580,9 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
   const [kulsoVallas, setKulsoVallas] = useState("");
   const [datuma, setDatuma] = useState("");
   const [helye, setHelye] = useState("");
+  // A házassági anyakönyv további (papír) mezői és a külső házastárs adatai
+  const [reszletek, setReszletek] = useState(() => uresErtekek(HAZASSAG_MEZOK));
+  const [kulsoReszletek, setKulsoReszletek] = useState(() => uresErtekek(KULSO_HAZASTARS_MEZOK));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -473,8 +614,8 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
         spouseBId: kulso ? null : spouseId,
         kulsoHazastarsNeve: kulso ? kulsoNev || null : null,
         kulsoHazastarsVallasa: kulso ? kulsoVallas || null : null,
-        datuma: datuma || null,
-        helye: helye || null,
+        ...torzsBol(HAZASSAG_MEZOK, { ...reszletek, datuma, helye }),
+        ...(kulso ? torzsBol(KULSO_HAZASTARS_MEZOK, { ...kulsoReszletek, kulsoHazastarsNeve: kulsoNev, kulsoHazastarsVallasa: kulsoVallas }) : {}),
       });
       onAdded();
     } catch {
@@ -534,6 +675,14 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
           <input value={helye} onChange={(e) => setHelye(e.target.value)} />
         </div>
       </div>
+      <h4 style={{ margin: "4px 0 0" }}>Házassági anyakönyv (papír bejegyzés)</h4>
+      <MezoLista defs={HAZASSAG_MEZOK} ertekek={reszletek} onChange={setReszletek} kihagy={["datuma", "helye"]} />
+      {kulso && (
+        <>
+          <h4 style={{ margin: "4px 0 0" }}>A külső házastárs további adatai</h4>
+          <MezoLista defs={KULSO_HAZASTARS_MEZOK} ertekek={kulsoReszletek} onChange={setKulsoReszletek} kihagy={["kulsoHazastarsNeve", "kulsoHazastarsVallasa"]} />
+        </>
+      )}
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       <button className="btn btn-secondary" type="submit" disabled={saving} style={{ alignSelf: "flex-start" }}>
         Házasság rögzítése
@@ -1574,6 +1723,11 @@ export function PersonDetail() {
             </div>
           )}
           <div className="row">
+            {person.foglalkozas && (
+              <div>
+                <strong>Foglalkozás:</strong> {person.foglalkozas}
+              </div>
+            )}
             <div>
               <strong>Nem:</strong> {person.nem === "FERFI" ? "Férfi" : "Nő"}
             </div>
@@ -1757,6 +1911,7 @@ export function PersonDetail() {
                       <strong>Halotti anyakönyvi szám:</strong> {person.burial.halottiAnyakonyviSzam}
                     </div>
                   )}
+                  <HalottiReszletek burial={person.burial as unknown as Record<string, unknown> & { id: string }} canEdit={canEdit} onChanged={load} />
                 </>
               ) : showBurialForm ? (
                 <AddBurialForm
@@ -1790,17 +1945,13 @@ export function PersonDetail() {
 
           <div className="card stack">
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Anyakönyvi adatok</h2>
-            <div>
-              <strong>Keresztelés:</strong>{" "}
-              {person.baptism
-                ? `${new Date(person.baptism.datuma).toLocaleDateString("hu-HU")}${person.baptism.helye ? ", " + person.baptism.helye : ""}`
-                : "nincs rögzítve"}
+            <div className="stack" style={{ gap: 8 }}>
+              <strong>Keresztelés{person.baptism ? "" : ":"}</strong>
+              {person.baptism ? <AnyakonyviReszletek defs={KERESZTELES_MEZOK} rekord={person.baptism} /> : <span> nincs rögzítve</span>}
             </div>
-            <div>
-              <strong>Konfirmáció:</strong>{" "}
-              {person.confirmation
-                ? `${new Date(person.confirmation.datuma).toLocaleDateString("hu-HU")}${person.confirmation.helye ? ", " + person.confirmation.helye : ""}`
-                : "nincs rögzítve"}
+            <div className="stack" style={{ gap: 8 }}>
+              <strong>Konfirmáció{person.confirmation ? "" : ":"}</strong>
+              {person.confirmation ? <AnyakonyviReszletek defs={KONFIRMACIO_MEZOK} rekord={person.confirmation} /> : <span> nincs rögzítve</span>}
             </div>
           </div>
 
@@ -1834,6 +1985,7 @@ export function PersonDetail() {
                           (lezárva: {new Date(h.vege).toLocaleDateString("hu-HU")})
                         </span>
                       )}
+                      <HazassagReszletek marriageId={h.marriageId} canEdit={canEdit} />
                       {canEdit && !h.vege && <EndMarriageButton marriageId={h.marriageId} onDone={load} />}
                       {canEdit && <DeleteMarriageButton marriageId={h.marriageId} onDone={load} />}
                     </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { DateInput } from "./DateInput";
+import { MezoLista, HALOTTI_MEZOK, uresErtekek, torzsBol } from "./AnyakonyviMezok";
 
 /** Ennyi hónapon belül lejáró sírhelymegváltásokat jelezzük előre, hogy legyen idő
  * a megújításról dönteni vagy - lejárat után - a sírhelyet a szabályzat szerint kezelni. */
@@ -97,6 +98,8 @@ export function AddBurialForm({
   );
   const [datuma, setDatuma] = useState(new Date().toISOString().slice(0, 10));
   const [halottiAnyakonyviSzam, setHalottiAnyakonyviSzam] = useState("");
+  // A halotti anyakönyv további (papír) mezői
+  const [halottiReszletek, setHalottiReszletek] = useState(() => uresErtekek(HALOTTI_MEZOK));
   const [elfogadva, setElfogadva] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -152,6 +155,7 @@ export function AddBurialForm({
         datuma,
         elhunytDatuma,
         halottiAnyakonyviSzam: halottiAnyakonyviSzam || null,
+        ...torzsBol(HALOTTI_MEZOK, halottiReszletek),
       });
       onDone();
     } catch (err) {
@@ -245,6 +249,9 @@ export function AddBurialForm({
           </span>
         </div>
       )}
+
+      <h4 style={{ margin: "4px 0 0" }}>Halotti anyakönyv (papír bejegyzés)</h4>
+      <MezoLista defs={HALOTTI_MEZOK} ertekek={halottiReszletek} onChange={setHalottiReszletek} />
 
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       <div className="row">

@@ -7,12 +7,37 @@ import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath, javasolt
 import { ageOn } from "../lib/age.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { matchesAllWords } from "../lib/search.js";
+import { optStr, szovegesSema, szovegesMezok, datumMezok } from "../lib/anyakonyvMezok.js";
+
 
 const sacramentSchema = z.object({
   datuma: z.string(),
-  helye: z.string().optional().nullable(),
-  lelkeszNeve: z.string().optional().nullable(),
+  helye: optStr,
+  lelkeszNeve: optStr,
 });
+
+// A papír anyakönyvek bejegyzéseinek további mezői (keresztelés / konfirmáció) - mind nem kötelező
+const KERESZTELES_MEZOK = [
+  "keresztszulok", "anyakonyviSzam", "lapszam", "torvenyes", "szuloApaNev", "szuloAnyaNev", "szulokVallasa",
+  "szulokFoglalkozasa", "szulokLakhelye", "allamiAnyakonyviSzam", "csaladkonyviSzam", "jegyzet",
+] as const;
+// A házassági anyakönyv (papír) további mezői. A külső házastárs adatai csak külső házastársnál értelmezettek.
+const HAZASSAG_SZOVEG_MEZOK = [
+  "kulsoHazastarsSzuletesiHelye", "kulsoHazastarsFoglalkozasa", "kulsoHazastarsLakhelye", "anyakonyviSzam", "lapszam",
+  "allasA", "allasB", "szulokA", "szulokB", "tanuk", "polgariOkmanySzam", "csaladkonyviSzam", "jegyzet",
+] as const;
+const HAZASSAG_DATUM_MEZOK = ["kulsoHazastarsSzuletesiDatuma", "polgariOkmanyDatuma"] as const;
+const hazassagiSema = szovegesSema(HAZASSAG_SZOVEG_MEZOK).merge(szovegesSema(HAZASSAG_DATUM_MEZOK));
+function hazassagiMezok(src: Record<string, unknown>): Record<string, string | Date | null> {
+  return { ...szovegesMezok(src, HAZASSAG_SZOVEG_MEZOK), ...datumMezok(src, HAZASSAG_DATUM_MEZOK) };
+}
+const KONFIRMACIO_MEZOK = [
+  "anyakonyviSzam", "lapszam", "szuloApaNev", "szuloAnyaNev", "szulokVallasa", "szulokFoglalkozasa",
+  "keresztelesHelyeIdeje", "iskolaiVegzettseg", "lakcim", "jegyzet",
+] as const;
+const keresztelesSchema = sacramentSchema.merge(szovegesSema(KERESZTELES_MEZOK)).extend({ anyakonyviEv: z.number().int().optional().nullable() });
+const konfirmacioSchema = sacramentSchema.merge(szovegesSema(KONFIRMACIO_MEZOK));
+
 
 const personCreateSchema = z.object({
   vezeteknev: z.string().min(1),
@@ -27,8 +52,9 @@ const personCreateSchema = z.object({
   megjegyzes: z.string().optional().nullable(),
   nyitoTartozas: z.number().min(0).optional(),
   gyulekezetId: z.string().min(1),
-  kereszteles: sacramentSchema.optional().nullable(),
-  konfirmacio: sacramentSchema.optional().nullable(),
+  foglalkozas: optStr,
+  kereszteles: keresztelesSchema.optional().nullable(),
+  konfirmacio: konfirmacioSchema.optional().nullable(),
   koltozottHonnan: z.string().optional().nullable(),
   tisztseg: z.enum(["PRESBITER", "POTPRESBITER", "GONDNOK", "FOGONDNOK", "NOSZOVETSEGI_TAG"]).optional().nullable(),
 });
@@ -178,6 +204,7 @@ export async function personRoutes(app: FastifyInstance) {
         csaladiAllapot: data.csaladiAllapot ?? null,
         megjegyzes: data.megjegyzes ?? null,
         gyulekezetId: data.gyulekezetId,
+        foglalkozas: data.foglalkozas?.trim() || null,
       },
     });
 
@@ -188,6 +215,8 @@ export async function personRoutes(app: FastifyInstance) {
           datuma: new Date(data.kereszteles.datuma),
           helye: data.kereszteles.helye ?? null,
           lelkeszNeve: data.kereszteles.lelkeszNeve ?? null,
+          anyakonyviEv: data.kereszteles.anyakonyviEv ?? null,
+          ...szovegesMezok(data.kereszteles, KERESZTELES_MEZOK),
         },
       });
     }
@@ -198,6 +227,7 @@ export async function personRoutes(app: FastifyInstance) {
           datuma: new Date(data.konfirmacio.datuma),
           helye: data.konfirmacio.helye ?? null,
           lelkeszNeve: data.konfirmacio.lelkeszNeve ?? null,
+          ...szovegesMezok(data.konfirmacio, KONFIRMACIO_MEZOK),
         },
       });
     }
@@ -389,6 +419,7 @@ export async function personRoutes(app: FastifyInstance) {
           : {}),
         ...(data.megjegyzes !== undefined ? { megjegyzes: data.megjegyzes } : {}),
         ...(data.nyitoTartozas !== undefined ? { nyitoTartozas: data.nyitoTartozas } : {}),
+        ...(data.foglalkozas !== undefined ? { foglalkozas: data.foglalkozas?.trim() || null } : {}),
       },
     });
 
@@ -405,11 +436,15 @@ export async function personRoutes(app: FastifyInstance) {
           datuma: new Date(data.kereszteles.datuma),
           helye: data.kereszteles.helye ?? null,
           lelkeszNeve: data.kereszteles.lelkeszNeve ?? null,
+          anyakonyviEv: data.kereszteles.anyakonyviEv ?? null,
+          ...szovegesMezok(data.kereszteles, KERESZTELES_MEZOK),
         },
         update: {
           datuma: new Date(data.kereszteles.datuma),
           helye: data.kereszteles.helye ?? null,
           lelkeszNeve: data.kereszteles.lelkeszNeve ?? null,
+          ...(data.kereszteles.anyakonyviEv !== undefined ? { anyakonyviEv: data.kereszteles.anyakonyviEv } : {}),
+          ...szovegesMezok(data.kereszteles, KERESZTELES_MEZOK),
         },
       });
     }
@@ -421,11 +456,13 @@ export async function personRoutes(app: FastifyInstance) {
           datuma: new Date(data.konfirmacio.datuma),
           helye: data.konfirmacio.helye ?? null,
           lelkeszNeve: data.konfirmacio.lelkeszNeve ?? null,
+          ...szovegesMezok(data.konfirmacio, KONFIRMACIO_MEZOK),
         },
         update: {
           datuma: new Date(data.konfirmacio.datuma),
           helye: data.konfirmacio.helye ?? null,
           lelkeszNeve: data.konfirmacio.lelkeszNeve ?? null,
+          ...szovegesMezok(data.konfirmacio, KONFIRMACIO_MEZOK),
         },
       });
     }
@@ -485,6 +522,7 @@ export async function personRoutes(app: FastifyInstance) {
         helye: z.string().optional().nullable(),
         lelkeszNeve: z.string().optional().nullable(),
       })
+      .merge(hazassagiSema)
       .refine((d) => (d.kulso ? !d.spouseBId : !!d.spouseBId), {
         message: "Ha meglévő személyt választ, ne jelölje külsőnek; ha külső, ne adjon meg meglévő személyt",
       });
@@ -508,6 +546,7 @@ export async function personRoutes(app: FastifyInstance) {
         datuma: data.datuma ? new Date(data.datuma) : null,
         helye: data.helye ?? null,
         lelkeszNeve: data.lelkeszNeve ?? null,
+        ...hazassagiMezok(data),
       },
     });
 
@@ -518,6 +557,50 @@ export async function personRoutes(app: FastifyInstance) {
     }
 
     return marriage;
+  });
+
+  // Egy házasság részletes (anyakönyvi) adatai - a szerkesztő űrlap ezt tölti be.
+  app.get("/api/marriages/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const marriage = await prisma.marriage.findUnique({
+      where: { id },
+      include: { spouseA: { select: { id: true, vezeteknev: true, keresztnev: true } }, spouseB: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+    });
+    if (!marriage) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !(await assertCanEditPerson(user, marriage.spouseAId))) return reply.code(403).send({ error: "Nincs jogosultság" });
+    return marriage;
+  });
+
+  // Egy házasság anyakönyvi adatainak módosítása (dátum, hely, lelkész és minden papír anyakönyvi mező).
+  app.put("/api/marriages/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const schema = z.object({
+      kulsoHazastarsNeve: z.string().optional().nullable(),
+      kulsoHazastarsVallasa: z.string().optional().nullable(),
+      datuma: z.string().optional().nullable(),
+      helye: z.string().optional().nullable(),
+      lelkeszNeve: z.string().optional().nullable(),
+    }).merge(hazassagiSema);
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const marriage = await prisma.marriage.findUnique({ where: { id } });
+    if (!marriage) return reply.code(404).send({ error: "Nem található" });
+    const user = req.currentUser!;
+    if (!isAdmin(user) && !(await assertCanEditPerson(user, marriage.spouseAId))) return reply.code(403).send({ error: "Nincs jogosultság" });
+    const d = parsed.data;
+    return prisma.marriage.update({
+      where: { id },
+      data: {
+        ...(d.datuma !== undefined ? { datuma: d.datuma ? new Date(d.datuma) : null } : {}),
+        ...(d.helye !== undefined ? { helye: d.helye?.trim() || null } : {}),
+        ...(d.lelkeszNeve !== undefined ? { lelkeszNeve: d.lelkeszNeve?.trim() || null } : {}),
+        // A külső házastárs neve és vallása csak külső házastársnál módosítható
+        ...(marriage.spouseBId === null && d.kulsoHazastarsNeve !== undefined ? { kulsoHazastarsNeve: d.kulsoHazastarsNeve?.trim() || null } : {}),
+        ...(marriage.spouseBId === null && d.kulsoHazastarsVallasa !== undefined ? { kulsoHazastarsVallasa: d.kulsoHazastarsVallasa?.trim() || null } : {}),
+        ...hazassagiMezok(d),
+      },
+    });
   });
 
   // Házasság lezárása: válás esetén mindkét fél (ha ismert) "elvált" státuszba kerül.
