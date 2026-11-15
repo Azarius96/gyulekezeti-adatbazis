@@ -143,7 +143,7 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { nem: true, szuletesiDatum: true } });
   const most = new Date();
   const tagsagok = await prisma.householdMember.findMany({
-    where: { householdId, vege: null, personId: { not: personId } },
+    where: { householdId, vege: null, personId: { not: personId }, person: { deletedAt: null } },
     include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true } } },
   });
   const elok = tagsagok.filter((m) => !m.person.elhunyt);
@@ -202,10 +202,10 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
 
 // ---------- Háztartási szerepekből szülő-gyermek kapcsolatok ----------
 
-/** A szülő és a gyermek közötti elfogadható korkülönbség (év): anyánál 16-47, apánál 16-60. Ezen kívül (pl. nagyszülő-unoka) nem hozunk létre kapcsolatot. */
+/** A szülő és a gyermek közötti elfogadható korkülönbség (év): anyánál 16-47, apánál 16-50. Ezen kívül (pl. nagyszülő-unoka) nem hozunk létre kapcsolatot. */
 const SZULO_MIN_KORKULONBSEG = 16;
 const ANYA_MAX_KORKULONBSEG = 47;
-const APA_MAX_KORKULONBSEG = 60;
+const APA_MAX_KORKULONBSEG = 50;
 
 /**
  * A háztartás szerepeiből (apa/anya = családfő és házastárs, gyerek) létrehozza a hiányzó szülő-gyermek kapcsolatokat:
@@ -216,7 +216,7 @@ const APA_MAX_KORKULONBSEG = 60;
  */
 export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ letrehozva: number; kihagyva: string[] }> {
   const tagok = await prisma.householdMember.findMany({
-    where: { householdId, vege: null },
+    where: { householdId, vege: null, person: { deletedAt: null } },
     include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
   });
   const elok = tagok.filter((m) => !m.person.elkoltozott);

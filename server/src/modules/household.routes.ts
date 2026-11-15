@@ -84,7 +84,7 @@ export async function householdRoutes(app: FastifyInstance) {
       include: {
         address: true,
         // Csak a jelenlegi tagok: a lezárt tagságú és az elköltözött (kiköltözött) tagok nem szerepelnek a családban
-        members: { where: { vege: null, person: { elkoltozott: false } }, include: { person: { select: memberPersonSelect } } },
+        members: { where: { vege: null, person: { deletedAt: null, elkoltozott: false } }, include: { person: { select: memberPersonSelect } } },
       },
     });
     if (!household) return reply.code(404).send({ error: "Nem található" });
@@ -137,7 +137,7 @@ export async function householdRoutes(app: FastifyInstance) {
       include: {
         address: true,
         // Csak a jelenlegi tagok: a lezárt tagságú és az elköltözött (kiköltözött) tagok nem szerepelnek a családban
-        members: { where: { vege: null, person: { elkoltozott: false } }, include: { person: { select: memberPersonSelect } } },
+        members: { where: { vege: null, person: { deletedAt: null, elkoltozott: false } }, include: { person: { select: memberPersonSelect } } },
       },
     });
     // Az a háztartás, amelynek már nincs aktív tagja (mindenki elköltözött), nem szerepel a listában

@@ -135,7 +135,7 @@ async function computeLelekszamAdatok(gyulekezetId: string, ev: number) {
       select: {
         vallasTipusManualis: true,
         members: {
-          where: { vege: null, person: { elkoltozott: false } },
+          where: { vege: null, person: { deletedAt: null, elkoltozott: false } },
           select: {
             person: {
               select: {

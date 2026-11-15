@@ -135,7 +135,7 @@ export async function personRoutes(app: FastifyInstance) {
         baptism: true,
         confirmation: true,
         householdMemberships: {
-          include: { household: { include: { address: true, _count: { select: { members: { where: { vege: null } } } } } } },
+          include: { household: { include: { address: true, _count: { select: { members: { where: { vege: null, person: { deletedAt: null, elkoltozott: false } } } } } } } },
         },
         positions: true,
         duesPayments: { where: { deletedAt: null }, orderBy: { ev: "desc" } },
@@ -262,7 +262,7 @@ export async function personRoutes(app: FastifyInstance) {
       // A költöző tagok: csak ő, vagy a háztartás összes (élő) aktív tagja
       const tagsagok = own
         ? data.egeszHaztartas
-          ? await prisma.householdMember.findMany({ where: { householdId: own.householdId, vege: null }, include: { person: true, household: { include: { address: true } } } })
+          ? await prisma.householdMember.findMany({ where: { householdId: own.householdId, vege: null, person: { deletedAt: null } }, include: { person: true, household: { include: { address: true } } } })
           : await prisma.householdMember.findMany({ where: { id: own.id }, include: { person: true, household: { include: { address: true } } } })
         : [];
       const ujCim = vanCim ? [data.telepules, `${data.utca} ${data.hazszam}${data.emeletAjto ? `, ${data.emeletAjto}` : ""}`].join(", ") : "ismeretlen";
@@ -314,7 +314,7 @@ export async function personRoutes(app: FastifyInstance) {
     let szerep: "CSALADFO" | "HAZASTARS" | "GYERMEK" | "EGYEB" | null = null;
     let szerepIndok = "";
     if (egyediBesorolas) {
-      const vanMasTag = target ? (await prisma.householdMember.count({ where: { householdId: target.id, vege: null, personId: { not: id } } })) > 0 : false;
+      const vanMasTag = target ? (await prisma.householdMember.count({ where: { householdId: target.id, vege: null, personId: { not: id }, person: { deletedAt: null, elkoltozott: false } } })) > 0 : false;
       if (data.szerep) {
         szerep = data.szerep;
         szerepIndok = "Megadott szerep";
