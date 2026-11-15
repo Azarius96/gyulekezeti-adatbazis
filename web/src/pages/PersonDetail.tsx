@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
 import { SzerepRokonok } from "../components/Rokonok";
-import { MezoLista, AnyakonyviReszletek, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, HAZASSAG_MEZOK, KULSO_HAZASTARS_MEZOK, HALOTTI_MEZOK, uresErtekek, ertekekBol, torzsBol } from "../components/AnyakonyviMezok";
+import { MezoLista, AnyakonyviReszletek, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, HALOTTI_MEZOK, ertekekBol, torzsBol } from "../components/AnyakonyviMezok";
 import { useCsaladSzerkeszto } from "../components/CsaladSzerkeszto";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { memberHighlight, szerepNev, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
@@ -406,109 +406,6 @@ function EndPositionButton({ positionId, danger, onEnded }: { positionId: string
   );
 }
 
-interface HazassagRekord extends Record<string, unknown> {
-  id: string;
-  spouseAId: string;
-  spouseBId: string | null;
-  spouseA: { id: string; vezeteknev: string; keresztnev: string };
-  spouseB: { id: string; vezeteknev: string; keresztnev: string } | null;
-}
-
-/** Egy házasság anyakönyvi adatai: olvasó nézet és szerkesztés (a papír házassági anyakönyv összes mezője). */
-function HazassagReszletek({ marriageId, canEdit }: { marriageId: string; canEdit: boolean }) {
-  const [nyitva, setNyitva] = useState(false);
-  const [rekord, setRekord] = useState<HazassagRekord | null>(null);
-  const [szerkeszt, setSzerkeszt] = useState(false);
-  const [ert, setErt] = useState(() => uresErtekek([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK]));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function betolt() {
-    api
-      .get<HazassagRekord>(`/api/marriages/${marriageId}`)
-      .then((r) => {
-        setRekord(r);
-        setErt(ertekekBol([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK], r));
-      })
-      .catch(() => setError("Nem sikerült betölteni a házasság adatait"));
-  }
-
-  async function mentes() {
-    setSaving(true);
-    setError(null);
-    try {
-      await api.put(`/api/marriages/${marriageId}`, torzsBol([...HAZASSAG_MEZOK, ...(rekord?.spouseBId ? [] : KULSO_HAZASTARS_MEZOK)], ert));
-      setSzerkeszt(false);
-      betolt();
-    } catch {
-      setError("Nem sikerült menteni");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!nyitva) {
-    return (
-      <button
-        className="btn btn-secondary btn-sm"
-        onClick={() => {
-          setNyitva(true);
-          betolt();
-        }}
-      >
-        Anyakönyvi adatok
-      </button>
-    );
-  }
-  const kulso = !!rekord && !rekord.spouseBId;
-  const nevek = rekord ? `A: ${rekord.spouseA.vezeteknev} ${rekord.spouseA.keresztnev}${rekord.spouseB ? ` · B: ${rekord.spouseB.vezeteknev} ${rekord.spouseB.keresztnev}` : " · B: külső házastárs"}` : "";
-  return (
-    <div className="stack" style={{ flexBasis: "100%", gap: 8, padding: "12px 14px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <strong>Házassági anyakönyv</strong>
-        <span className="row" style={{ alignItems: "center" }}>
-          {canEdit && !szerkeszt && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setSzerkeszt(true)}>
-              Szerkesztés
-            </button>
-          )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setNyitva(false)}>
-            Bezár
-          </button>
-        </span>
-      </div>
-      {nevek && <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>{nevek}</span>}
-      {error && <span style={{ color: "var(--color-danger)" }}>{error}</span>}
-      {rekord && !szerkeszt && (
-        <>
-          <AnyakonyviReszletek defs={HAZASSAG_MEZOK} rekord={rekord} />
-          {kulso && <AnyakonyviReszletek defs={KULSO_HAZASTARS_MEZOK} rekord={rekord} />}
-          {Object.keys(ertekekBol(HAZASSAG_MEZOK, rekord)).every((k) => !ertekekBol(HAZASSAG_MEZOK, rekord)[k]) && <span style={{ color: "var(--color-text-muted)" }}>Még nincs anyakönyvi adat rögzítve.</span>}
-        </>
-      )}
-      {rekord && szerkeszt && (
-        <>
-          <MezoLista defs={HAZASSAG_MEZOK} ertekek={ert} onChange={setErt} />
-          {kulso && (
-            <>
-              <h4 style={{ margin: "4px 0 0" }}>A külső házastárs adatai</h4>
-              <MezoLista defs={KULSO_HAZASTARS_MEZOK} ertekek={ert} onChange={setErt} />
-            </>
-          )}
-          <div className="row">
-            <button className="btn" disabled={saving} onClick={mentes}>
-              {saving ? "Mentés..." : "Mentés"}
-            </button>
-            <button className="btn btn-secondary" onClick={() => { setSzerkeszt(false); setErt(ertekekBol([...HAZASSAG_MEZOK, ...KULSO_HAZASTARS_MEZOK], rekord)); }}>
-              Mégse
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 /** A halotti anyakönyv (papír) bejegyzésének megjelenítése és szerkesztése egy meglévő temetésnél. */
 function HalottiReszletek({ burial, canEdit, onChanged }: { burial: Record<string, unknown> & { id: string }; canEdit: boolean; onChanged: () => void }) {
   const [szerkeszt, setSzerkeszt] = useState(false);
@@ -580,9 +477,6 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
   const [kulsoVallas, setKulsoVallas] = useState("");
   const [datuma, setDatuma] = useState("");
   const [helye, setHelye] = useState("");
-  // A házassági anyakönyv további (papír) mezői és a külső házastárs adatai
-  const [reszletek, setReszletek] = useState(() => uresErtekek(HAZASSAG_MEZOK));
-  const [kulsoReszletek, setKulsoReszletek] = useState(() => uresErtekek(KULSO_HAZASTARS_MEZOK));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -614,8 +508,8 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
         spouseBId: kulso ? null : spouseId,
         kulsoHazastarsNeve: kulso ? kulsoNev || null : null,
         kulsoHazastarsVallasa: kulso ? kulsoVallas || null : null,
-        ...torzsBol(HAZASSAG_MEZOK, { ...reszletek, datuma, helye }),
-        ...(kulso ? torzsBol(KULSO_HAZASTARS_MEZOK, { ...kulsoReszletek, kulsoHazastarsNeve: kulsoNev, kulsoHazastarsVallasa: kulsoVallas }) : {}),
+        datuma: datuma || null,
+        helye: helye || null,
       });
       onAdded();
     } catch {
@@ -675,14 +569,6 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
           <input value={helye} onChange={(e) => setHelye(e.target.value)} />
         </div>
       </div>
-      <h4 style={{ margin: "4px 0 0" }}>Házassági anyakönyv (papír bejegyzés)</h4>
-      <MezoLista defs={HAZASSAG_MEZOK} ertekek={reszletek} onChange={setReszletek} kihagy={["datuma", "helye"]} />
-      {kulso && (
-        <>
-          <h4 style={{ margin: "4px 0 0" }}>A külső házastárs további adatai</h4>
-          <MezoLista defs={KULSO_HAZASTARS_MEZOK} ertekek={kulsoReszletek} onChange={setKulsoReszletek} kihagy={["kulsoHazastarsNeve", "kulsoHazastarsVallasa"]} />
-        </>
-      )}
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       <button className="btn btn-secondary" type="submit" disabled={saving} style={{ alignSelf: "flex-start" }}>
         Házasság rögzítése
@@ -1985,7 +1871,6 @@ export function PersonDetail() {
                           (lezárva: {new Date(h.vege).toLocaleDateString("hu-HU")})
                         </span>
                       )}
-                      <HazassagReszletek marriageId={h.marriageId} canEdit={canEdit} />
                       {canEdit && !h.vege && <EndMarriageButton marriageId={h.marriageId} onDone={load} />}
                       {canEdit && <DeleteMarriageButton marriageId={h.marriageId} onDone={load} />}
                     </div>

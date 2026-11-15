@@ -326,27 +326,9 @@ model Marriage {
   spouseBId  String?
   kulsoHazastarsNeve String?
   kulsoHazastarsVallasa String?
-  // A külső (nem gyülekezeti tag) házastárs további anyakönyvi adatai
-  kulsoHazastarsSzuletesiHelye String?
-  kulsoHazastarsSzuletesiDatuma DateTime?
-  kulsoHazastarsFoglalkozasa String?
-  kulsoHazastarsLakhelye String?
   datuma     DateTime?
   helye      String?
   lelkeszNeve String?
-  // A házassági anyakönyv bejegyzése (papír anyakönyv): sorszám, lapszám, a felek állása az esküvőkor
-  // (nőtlen/hajadon, özvegy, elvált), szüleik, a tanúk, a polgári házasságkötés okmánya, családkönyvi szám
-  anyakonyviSzam String?
-  lapszam    String?
-  allasA     String?
-  allasB     String?
-  szulokA    String?
-  szulokB    String?
-  tanuk      String?
-  polgariOkmanySzam String?
-  polgariOkmanyDatuma DateTime?
-  csaladkonyviSzam String?
-  jegyzet    String?
   vege       DateTime? // özvegység/válás esetén
   vegeOka    MarriageVegeOka?
   deletedAt  DateTime?

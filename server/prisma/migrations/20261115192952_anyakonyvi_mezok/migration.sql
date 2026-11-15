@@ -13,8 +13,7 @@ ADD COLUMN     "szulokVallasa" TEXT,
 ADD COLUMN     "torvenyes" TEXT;
 
 -- AlterTable
-ALTER TABLE "Burial" ADD COLUMN     "allamiAnyakonyviSzam" TEXT,
-ADD COLUMN     "csaladkonyviSzam" TEXT,
+ALTER TABLE "Burial" ADD COLUMN     "csaladkonyviSzam" TEXT,
 ADD COLUMN     "halalOka" TEXT,
 ADD COLUMN     "jegyzet" TEXT,
 ADD COLUMN     "lakhely" TEXT,
@@ -38,23 +37,6 @@ ADD COLUMN     "szulokVallasa" TEXT;
 -- AlterTable
 ALTER TABLE "Household" ADD COLUMN     "csaladkonyviHivatkozas" TEXT,
 ADD COLUMN     "csaladkonyviSzam" TEXT;
-
--- AlterTable
-ALTER TABLE "Marriage" ADD COLUMN     "allasA" TEXT,
-ADD COLUMN     "allasB" TEXT,
-ADD COLUMN     "anyakonyviSzam" TEXT,
-ADD COLUMN     "csaladkonyviSzam" TEXT,
-ADD COLUMN     "jegyzet" TEXT,
-ADD COLUMN     "kulsoHazastarsFoglalkozasa" TEXT,
-ADD COLUMN     "kulsoHazastarsLakhelye" TEXT,
-ADD COLUMN     "kulsoHazastarsSzuletesiDatuma" TIMESTAMP(3),
-ADD COLUMN     "kulsoHazastarsSzuletesiHelye" TEXT,
-ADD COLUMN     "lapszam" TEXT,
-ADD COLUMN     "polgariOkmanyDatuma" TIMESTAMP(3),
-ADD COLUMN     "polgariOkmanySzam" TEXT,
-ADD COLUMN     "szulokA" TEXT,
-ADD COLUMN     "szulokB" TEXT,
-ADD COLUMN     "tanuk" TEXT;
 
 -- AlterTable
 ALTER TABLE "Person" ADD COLUMN     "foglalkozas" TEXT;

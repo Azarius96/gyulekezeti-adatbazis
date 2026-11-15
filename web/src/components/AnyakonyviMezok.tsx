@@ -49,33 +49,6 @@ export const KONFIRMACIO_MEZOK: MezoDef[] = [
   { kulcs: "jegyzet", felirat: "Jegyzet", tipus: "hosszu" },
 ];
 
-export const HAZASSAG_MEZOK: MezoDef[] = [
-  { kulcs: "datuma", felirat: "Esketés ideje", tipus: "datum", szelesseg: 170 },
-  { kulcs: "anyakonyviSzam", felirat: "Sorszám", szelesseg: 110 },
-  { kulcs: "lapszam", felirat: "Lapszám", szelesseg: 110 },
-  { kulcs: "helye", felirat: "Esketés helye" },
-  { kulcs: "lelkeszNeve", felirat: "Összeeskető lelkész" },
-  { kulcs: "allasA", felirat: "Az „A” fél állása (nőtlen/hajadon, özvegy, elvált)", szelesseg: 230 },
-  { kulcs: "allasB", felirat: "A „B” fél állása (nőtlen/hajadon, özvegy, elvált)", szelesseg: 230 },
-  { kulcs: "szulokA", felirat: "Az „A” fél szülei (neve, vallása, foglalkozása)", tipus: "hosszu" },
-  { kulcs: "szulokB", felirat: "A „B” fél szülei (neve, vallása, foglalkozása)", tipus: "hosszu" },
-  { kulcs: "tanuk", felirat: "Tanúk (neve, vallása, foglalkozása)", tipus: "hosszu" },
-  { kulcs: "polgariOkmanySzam", felirat: "Polgári házasságkötést igazoló okmány száma", szelesseg: 240 },
-  { kulcs: "polgariOkmanyDatuma", felirat: "Okmány kelte", tipus: "datum", szelesseg: 170 },
-  { kulcs: "csaladkonyviSzam", felirat: "Családkönyvi szám", szelesseg: 160 },
-  { kulcs: "jegyzet", felirat: "Jegyzet", tipus: "hosszu" },
-];
-
-/** A külső (nem gyülekezeti tag) házastárs adatai a házassági anyakönyvben. */
-export const KULSO_HAZASTARS_MEZOK: MezoDef[] = [
-  { kulcs: "kulsoHazastarsNeve", felirat: "Neve" },
-  { kulcs: "kulsoHazastarsVallasa", felirat: "Vallása", szelesseg: 150 },
-  { kulcs: "kulsoHazastarsSzuletesiHelye", felirat: "Születési helye" },
-  { kulcs: "kulsoHazastarsSzuletesiDatuma", felirat: "Születési ideje", tipus: "datum", szelesseg: 170 },
-  { kulcs: "kulsoHazastarsFoglalkozasa", felirat: "Foglalkozása" },
-  { kulcs: "kulsoHazastarsLakhelye", felirat: "Lakhelye" },
-];
-
 /** A temetési (halotti) anyakönyv mezői - a halál és a temetés ideje a temetés-rögzítő űrlap saját mezői. */
 export const HALOTTI_MEZOK: MezoDef[] = [
   { kulcs: "sorszam", felirat: "Halotti anyakönyvi sorszám", szelesseg: 180 },
