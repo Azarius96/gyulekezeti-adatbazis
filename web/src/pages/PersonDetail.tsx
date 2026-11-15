@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
 import { SzerepRokonok } from "../components/Rokonok";
+import { useCsaladSzerkeszto } from "../components/CsaladSzerkeszto";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { memberHighlight, szerepNev, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
@@ -121,6 +122,7 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
   const [konfirmacioHelye, setKonfirmacioHelye] = useState(person.confirmation?.helye ?? "");
   const [konfirmacioLelkesz, setKonfirmacioLelkesz] = useState(person.confirmation?.lelkeszNeve ?? "");
 
+  const csalad = useCsaladSzerkeszto(person, szuletesiDatum || null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ha a rendszer nem tudja megállapítani, mi a személy szerepe az új címen élő családban, rákérdez (a többi módosítás ekkor már mentve van).
@@ -168,6 +170,7 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           ? { konfirmacio: { datuma: konfirmacioDatum, helye: konfirmacioHelye || null, lelkeszNeve: konfirmacioLelkesz || null } }
           : {}),
       });
+      await csalad.alkalmaz();
       const teljesCim = cimValtozott && telepules.trim() && utca.trim() && hazszam.trim();
       if (koltozott || teljesCim) {
         setSaving(false);
@@ -305,6 +308,8 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           </select>
         </div>
       </div>
+
+      {csalad.szerkesztoUi}
 
       <h3 style={{ margin: "8px 0 0" }}>Keresztelés</h3>
       <div className="row">

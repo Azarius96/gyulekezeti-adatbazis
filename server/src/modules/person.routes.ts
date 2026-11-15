@@ -446,6 +446,11 @@ export async function personRoutes(app: FastifyInstance) {
     ) {
       return reply.code(403).send({ error: "Nincs jogosultság" });
     }
+    if (parsed.data.parentId === parsed.data.childId) return reply.code(400).send({ error: "Valaki nem lehet a saját szülője" });
+    const fordito = await prisma.familyLink.findFirst({ where: { parentId: parsed.data.childId, childId: parsed.data.parentId } });
+    if (fordito) return reply.code(400).send({ error: "Ez a kapcsolat ellentmond egy meglévőnek (fordított szülő-gyermek viszony)" });
+    const letezo = await prisma.familyLink.findFirst({ where: parsed.data });
+    if (letezo) return letezo;
     const link = await prisma.familyLink.create({ data: parsed.data });
     return link;
   });

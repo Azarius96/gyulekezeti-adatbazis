@@ -2,10 +2,13 @@ import { prisma } from "../lib/prisma.js";
 import { ageOn } from "../lib/age.js";
 
 /**
- * Ha valaki elhalálozik, a vele aktív (le nem zárt) házasságban álló házastársát
- * automatikusan özvegy státuszba állítja, és lezárja a házasságot elhalálozás okkal.
+ * Ha valaki elhalálozik, a házastársa azonnal özvegy családi állapotú lesz:
+ *  - a vele aktív (le nem zárt) házasságban álló házastárs: a házasság lezárul elhalálozás okkal;
+ *  - ha nincs rögzített házasság, de a háztartásban ő az apa/anya pár egyik tagja (családfő és házastárs szerep), a másik
+ *    szülő lesz özvegy - csak akkor, ha egyértelműen egyetlen ilyen házastársa van, és a családi állapota házas vagy nincs megadva.
  */
 export async function applyWidowhoodCascade(personId: string, deathDate: Date | null): Promise<void> {
+  await haztartasiHazastarsOzvegy(personId);
   const activeMarriages = await prisma.marriage.findMany({
     where: { OR: [{ spouseAId: personId }, { spouseBId: personId }], vege: null },
   });
@@ -270,4 +273,21 @@ export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ le
     }
   }
   return { letrehozva, kihagyva };
+}
+
+/** A háztartási szerepek (családfő + házastárs) alapján megállapított házastárs özvegyre állítása a másik elhalálozásakor. */
+async function haztartasiHazastarsOzvegy(personId: string): Promise<void> {
+  const own = await prisma.householdMember.findFirst({ where: { personId, vege: null } });
+  if (!own || (own.szerep !== "CSALADFO" && own.szerep !== "HAZASTARS")) return;
+  const masikSzerep = own.szerep === "CSALADFO" ? "HAZASTARS" : "CSALADFO";
+  const parok = await prisma.householdMember.findMany({
+    where: { householdId: own.householdId, vege: null, szerep: masikSzerep, personId: { not: personId }, person: { deletedAt: null, elhunyt: false } },
+    include: { person: { select: { id: true, csaladiAllapot: true, elkoltozott: true } } },
+  });
+  const el = parok.filter((m) => !m.person.elkoltozott);
+  if (el.length !== 1) return; // csak egyértelmű házastársnál
+  const hazastars = el[0].person;
+  if (hazastars.csaladiAllapot === null || hazastars.csaladiAllapot === "HAZAS") {
+    await prisma.person.update({ where: { id: hazastars.id }, data: { csaladiAllapot: "OZVEGY" } });
+  }
 }
