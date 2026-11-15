@@ -29,11 +29,15 @@ export async function endPositionsOnDeath(personId: string, deathDate: Date | nu
   await prisma.position.updateMany({ where: { personId, vege: null }, data: { vege: deathDate ?? new Date() } });
 }
 
+type Nem = "FERFI" | "NO";
+
 export interface FamilyOverview {
-  szulok: { id: string; vezeteknev: string; keresztnev: string; linkId: string }[];
-  nagyszulok: { id: string; vezeteknev: string; keresztnev: string }[];
-  gyermekek: { id: string; vezeteknev: string; keresztnev: string; linkId: string }[];
-  unokak: { id: string; vezeteknev: string; keresztnev: string }[];
+  szulok: { id: string; vezeteknev: string; keresztnev: string; nem: Nem; linkId: string }[];
+  /** A szülők szülei (a szülő-gyermek kapcsolatokból számítva); `ag`: melyik szülőn keresztül (apai / anyai). */
+  nagyszulok: { id: string; vezeteknev: string; keresztnev: string; nem: Nem; ag: "apai" | "anyai" }[];
+  gyermekek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem; linkId: string }[];
+  /** A gyermekek gyermekei (számítva); `szuloje`: melyik gyermekén keresztül unoka. */
+  unokak: { id: string; vezeteknev: string; keresztnev: string; nem: Nem; szuloje: string }[];
   hazastarsak: {
     id: string | null;
     vezeteknev: string;
@@ -44,10 +48,10 @@ export interface FamilyOverview {
     marriageId: string;
     vege: Date | null;
   }[];
-  testverek: { id: string; vezeteknev: string; keresztnev: string }[];
+  testverek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem }[];
 }
 
-const personSelect = { id: true, vezeteknev: true, keresztnev: true } as const;
+const personSelect = { id: true, vezeteknev: true, keresztnev: true, nem: true } as const;
 
 export async function getFamilyOverview(personId: string): Promise<FamilyOverview> {
   const parentLinks = await prisma.familyLink.findMany({
@@ -63,7 +67,14 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
         include: { parent: { select: personSelect } },
       })
     : [];
-  const nagyszulok = grandparentLinks.map((l) => l.parent);
+  // Nagyszülő = a szülő szülője (apai, ha az apán, anyai, ha az anyán keresztül); ugyanaz a személy csak egyszer szerepel
+  const nagyszuloMap = new Map<string, FamilyOverview["nagyszulok"][number]>();
+  for (const l of grandparentLinks) {
+    if (nagyszuloMap.has(l.parent.id)) continue;
+    const szulo = szulok.find((s) => s.id === l.childId);
+    nagyszuloMap.set(l.parent.id, { ...l.parent, ag: szulo?.nem === "FERFI" ? "apai" : "anyai" });
+  }
+  const nagyszulok = Array.from(nagyszuloMap.values());
 
   const childLinks = await prisma.familyLink.findMany({
     where: { parentId: personId },
@@ -78,7 +89,14 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
         include: { child: { select: personSelect } },
       })
     : [];
-  const unokak = grandchildLinks.map((l) => l.child);
+  // Unoka = a gyermek gyermeke; ugyanaz a személy csak egyszer szerepel
+  const unokaMap = new Map<string, FamilyOverview["unokak"][number]>();
+  for (const l of grandchildLinks) {
+    if (unokaMap.has(l.child.id)) continue;
+    const gyermek = gyermekek.find((g) => g.id === l.parentId);
+    unokaMap.set(l.child.id, { ...l.child, szuloje: gyermek ? `${gyermek.vezeteknev} ${gyermek.keresztnev}` : "" });
+  }
+  const unokak = Array.from(unokaMap.values());
 
   const marriages = await prisma.marriage.findMany({
     where: { OR: [{ spouseAId: personId }, { spouseBId: personId }] },

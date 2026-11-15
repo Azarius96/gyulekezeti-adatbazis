@@ -98,10 +98,17 @@ export async function householdRoutes(app: FastifyInstance) {
 
     // Rokoni kapcsolatok tagonként: a gyereknek a szülei, a szülőnek a gyerekei ÉS a saját szülei is
     const tagIds = household.members.map((m) => m.personId);
+    const rokonSelect = { id: true, vezeteknev: true, keresztnev: true, nem: true } as const;
     const [szuloLinkek, gyerekLinkek] = await Promise.all([
-      prisma.familyLink.findMany({ where: { childId: { in: tagIds } }, include: { parent: { select: { id: true, vezeteknev: true, keresztnev: true } } } }),
-      prisma.familyLink.findMany({ where: { parentId: { in: tagIds } }, include: { child: { select: { id: true, vezeteknev: true, keresztnev: true } } } }),
+      prisma.familyLink.findMany({ where: { childId: { in: tagIds } }, include: { parent: { select: rokonSelect } } }),
+      prisma.familyLink.findMany({ where: { parentId: { in: tagIds } }, include: { child: { select: rokonSelect } } }),
     ]);
+    // Nagyszülők / unokák: a szülők szülei, illetve a gyermekek gyermekei (a szülő-gyermek kapcsolatokból számítva)
+    const [nagyszuloLinkek, unokaLinkek] = await Promise.all([
+      prisma.familyLink.findMany({ where: { childId: { in: szuloLinkek.map((l) => l.parentId) } }, include: { parent: { select: rokonSelect } } }),
+      prisma.familyLink.findMany({ where: { parentId: { in: gyerekLinkek.map((l) => l.childId) } }, include: { child: { select: rokonSelect } } }),
+    ]);
+    const egyedi = <T extends { id: string }>(lista: T[]) => Array.from(new Map(lista.map((x) => [x.id, x])).values());
 
     return {
       ...household,
@@ -111,6 +118,12 @@ export async function householdRoutes(app: FastifyInstance) {
         ...computeMemberDuesInfo(m.person, bandsByYear),
         szulok: szuloLinkek.filter((l) => l.childId === m.personId).map((l) => l.parent),
         gyermekek: gyerekLinkek.filter((l) => l.parentId === m.personId).map((l) => l.child),
+        nagyszulok: egyedi(
+          szuloLinkek.filter((l) => l.childId === m.personId).flatMap((sz) => nagyszuloLinkek.filter((n) => n.childId === sz.parentId).map((n) => n.parent))
+        ),
+        unokak: egyedi(
+          gyerekLinkek.filter((l) => l.parentId === m.personId).flatMap((gy) => unokaLinkek.filter((u) => u.parentId === gy.childId).map((u) => u.child))
+        ),
       })),
     };
   });

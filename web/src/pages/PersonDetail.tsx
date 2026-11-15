@@ -13,7 +13,7 @@ import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { AddBurialForm, useCemeteries } from "../components/AddBurialForm";
 
-function RelativeGroup({ title, people }: { title: string; people: FamilyPersonRef[] }) {
+function RelativeGroup({ title, people, felirat }: { title: string; people: FamilyPersonRef[]; felirat?: (p: FamilyPersonRef) => string }) {
   if (people.length === 0) return null;
   return (
     <div>
@@ -24,6 +24,7 @@ function RelativeGroup({ title, people }: { title: string; people: FamilyPersonR
         {people.map((p) => (
           <Link key={p.id} to={`/szemelyek/${p.id}`} className="btn btn-secondary btn-sm">
             {p.vezeteknev} {p.keresztnev}
+            {felirat && <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}> · {felirat(p)}</span>}
           </Link>
         ))}
       </div>
@@ -1558,7 +1559,13 @@ export function PersonDetail() {
           {currentAddressMembership && !currentAddressMembership.vege && (
             <div>
               <strong>Szerepe a családban:</strong> {szerepNev(currentAddressMembership.szerep, person.nem)}
-              <SzerepRokonok szerep={currentAddressMembership.szerep} szulok={person.csalad.szulok} gyermekek={person.csalad.gyermekek} />
+              <SzerepRokonok
+                szerep={currentAddressMembership.szerep}
+                szulok={person.csalad.szulok}
+                gyermekek={person.csalad.gyermekek}
+                nagyszulok={person.csalad.nagyszulok}
+                unokak={person.csalad.unokak}
+              />
             </div>
           )}
           <div className="row">
@@ -1795,7 +1802,11 @@ export function PersonDetail() {
           <div className="card stack">
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Család</h2>
             <RelativeGroupEditable title="Szülők" people={person.csalad.szulok} canEdit={canEdit} onDeleted={load} />
-            <RelativeGroup title="Nagyszülők" people={person.csalad.nagyszulok} />
+            <RelativeGroup
+              title="Nagyszülők (a szülők szülei)"
+              people={person.csalad.nagyszulok}
+              felirat={(p) => `${(p as (typeof person.csalad.nagyszulok)[number]).ag ?? ""} ${p.nem === "FERFI" ? "nagyapa" : "nagyanya"}`.trim()}
+            />
             {person.csalad.hazastarsak.length > 0 && (
               <div>
                 <h3 style={{ margin: "0 0 8px", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
@@ -1827,7 +1838,11 @@ export function PersonDetail() {
             )}
             <RelativeGroup title="Testvérek" people={person.csalad.testverek} />
             <RelativeGroupEditable title="Gyermekek" people={person.csalad.gyermekek} canEdit={canEdit} onDeleted={load} />
-            <RelativeGroup title="Unokák" people={person.csalad.unokak} />
+            <RelativeGroup
+              title="Unokák (a gyermekek gyermekei)"
+              people={person.csalad.unokak}
+              felirat={(p) => ((p as (typeof person.csalad.unokak)[number]).szuloje ? `${(p as (typeof person.csalad.unokak)[number]).szuloje} gyermeke` : "unoka")}
+            />
             {Object.values(person.csalad).every((arr) => arr.length === 0) && (
               <p style={{ color: "var(--color-text-muted)" }}>Nincs rögzített rokoni kapcsolat.</p>
             )}

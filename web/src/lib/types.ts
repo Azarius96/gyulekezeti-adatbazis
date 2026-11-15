@@ -91,13 +91,16 @@ export interface FamilyPersonRef {
   id: string;
   vezeteknev: string;
   keresztnev: string;
+  nem?: "FERFI" | "NO";
 }
 
 export interface FamilyOverview {
   szulok: (FamilyPersonRef & { linkId: string })[];
-  nagyszulok: FamilyPersonRef[];
+  /** A szülők szülei (számított); `ag`: apai vagy anyai. */
+  nagyszulok: (FamilyPersonRef & { ag?: "apai" | "anyai" })[];
   gyermekek: (FamilyPersonRef & { linkId: string })[];
-  unokak: FamilyPersonRef[];
+  /** A gyermekek gyermekei (számított); `szuloje`: melyik gyermekén keresztül. */
+  unokak: (FamilyPersonRef & { szuloje?: string })[];
   hazastarsak: (FamilyPersonRef & { datuma: string | null; helye: string | null; kulso: boolean; marriageId: string; vege: string | null })[];
   testverek: FamilyPersonRef[];
 }

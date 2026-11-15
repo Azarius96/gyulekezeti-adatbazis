@@ -14,6 +14,8 @@ interface HouseholdMemberView {
   szerep: string;
   szulok: RokonRef[];
   gyermekek: RokonRef[];
+  nagyszulok: RokonRef[];
+  unokak: RokonRef[];
   egyhazfenntarto: DuesResult;
   fizetveIdenre: boolean;
   idenFizetett: number;
@@ -205,7 +207,7 @@ export function HouseholdDetail() {
                   </span>
                 )}
               </Link>
-                <SzerepRokonok szerep={m.szerep} szulok={m.szulok} gyermekek={m.gyermekek} />
+                <SzerepRokonok szerep={m.szerep} szulok={m.szulok} gyermekek={m.gyermekek} nagyszulok={m.nagyszulok} unokak={m.unokak} />
               </div>
               {canEdit ? (
                 <SzerepEditor

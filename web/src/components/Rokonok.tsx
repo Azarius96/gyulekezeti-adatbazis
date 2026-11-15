@@ -4,6 +4,7 @@ export interface RokonRef {
   id: string;
   vezeteknev: string;
   keresztnev: string;
+  nem?: "FERFI" | "NO";
 }
 
 function Nevek({ cimke, emberek, ures }: { cimke: string; emberek: RokonRef[]; ures?: string }) {
@@ -28,26 +29,32 @@ function Nevek({ cimke, emberek, ures }: { cimke: string; emberek: RokonRef[]; u
 }
 
 /**
- * A háztartásbeli szerephez kötött rokonok: gyereknél a szülei, szülőnél (apa/anya) a gyerekei ÉS a saját szülei is.
- * Az adatok a szülő-gyermek kapcsolatokból jönnek (ugyanazok, mint a személy "Család" kártyáján).
+ * A személy rokonai a szülő-gyermek kapcsolatokból: szülei, gyerekei, és a SZÁMÍTOTT nagyszülei (a szülei szülei) és unokái
+ * (a gyerekei gyerekei). Gyereknél a szülei mindig látszanak (ha nincs rögzítve, azt jelezzük), szülőnél a gyerekei is.
  */
-export function SzerepRokonok({ szerep, szulok, gyermekek }: { szerep: string; szulok: RokonRef[]; gyermekek: RokonRef[] }) {
+export function SzerepRokonok({
+  szerep,
+  szulok,
+  gyermekek,
+  nagyszulok = [],
+  unokak = [],
+}: {
+  szerep: string;
+  szulok: RokonRef[];
+  gyermekek: RokonRef[];
+  nagyszulok?: RokonRef[];
+  unokak?: RokonRef[];
+}) {
   const szulo = szerep === "CSALADFO" || szerep === "HAZASTARS";
-  if (szerep === "GYERMEK") {
-    return (
-      <div style={{ fontSize: "var(--font-size-sm)", marginTop: 4 }}>
-        <Nevek cimke="Szülei" emberek={szulok} ures="nincs rögzítve" />
-      </div>
-    );
-  }
-  if (szulo) {
-    if (szulok.length === 0 && gyermekek.length === 0) return null;
-    return (
-      <div style={{ fontSize: "var(--font-size-sm)", marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 18px" }}>
-        <Nevek cimke="Gyerekei" emberek={gyermekek} ures="nincs rögzítve" />
-        <Nevek cimke="Szülei" emberek={szulok} />
-      </div>
-    );
-  }
-  return null;
+  const gyerek = szerep === "GYERMEK";
+  if (!gyerek && !szulo && szulok.length + gyermekek.length + nagyszulok.length + unokak.length === 0) return null;
+  return (
+    <div style={{ fontSize: "var(--font-size-sm)", marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 18px" }}>
+      {szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} ures="nincs rögzítve" />}
+      {!szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} />}
+      <Nevek cimke="Szülei" emberek={szulok} ures={gyerek ? "nincs rögzítve" : undefined} />
+      <Nevek cimke="Nagyszülei" emberek={nagyszulok} />
+      <Nevek cimke="Unokái" emberek={unokak} />
+    </div>
+  );
 }
