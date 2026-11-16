@@ -138,6 +138,7 @@ const L: Record<Nyelv, {
   szuletett: string; cim: string; eletkor: string; szulok: string; gyermekek: string; kereszteles: string; konfirmacio: string; cuiLabel: string;
   alulirott: string; szul: string; lakcim: string; alairas: string; egyhazfenntarto: string; rendbenFizetve: string; hianyzik: string;
   keresztszulok: string; anyakonyv: string; lap: string; lelkeszKeresztelt: string; allami: string;
+  csaladkonyv: string; hazassag: string; temetes: string; nincs: string;
 }> = {
   hu: {
     nyelvNev: "Magyar", hivatal: "Lelkészi Hivatala", iktatoszam: "Ikt. szám", targy: "Tárgy", cel: "Cél", cimzett: "Címzett", kelt: "Kelt",
@@ -147,6 +148,7 @@ const L: Record<Nyelv, {
     alulirott: "Alulírott:", szul: "szül.", lakcim: "lakcím", alairas: "aláírás",
     egyhazfenntarto: "Egyházfenntartó", rendbenFizetve: "rendben fizetve", hianyzik: "hiányzik",
     keresztszulok: "Keresztszülők", anyakonyv: "Anyakönyvi bejegyzés", lap: "lap", lelkeszKeresztelt: "Keresztelő lelkész", allami: "állami anyakönyvi szám",
+    csaladkonyv: "Családkönyv (papír)", hazassag: "Házasságkötés", temetes: "Temetés", nincs: "nincs rögzítve",
   },
   ro: {
     nyelvNev: "Română", hivatal: "Oficiul Parohial Reformat", iktatoszam: "Nr. înreg.", targy: "Subiect", cel: "Scop", cimzett: "Destinatar", kelt: "Întocmit la",
@@ -156,6 +158,7 @@ const L: Record<Nyelv, {
     alulirott: "Subsemnatul(a):", szul: "n.", lakcim: "adresa", alairas: "semnătura",
     egyhazfenntarto: "Contribuția de întreținere", rendbenFizetve: "achitată la zi", hianyzik: "restanță",
     keresztszulok: "Nași", anyakonyv: "Înregistrare în registru", lap: "pag.", lelkeszKeresztelt: "Preot oficiant", allami: "nr. certificat de naștere",
+    csaladkonyv: "Registrul de familii (pe hârtie)", hazassag: "Căsătorie", temetes: "Înmormântare", nincs: "nu este înregistrat",
   },
   en: {
     nyelvNev: "English", hivatal: "Pastoral Office", iktatoszam: "Reg. No.", targy: "Subject", cel: "Purpose", cimzett: "Addressed to", kelt: "Issued at",
@@ -165,6 +168,7 @@ const L: Record<Nyelv, {
     alulirott: "The undersigned:", szul: "b.", lakcim: "address", alairas: "signature",
     egyhazfenntarto: "Membership dues", rendbenFizetve: "paid up to date", hianyzik: "outstanding",
     keresztszulok: "Godparents", anyakonyv: "Register entry", lap: "p.", lelkeszKeresztelt: "Officiating minister", allami: "civil birth certificate no.",
+    csaladkonyv: "Family register (paper)", hazassag: "Marriage", temetes: "Funeral", nincs: "not recorded",
   },
 };
 
@@ -774,19 +778,44 @@ export function HivatalosIgazolasok() {
                   <AdatSor label={labels.cim} value={ctx.cim} />
                   <AdatSor label={labels.szulok} value={ctx.szuloNevek(nyelv) || [rec(person.baptism, "szuloApaNev") || rec(person.confirmation, "szuloApaNev"), rec(person.baptism, "szuloAnyaNev") || rec(person.confirmation, "szuloAnyaNev")].filter(Boolean).join(ES[nyelv])} />
                   <AdatSor label={labels.gyermekek} value={ctx.gyermekNevek} />
-                  <AdatSor label={labels.kereszteles} value={keresztDatum ? `${ctx.keresztelesDatum(nyelv)}${keresztHely ? `, ${keresztHely}` : ""}` : ""} />
-                  {(tipus === "kereszteles" || tipus === "konfirmacio") && anyakonyviHivatkozas(person.baptism, labels.lap) && (
-                    <AdatSor
-                      label={`${labels.kereszteles} — ${labels.anyakonyv}`}
-                      value={[anyakonyviHivatkozas(person.baptism, labels.lap), rec(person.baptism, "allamiAnyakonyviSzam") ? `(${labels.allami}: ${rec(person.baptism, "allamiAnyakonyviSzam")})` : ""].filter(Boolean).join(" ")}
-                    />
-                  )}
+                  <AdatSor
+                    label={labels.kereszteles}
+                    value={
+                      keresztDatum
+                        ? `${ctx.keresztelesDatum(nyelv)}${keresztHely ? `, ${keresztHely}` : ""} — ${labels.anyakonyv}: ${[anyakonyviHivatkozas(person.baptism, labels.lap), rec(person.baptism, "allamiAnyakonyviSzam") ? `(${labels.allami}: ${rec(person.baptism, "allamiAnyakonyviSzam")})` : ""].filter(Boolean).join(" ") || labels.nincs}`
+                        : ""
+                    }
+                  />
                   {tipus === "kereszteles" && rec(person.baptism, "keresztszulok") && <AdatSor label={labels.keresztszulok} value={rec(person.baptism, "keresztszulok")} />}
                   {tipus === "kereszteles" && rec(person.baptism, "lelkeszNeve") && <AdatSor label={labels.lelkeszKeresztelt} value={rec(person.baptism, "lelkeszNeve")} />}
-                  <AdatSor label={labels.konfirmacio} value={konfDatum ? `${ctx.konfirmacioDatum(nyelv)}${konfHely ? `, ${konfHely}` : ""}` : ""} />
-                  {tipus === "konfirmacio" && anyakonyviHivatkozas(person.confirmation, labels.lap) && (
-                    <AdatSor label={`${labels.konfirmacio} — ${labels.anyakonyv}`} value={anyakonyviHivatkozas(person.confirmation, labels.lap)} />
+                  <AdatSor
+                    label={labels.konfirmacio}
+                    value={konfDatum ? `${ctx.konfirmacioDatum(nyelv)}${konfHely ? `, ${konfHely}` : ""} — ${labels.anyakonyv}: ${anyakonyviHivatkozas(person.confirmation, labels.lap) || labels.nincs}` : ""}
+                  />
+                  {tipus === "hazassag" && (
+                    <AdatSor
+                      label={labels.hazassag}
+                      value={
+                        hazassagDatum
+                          ? `${fmtDate(hazassagDatum, nyelv)}${hazassagHelye ? `, ${hazassagHelye}` : ""}${hazastarsNev ? ` (${hazastarsNev})` : ""} — ${labels.anyakonyv}: ${anyakonyviSzam || labels.nincs}`
+                          : ""
+                      }
+                    />
                   )}
+                  {tipus === "temetes" && (
+                    <AdatSor
+                      label={labels.temetes}
+                      value={
+                        temetesDatum
+                          ? `${fmtDate(temetesDatum, nyelv)}${temetoNev ? `, ${temetoNev}` : ""} — ${labels.anyakonyv}: ${[rec(person.burial as unknown as Record<string, unknown> | null, "sorszam"), rec(person.burial as unknown as Record<string, unknown> | null, "lapszam") ? `${rec(person.burial as unknown as Record<string, unknown> | null, "lapszam")}. ${labels.lap}` : ""].filter(Boolean).join(", ") || labels.nincs}`
+                          : ""
+                      }
+                    />
+                  )}
+                  <AdatSor
+                    label={labels.csaladkonyv}
+                    value={rec(person.householdMemberships[0]?.household as unknown as Record<string, unknown> | undefined, "csaladkonyviSzam") || rec(person.baptism, "csaladkonyviSzam") || labels.nincs}
+                  />
                   <AdatSor label={labels.egyhazfenntarto} value={egyhazfenntartoSzoveg(nyelv, hianyzoEvek, person.tobbEveElmaradt)} />
                 </tbody>
               </table>
