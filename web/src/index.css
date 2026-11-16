@@ -826,7 +826,52 @@ a.row:active,
   border: 0;
 }
 
-/* Űrlapokban a mezők egymás mellett felülről igazodnak (különböző magasságú címkék/hibák ne csússzanak el) */
-form .row:has(> .field) {
+/* MEZŐ-IGAZÍTÁS (végleges szabály, minden oldalra): ha egy sorban mezők (.field) vannak, azok mindig felülről igazodnak,
+   és a címkék egysorosak (hosszú címke levágva "…"-tal, a teljes szöveg a tooltipben) - így minden mező pontosan
+   ugyanolyan magas szerkezetű (címke + beviteli mező), és a beviteli mezők soha nem csúsznak el egymáshoz képest,
+   akkor sem, ha egy címke hosszabb, vagy a sor több sorba törik. Az a sor, amelyik gombot is tartalmaz és alulra
+   akarja igazítani, ezt a sor saját `alignItems` stílusával felülírhatja. */
+.row:has(> .field) {
   align-items: flex-start;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field > label {
+  display: block;
+  min-height: 1.4em;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field > input:not([type="checkbox"]):not([type="radio"]), .field > select {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* KÉPERNYŐMÉRETHEZ IGAZODÁS: a sorban álló mezők a rendelkezésre álló szélességhez nyúlnak/zsugorodnak (a kisebb
+   képernyőn, pl. MacBookon, a beviteli mezők is kisebbek), egy sorba annyi fér, amennyi a minimális szélességgel elfér,
+   a többi alá tördelődik - így soha nem lóg ki és nem csúszik el semmi. A mező saját (inline) szélessége felülíródik. */
+.row:has(> .field) > .field:not([style*="flex-basis"]) {
+  flex: 1 1 clamp(120px, 14vw, 220px) !important;
+}
+
+.row:has(> .field) > .field {
+  min-width: 0 !important;
+  max-width: 100%;
+  width: auto !important;
+}
+
+@media (max-width: 1600px) {
+  .field input, .field select { height: 44px; padding: 10px 12px; }
+  .field textarea { padding: 10px 12px; min-height: 44px; }
+  .field > label { font-size: 12px; }
+}
+
+@media (max-width: 700px) {
+  .row:has(> .field) > .field:not([style*="flex-basis"]) { flex: 1 1 100% !important; }
 }
