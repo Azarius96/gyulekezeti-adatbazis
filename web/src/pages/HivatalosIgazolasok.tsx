@@ -137,6 +137,7 @@ const L: Record<Nyelv, {
   tisztelettel: string; lelkeszCim: string; nyomtatas: string;
   szuletett: string; cim: string; eletkor: string; szulok: string; gyermekek: string; kereszteles: string; konfirmacio: string; cuiLabel: string;
   alulirott: string; szul: string; lakcim: string; alairas: string; egyhazfenntarto: string; rendbenFizetve: string; hianyzik: string;
+  keresztszulok: string; anyakonyv: string; lap: string; lelkeszKeresztelt: string; allami: string;
 }> = {
   hu: {
     nyelvNev: "Magyar", hivatal: "Lelkészi Hivatala", iktatoszam: "Ikt. szám", targy: "Tárgy", cel: "Cél", cimzett: "Címzett", kelt: "Kelt",
@@ -145,6 +146,7 @@ const L: Record<Nyelv, {
     kereszteles: "Keresztelés", konfirmacio: "Konfirmáció", cuiLabel: "Adószám (C.U.I.)",
     alulirott: "Alulírott:", szul: "szül.", lakcim: "lakcím", alairas: "aláírás",
     egyhazfenntarto: "Egyházfenntartó", rendbenFizetve: "rendben fizetve", hianyzik: "hiányzik",
+    keresztszulok: "Keresztszülők", anyakonyv: "Anyakönyvi bejegyzés", lap: "lap", lelkeszKeresztelt: "Keresztelő lelkész", allami: "állami anyakönyvi szám",
   },
   ro: {
     nyelvNev: "Română", hivatal: "Oficiul Parohial Reformat", iktatoszam: "Nr. înreg.", targy: "Subiect", cel: "Scop", cimzett: "Destinatar", kelt: "Întocmit la",
@@ -153,6 +155,7 @@ const L: Record<Nyelv, {
     kereszteles: "Botez", konfirmacio: "Confirmare", cuiLabel: "C.U.I.",
     alulirott: "Subsemnatul(a):", szul: "n.", lakcim: "adresa", alairas: "semnătura",
     egyhazfenntarto: "Contribuția de întreținere", rendbenFizetve: "achitată la zi", hianyzik: "restanță",
+    keresztszulok: "Nași", anyakonyv: "Înregistrare în registru", lap: "pag.", lelkeszKeresztelt: "Preot oficiant", allami: "nr. certificat de naștere",
   },
   en: {
     nyelvNev: "English", hivatal: "Pastoral Office", iktatoszam: "Reg. No.", targy: "Subject", cel: "Purpose", cimzett: "Addressed to", kelt: "Issued at",
@@ -161,6 +164,7 @@ const L: Record<Nyelv, {
     kereszteles: "Baptism", konfirmacio: "Confirmation", cuiLabel: "Tax ID (C.U.I.)",
     alulirott: "The undersigned:", szul: "b.", lakcim: "address", alairas: "signature",
     egyhazfenntarto: "Membership dues", rendbenFizetve: "paid up to date", hianyzik: "outstanding",
+    keresztszulok: "Godparents", anyakonyv: "Register entry", lap: "p.", lelkeszKeresztelt: "Officiating minister", allami: "civil birth certificate no.",
   },
 };
 
@@ -277,6 +281,21 @@ interface Tenyek {
   temetoNev: string;
 }
 
+/** Szöveges mező kiolvasása egy (laza típusú) anyakönyvi rekordból. */
+function rec(o: Record<string, unknown> | null | undefined, k: string): string {
+  const v = o ? o[k] : null;
+  return typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+}
+
+/** Az anyakönyvi bejegyzés hivatkozása: "1983/4, 1. lap" (sorszám, lapszám). */
+function anyakonyviHivatkozas(o: Record<string, unknown> | null | undefined, lapJel: string): string {
+  const szam = rec(o, "anyakonyviSzam");
+  const ev = rec(o, "anyakonyviEv");
+  const lap = rec(o, "lapszam");
+  const elso = szam && ev && !szam.includes("/") ? `${szam}/${ev}` : szam;
+  return [elso, lap ? `${lap}. ${lapJel}` : ""].filter(Boolean).join(", ");
+}
+
 function buildCtx(person: PersonDetail, gyulekezet: GyulekezetFejlec, t: Tenyek): Ctx {
   const hm = person.householdMemberships[0];
   const cim = hm ? `${hm.household.address.telepules}, ${hm.household.address.utca} ${hm.household.address.hazszam}` : "";
@@ -357,6 +376,8 @@ export function HivatalosIgazolasok() {
   const [lelkeszNev, setLelkeszNev] = useState("");
   const [alapadatokLathato, setAlapadatokLathato] = useState(true);
   const [anyakonyviSzam, setAnyakonyviSzam] = useState("");
+  // Amíg a felhasználó nem írt bele, az anyakönyvi szám a kiválasztott igazolástípusnak megfelelő rögzített bejegyzésből töltődik elő.
+  const [anyakonyviKezzel, setAnyakonyviKezzel] = useState(false);
   // A leírás szövege szabadon szerkeszthető - típus-/nyelvváltáskor (és minden mögöttes adat
   // változásakor) egy javasolt alapszöveggel töltjük fel, DE amint a felhasználó belenyúl a
   // mezőbe, `leirasKezzelSzerkesztve` igazra vált, és onnantól semmi nem írja felül a kézi
@@ -410,6 +431,16 @@ export function HivatalosIgazolasok() {
     refreshLeiras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cel, indoklas, cimzett, anyakonyviSzam, keresztDatum, keresztHely, konfDatum, konfHely, hazassagDatum, hazassagHelye, hazastarsNev, elhalalozasDatum, temetesDatum, temetoNev]);
+
+  useEffect(() => {
+    if (!person || anyakonyviKezzel) return;
+    let szam = "";
+    if (tipus === "kereszteles") szam = anyakonyviHivatkozas(person.baptism, "lap").replace(/, \d+\. lap$/, "");
+    else if (tipus === "konfirmacio") szam = anyakonyviHivatkozas(person.confirmation, "lap").replace(/, \d+\. lap$/, "");
+    else if (tipus === "hazassag") szam = person.csalad.hazastarsak[person.csalad.hazastarsak.length - 1]?.anyakonyviSzam ?? "";
+    else if (tipus === "temetes") szam = rec(person.burial as unknown as Record<string, unknown> | null, "sorszam");
+    setAnyakonyviSzam(szam);
+  }, [tipus, person, anyakonyviKezzel]);
 
   useEffect(() => {
     if (!id) return;
@@ -526,7 +557,7 @@ export function HivatalosIgazolasok() {
               {(tipus === "kereszteles" || tipus === "konfirmacio" || tipus === "hazassag" || tipus === "allampolgarsag") && (
                 <div className="field" style={{ flex: 1 }}>
                   <label>Anyakönyvi szám (a helyi anyakönyv bejegyzése)</label>
-                  <input value={anyakonyviSzam} onChange={(e) => setAnyakonyviSzam(e.target.value)} placeholder="pl. 1/2008" />
+                  <input value={anyakonyviSzam} onChange={(e) => { setAnyakonyviSzam(e.target.value); setAnyakonyviKezzel(true); }} placeholder="pl. 1/2008" />
                 </div>
               )}
             </div>
@@ -738,13 +769,24 @@ export function HivatalosIgazolasok() {
             {alapadatokLathato && (
               <table style={{ marginTop: 12, borderCollapse: "collapse" }}>
                 <tbody>
-                  <AdatSor label={labels.szuletett} value={ctx.szuletesiDatum(nyelv)} />
+                  <AdatSor label={labels.szuletett} value={[ctx.szuletesiHely, ctx.szuletesiDatum(nyelv)].filter(Boolean).join(", ")} />
                   <AdatSor label={labels.eletkor} value={eletkor !== null ? EV_SUFFIX[nyelv](eletkor) : ""} />
                   <AdatSor label={labels.cim} value={ctx.cim} />
-                  <AdatSor label={labels.szulok} value={ctx.szuloNevek(nyelv)} />
+                  <AdatSor label={labels.szulok} value={ctx.szuloNevek(nyelv) || [rec(person.baptism, "szuloApaNev") || rec(person.confirmation, "szuloApaNev"), rec(person.baptism, "szuloAnyaNev") || rec(person.confirmation, "szuloAnyaNev")].filter(Boolean).join(ES[nyelv])} />
                   <AdatSor label={labels.gyermekek} value={ctx.gyermekNevek} />
                   <AdatSor label={labels.kereszteles} value={keresztDatum ? `${ctx.keresztelesDatum(nyelv)}${keresztHely ? `, ${keresztHely}` : ""}` : ""} />
+                  {(tipus === "kereszteles" || tipus === "konfirmacio") && anyakonyviHivatkozas(person.baptism, labels.lap) && (
+                    <AdatSor
+                      label={`${labels.kereszteles} — ${labels.anyakonyv}`}
+                      value={[anyakonyviHivatkozas(person.baptism, labels.lap), rec(person.baptism, "allamiAnyakonyviSzam") ? `(${labels.allami}: ${rec(person.baptism, "allamiAnyakonyviSzam")})` : ""].filter(Boolean).join(" ")}
+                    />
+                  )}
+                  {tipus === "kereszteles" && rec(person.baptism, "keresztszulok") && <AdatSor label={labels.keresztszulok} value={rec(person.baptism, "keresztszulok")} />}
+                  {tipus === "kereszteles" && rec(person.baptism, "lelkeszNeve") && <AdatSor label={labels.lelkeszKeresztelt} value={rec(person.baptism, "lelkeszNeve")} />}
                   <AdatSor label={labels.konfirmacio} value={konfDatum ? `${ctx.konfirmacioDatum(nyelv)}${konfHely ? `, ${konfHely}` : ""}` : ""} />
+                  {tipus === "konfirmacio" && anyakonyviHivatkozas(person.confirmation, labels.lap) && (
+                    <AdatSor label={`${labels.konfirmacio} — ${labels.anyakonyv}`} value={anyakonyviHivatkozas(person.confirmation, labels.lap)} />
+                  )}
                   <AdatSor label={labels.egyhazfenntarto} value={egyhazfenntartoSzoveg(nyelv, hianyzoEvek, person.tobbEveElmaradt)} />
                 </tbody>
               </table>
