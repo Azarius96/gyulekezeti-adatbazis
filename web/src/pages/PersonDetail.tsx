@@ -1596,7 +1596,12 @@ export function PersonDetail() {
 
   return (
     <div className="stack">
-      <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => navigate(-1)}>
+      <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => {
+          // A vissza gomb mindig arra a háztartásra vezet, amelyikben a személy él (ha nincs háztartása, az előző oldalra)
+          const tagsag = person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0];
+          if (tagsag) navigate(`/haztartasok/${tagsag.household.id}`);
+          else navigate(-1);
+        }}>
         &larr; Vissza
       </button>
       <div className="row">

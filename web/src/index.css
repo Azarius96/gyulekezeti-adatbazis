@@ -825,3 +825,8 @@ a.row:active,
   white-space: nowrap;
   border: 0;
 }
+
+/* Űrlapokban a mezők egymás mellett felülről igazodnak (különböző magasságú címkék/hibák ne csússzanak el) */
+form .row:has(> .field) {
+  align-items: flex-start;
+}

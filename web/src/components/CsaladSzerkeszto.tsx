@@ -1,3 +1,4 @@
+import { DateInput } from "./DateInput";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { szerepNev, type PersonDetail } from "../lib/types";
@@ -42,6 +43,10 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
   const [gyerekIds, setGyerekIds] = useState<string[]>(person.csalad.gyermekek.map((g) => g.id));
   const [jeloltek, setJeloltek] = useState<Jelolt[]>([]);
   const [masikCsaladfo, setMasikCsaladfo] = useState(false);
+  // Házastárs hozzáadása: meglévő személy a listából, vagy külső (nem gyülekezeti tag) neve
+  const [hazastarsId, setHazastarsId] = useState("");
+  const [kulsoNev, setKulsoNev] = useState("");
+  const [hazassagDatum, setHazassagDatum] = useState("");
 
   useEffect(() => {
     api
@@ -82,6 +87,15 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
       if ((eredeti?.id ?? "") === ujId) continue;
       if (eredeti) await api.delete(`/api/family-links/${eredeti.linkId}`);
       if (ujId) await api.post("/api/family-links", { parentId: ujId, childId: person.id });
+    }
+    // Új házastárs (házasság rögzítése)
+    if (hazastarsId || kulsoNev.trim()) {
+      await api.post("/api/marriages", {
+        spouseAId: person.id,
+        kulso: !hazastarsId,
+        ...(hazastarsId ? { spouseBId: hazastarsId } : { kulsoHazastarsNeve: kulsoNev.trim() }),
+        datuma: hazassagDatum || null,
+      });
     }
     // Gyerekei
     const eredetiGyerekek = person.csalad.gyermekek;
@@ -137,6 +151,44 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
               </option>
             ))}
           </select>
+        </div>
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        <label style={{ fontWeight: 600 }}>Házastársa</label>
+        {person.csalad.hazastarsak.length === 0 ? (
+          <span style={{ color: "var(--color-text-muted)" }}>Nincs rögzített házastárs.</span>
+        ) : (
+          <div className="row">
+            {person.csalad.hazastarsak.map((h, i) => (
+              <span key={i} className="badge">
+                {h.vezeteknev} {h.keresztnev}
+                {h.haztartasbol ? " (háztartási szerep alapján)" : h.vege ? " (lezárt házasság)" : ""}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="row" style={{ alignItems: "flex-start" }}>
+          <div className="field" style={{ flex: 1, minWidth: 220 }}>
+            <label>Házastárs hozzáadása</label>
+            <select value={hazastarsId} onChange={(e) => { setHazastarsId(e.target.value); if (e.target.value) setKulsoNev(""); }}>
+              <option value="">— válassz a listából —</option>
+              {ismertek
+                .filter((j) => !person.csalad.hazastarsak.some((h) => h.id === j.id))
+                .map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {jeloltCimke(j)}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="field" style={{ flex: 1, minWidth: 220 }}>
+            <label>vagy nem gyülekezeti tag neve</label>
+            <input value={kulsoNev} onChange={(e) => { setKulsoNev(e.target.value); if (e.target.value) setHazastarsId(""); }} placeholder="pl. Kovács Anna" />
+          </div>
+          <div className="field" style={{ width: 180 }}>
+            <label>Házasságkötés dátuma</label>
+            <DateInput value={hazassagDatum} onChange={(e) => setHazassagDatum(e.target.value)} />
+          </div>
         </div>
       </div>
       <div className="stack" style={{ gap: 8 }}>
