@@ -1907,7 +1907,12 @@ export function PersonDetail() {
             canEdit && <MoveToCemeteryCard personId={person.id} gyulekezetId={person.gyulekezetId} onDone={load} />
           )}
 
-          <div className="card stack">
+          <details className="card" style={{ padding: 0 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "var(--font-size-lg)", padding: "12px 16px" }}>
+              Anyakönyvi adatok, család, tisztségek
+            </summary>
+            <div className="stack" style={{ padding: "0 16px 16px", gap: 20 }}>
+          <div className="stack">
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Anyakönyvi adatok</h2>
             <div className="stack" style={{ gap: 8 }}>
               <strong>Keresztelés{person.baptism ? "" : ":"}</strong>
@@ -1919,7 +1924,7 @@ export function PersonDetail() {
             </div>
           </div>
 
-          <div className="card stack">
+          <div className="stack" style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16 }}>
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Család</h2>
             <RelativeGroupEditable title="Szülők" people={person.csalad.szulok} canEdit={canEdit} onDeleted={load} />
             <RelativeGroup
@@ -1927,6 +1932,11 @@ export function PersonDetail() {
               people={person.csalad.nagyszulok}
               felirat={(p) => `${(p as (typeof person.csalad.nagyszulok)[number]).ag ?? ""} ${p.nem === "FERFI" ? "nagyapa" : "nagyanya"}`.trim()}
             />
+            {person.csalad.szulok.length > 0 && person.csalad.nagyszulok.length === 0 && (
+              <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                Nagyszülők: nincs rögzítve - a szülő lapján a „Szülő hozzáadása" gombbal rögzítve megjelennek itt (apai/anyai nagyszülőként).
+              </p>
+            )}
             {person.csalad.hazastarsak.length > 0 && (
               <div>
                 <h3 style={{ margin: "0 0 8px", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
@@ -2011,7 +2021,7 @@ export function PersonDetail() {
             )}
           </div>
 
-          <div className="card stack">
+          <div className="stack" style={{ borderTop: "1px solid var(--color-border)", paddingTop: 16 }}>
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Tisztségek</h2>
             <p style={{ color: "var(--color-text-muted)", margin: 0, fontSize: "var(--font-size-sm)" }}>
               Egy tisztség {TISZTSEG_CIKLUS_EV} év után lejár - ha addig nincs lezárva, a rendszer jelzi, hogy
@@ -2042,6 +2052,8 @@ export function PersonDetail() {
             })}
             {canEdit && !person.elhunyt && <AddPositionForm personId={person.id} onAdded={load} />}
           </div>
+            </div>
+          </details>
 
 
           {person.megjegyzes && (

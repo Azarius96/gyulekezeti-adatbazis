@@ -80,6 +80,52 @@ function DuesBadge({ dues, becsult }: { dues: DuesResult; becsult?: boolean }) {
   );
 }
 
+const HTML_ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+const esc = (v: string) => v.replace(/[&<>"]/g, (c) => HTML_ESC[c]);
+
+/** A szűrt háztartások nyomtatható (PDF-be menthető) kimutatása: háztartásonként csoportosítva név, cím, születési dátum, életkor. */
+function korosztalyPdf(households: HouseholdView[], cim: string, gyulekezetNev: string) {
+  const fmt = (iso: string | null) => (iso ? iso.slice(0, 10).replace(/-/g, ". ") + "." : "—");
+  const sorok = households
+    .map((h) => {
+      const addr = `${h.address.iranyitoszam ? h.address.iranyitoszam + " " : ""}${h.address.telepules}, ${h.address.utca} ${h.address.hazszam}${h.address.emeletAjto ? `, ${h.address.emeletAjto}` : ""}`;
+      const tagok = h.tagok
+        .map((t) => {
+          const kor = calcAge(t.szuletesiDatum);
+          return `<tr><td>${esc(`${t.vezeteknev} ${t.keresztnev}`)}</td><td>${esc(addr)}</td><td>${fmt(t.szuletesiDatum)}</td><td class="r">${kor === null ? "—" : kor + " év"}</td></tr>`;
+        })
+        .join("");
+      return `<tbody><tr class="hh"><td colspan="4">${esc(h.nev ? `${h.nev} — ${addr}` : addr)} · ${h.tagok.length} fő</td></tr>${tagok}</tbody>`;
+    })
+    .join("");
+  const osszes = households.reduce((a, h) => a + h.tagok.length, 0);
+  const html = `<!doctype html><html lang="hu"><head><meta charset="utf-8"><title>${esc(cim)}</title><style>
+    @page { size: A4; margin: 14mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; }
+    h1 { font-size: 16px; margin: 0 0 2px; } p { margin: 0 0 8px; color: #444; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; border-bottom: 1.5px solid #000; padding: 3px 4px; }
+    td { padding: 2px 4px; border-bottom: 1px solid #ddd; vertical-align: top; } .r { text-align: right; white-space: nowrap; }
+    tr.hh td { background: #eee; font-weight: bold; border-bottom: 1px solid #999; padding-top: 4px; }
+    tbody { break-inside: avoid; }
+  </style></head><body>
+    <h1>${esc(cim)}</h1>
+    <p>${gyulekezetNev ? esc(gyulekezetNev) + " · " : ""}${osszes} fő, ${households.length} háztartás · Kelt: ${fmt(new Date().toISOString())}</p>
+    <table><thead><tr><th>Név</th><th>Cím</th><th>Születési dátum</th><th class="r">Életkor</th></tr></thead>${sorok}</table>
+  </body></html>`;
+  const frame = document.createElement("iframe");
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument;
+  if (!doc || !frame.contentWindow) { frame.remove(); return; }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  const win = frame.contentWindow;
+  win.onafterprint = () => frame.remove();
+  setTimeout(() => { win.focus(); win.print(); }, 200);
+}
+
 export function Households() {
   const { user } = useAuth();
   const [households, setHouseholds] = useState<HouseholdView[]>([]);
@@ -243,9 +289,26 @@ export function Households() {
       </div>
 
       {(korTol !== "" || korIg !== "") && (
-        <p style={{ margin: 0, fontWeight: 600 }}>
-          {korTol !== "" ? korTol : "0"}–{korIg !== "" ? korIg : "…"} éves élő tagok: {talalatTagok} fő, {households.length} háztartásban
-        </p>
+        <div className="row" style={{ alignItems: "center" }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>
+            {korTol !== "" ? korTol : "0"}–{korIg !== "" ? korIg : "…"} éves élő tagok: {talalatTagok} fő, {households.length} háztartásban
+          </p>
+          {households.length > 0 && (
+            <button
+              className="btn btn-secondary btn-sm"
+              title="Megnyílik a nyomtatási ablak - válassza a Mentés PDF-ként lehetőséget"
+              onClick={() =>
+                korosztalyPdf(
+                  households,
+                  `${korTol !== "" ? korTol : "0"}–${korIg !== "" ? korIg : "…"} éves tagok`,
+                  gyulekezetek.find((g) => g.id === gyulekezetId)?.nev ?? ""
+                )
+              }
+            >
+              <IconDownload style={{ width: 16, height: 16 }} /> Letöltés PDF-ben
+            </button>
+          )}
+        </div>
       )}
 
       {households.length === 0 && <p>Nincs találat.</p>}
