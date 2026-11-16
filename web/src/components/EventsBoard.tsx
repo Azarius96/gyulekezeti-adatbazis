@@ -10,7 +10,7 @@ interface EventItem {
   cim: string;
   leiras: string | null;
   datuma: string;
-  szint: "HELYI" | "MEGYEI" | "KERULETI";
+  szint: "HELYI" | "MEGYEI" | "KERULETI" | "ORSZAGOS";
   status: "AKTIV" | "ESKALACIO_FUGGOBEN" | "JOVAHAGYVA" | "ELUTASITVA";
   gyulekezetId: string | null;
   gyulekezet: { nev: string } | null;
@@ -20,7 +20,13 @@ const szintLabels: Record<string, string> = {
   HELYI: "Helyi",
   MEGYEI: "Megyei",
   KERULETI: "Kerületi",
+  ORSZAGOS: "Országos",
 };
+
+/** Az úrvacsorás istentiszteleteket a hirdetőtáblán más színnel emeljük ki. */
+function urvacsoras(cim: string): boolean {
+  return /[uú]rvacsor/i.test(cim.normalize("NFC"));
+}
 
 const statusLabels: Record<string, string> = {
   AKTIV: "",
@@ -189,13 +195,14 @@ function EventCarousel({
   return (
     <div className="stack" style={{ gap: 12 }}>
       <div className="esemeny-ablak">
-        <div key={`${e.id}-${lepes}`} className="esemeny-nagy esemeny-csuszik">
+        <div key={`${e.id}-${lepes}`} className={`esemeny-nagy esemeny-csuszik${urvacsoras(e.cim) ? " esemeny-urvacsora" : ""}`}>
           <CalendarBadge iso={e.datuma} />
           <div style={{ minWidth: 0, flex: 1 }}>
+            {urvacsoras(e.cim) && <span className="esemeny-jelveny">Úrvacsora</span>}
             <strong style={{ fontSize: "var(--font-size-lg)", display: "block" }}>{e.cim}</strong>
             <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
               {formatDate(e.datuma)}
-              {e.gyulekezet ? ` · ${e.gyulekezet.nev}` : ""}
+              {e.gyulekezet ? ` · ${e.gyulekezet.nev}` : e.szint === "ORSZAGOS" ? " · országos" : ""}
               {statusLabels[e.status] ? ` · ${statusLabels[e.status]}` : ""}
             </div>
             {e.leiras && <p style={{ margin: "6px 0 0" }}>{e.leiras}</p>}
@@ -211,7 +218,7 @@ function EventCarousel({
       {kovetkezok.length > 0 && (
         <div className="stack" style={{ gap: 4 }}>
           {kovetkezok.map(({ item, i }) => (
-            <button key={item.id} type="button" className="esemeny-kicsi" onClick={() => ugras(i)}>
+            <button key={item.id} type="button" className={`esemeny-kicsi${urvacsoras(item.cim) ? " esemeny-urvacsora" : ""}`} onClick={() => ugras(i)}>
               <span className="esemeny-kicsi-datum">{formatDate(item.datuma)}</span>
               <span className="esemeny-kicsi-nev">{item.cim}</span>
             </button>
@@ -246,14 +253,15 @@ function NewEventForm({
   const [leiras, setLeiras] = useState("");
   const [datuma, setDatuma] = useState("");
   const [gyulekezetId, setGyulekezetId] = useState(defaultGyulekezetId);
-  const [kertSzint, setKertSzint] = useState<"HELYI" | "MEGYEI" | "KERULETI">("HELYI");
+  const [kertSzint, setKertSzint] = useState<"HELYI" | "MEGYEI" | "KERULETI" | "ORSZAGOS">("HELYI");
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await api.post("/api/events", { cim, leiras: leiras || null, datuma, gyulekezetId, kertSzint });
+      await api.post("/api/events", { cim, leiras: leiras || null, datuma, gyulekezetId: kertSzint === "ORSZAGOS" ? null : gyulekezetId, kertSzint });
       onCreated();
     } catch {
       setError("Nem sikerült létrehozni az eseményt");
@@ -289,14 +297,15 @@ function NewEventForm({
         </div>
         <div className="field">
           <label>Szint</label>
-          <select value={kertSzint} onChange={(e) => setKertSzint(e.target.value as "HELYI" | "MEGYEI" | "KERULETI")}>
+          <select value={kertSzint} onChange={(e) => setKertSzint(e.target.value as "HELYI" | "MEGYEI" | "KERULETI" | "ORSZAGOS")}>
             <option value="HELYI">Helyi</option>
             <option value="MEGYEI">Kérem megyei szintre</option>
             <option value="KERULETI">Kérem kerületi szintre</option>
+            {isAdmin(user) && <option value="ORSZAGOS">Országos (mindenkinek látszik)</option>}
           </select>
         </div>
       </div>
-      {kertSzint !== "HELYI" && (
+      {kertSzint !== "HELYI" && kertSzint !== "ORSZAGOS" && (
         <p style={{ color: "var(--color-text-muted)", margin: 0, fontSize: "var(--font-size-sm)" }}>
           A megyei/kerületi szintre emelést az esperesnek vagy püspöknek jóvá kell hagynia, addig csak jóváhagyásra
           várva jelenik meg.

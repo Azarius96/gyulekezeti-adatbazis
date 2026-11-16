@@ -15,7 +15,8 @@ export async function eventsRoutes(app: FastifyInstance) {
     const accessible = await getAccessibleGyulekezetIds(user);
 
     if (isAdmin(user)) {
-      const where = query.gyulekezetId ? { gyulekezetId: query.gyulekezetId } : {};
+      // az országos események (naptári ünnepek) gyülekezettől függetlenül mindig megjelennek
+      const where = query.gyulekezetId ? { OR: [{ gyulekezetId: query.gyulekezetId }, { szint: "ORSZAGOS" as const }] } : {};
       return prisma.event.findMany({
         where,
         include: { gyulekezet: { select: { nev: true } } },
@@ -42,6 +43,7 @@ export async function eventsRoutes(app: FastifyInstance) {
     return prisma.event.findMany({
       where: {
         OR: [
+          { szint: "ORSZAGOS" },
           { gyulekezetId: { in: gyulekezetIds } },
           { szint: "MEGYEI", status: "JOVAHAGYVA", egyhazmegyeId: { in: Array.from(relevantEgyhazmegyeIds) } },
           { szint: "KERULETI", status: "JOVAHAGYVA", keruletId: { in: Array.from(relevantKeruletIds) } },
@@ -81,8 +83,8 @@ export async function eventsRoutes(app: FastifyInstance) {
     cim: z.string().min(1),
     leiras: z.string().optional().nullable(),
     datuma: z.string(),
-    gyulekezetId: z.string(),
-    kertSzint: z.enum(["HELYI", "MEGYEI", "KERULETI"]),
+    gyulekezetId: z.string().optional().nullable(),
+    kertSzint: z.enum(["HELYI", "MEGYEI", "KERULETI", "ORSZAGOS"]),
   });
 
   app.post("/api/events", async (req, reply) => {
@@ -90,6 +92,13 @@ export async function eventsRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const user = req.currentUser!;
     const data = parsed.data;
+    if (data.kertSzint === "ORSZAGOS") {
+      if (!isAdmin(user)) return reply.code(403).send({ error: "Országos eseményt csak az adminisztrátor hozhat létre" });
+      return prisma.event.create({
+        data: { cim: data.cim, leiras: data.leiras ?? null, datuma: new Date(data.datuma), szint: "ORSZAGOS", status: "JOVAHAGYVA" },
+      });
+    }
+    if (!data.gyulekezetId) return reply.code(400).send({ error: "Gyülekezet megadása kötelező" });
     if (!isAdmin(user) && !canEditGyulekezet(user, data.gyulekezetId)) {
       return reply.code(403).send({ error: "Nincs jogosultság ehhez a gyülekezethez" });
     }

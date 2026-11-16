@@ -599,6 +599,8 @@ enum EsemenySzint {
   HELYI
   MEGYEI
   KERULETI
+  // naptári ünnepek, országos hírek: minden felhasználó látja (csak admin hozhat létre)
+  ORSZAGOS
 }
 
 enum EsemenyStatus {
