@@ -142,28 +142,93 @@ export function EventsBoard({ gyulekezetId }: { gyulekezetId: string }) {
       )}
 
       {upcoming.length === 0 && <p style={{ color: "var(--color-text-muted)", margin: 0 }}>Nincs közelgő esemény.</p>}
-      <div className="stack">
-        {upcoming.map((e) => (
-          <div key={e.id} className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-            <div className="row" style={{ alignItems: "center" }}>
-              <CalendarBadge iso={e.datuma} />
-              <div>
-                <strong>{e.cim}</strong>
-                <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                  {formatDate(e.datuma)}
-                  {e.gyulekezet ? ` · ${e.gyulekezet.nev}` : ""}
-                  {statusLabels[e.status] ? ` · ${statusLabels[e.status]}` : ""}
-                </div>
-              </div>
+      {upcoming.length > 0 && (
+        <EventCarousel
+          items={upcoming}
+          canDelete={(e) => isAdmin(user) || (!!e.gyulekezetId && ownGyulekezetIds(user).includes(e.gyulekezetId))}
+          onDelete={remove}
+        />
+      )}
+    </div>
+  );
+}
+
+const KOVETKEZO_DB = 3;
+
+/**
+ * A hirdetőtábla nem lefelé nyúlik: a soron következő esemény nagyban látszik, alatta a következők kicsiben
+ * (dátum + név). A "Tovább" gomb, vagy egy kis esemény megérintése jobbról balra csúsztatva váltja a nagyot.
+ */
+function EventCarousel({
+  items,
+  canDelete,
+  onDelete,
+}: {
+  items: EventItem[];
+  canDelete: (e: EventItem) => boolean;
+  onDelete: (id: string) => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [lepes, setLepes] = useState(0); // minden váltásnál nő: ettől indul újra a csúszó animáció
+  const db = items.length;
+  const aktualis = Math.min(idx, db - 1);
+  const e = items[aktualis];
+
+  function ugras(i: number) {
+    setIdx(((i % db) + db) % db);
+    setLepes((n) => n + 1);
+  }
+
+  // a következők körkörösen: az utolsó után újra az első jön
+  const kovetkezok: { item: EventItem; i: number }[] = [];
+  for (let k = 1; k <= Math.min(KOVETKEZO_DB, db - 1); k++) {
+    const i = (aktualis + k) % db;
+    kovetkezok.push({ item: items[i], i });
+  }
+
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <div className="esemeny-ablak">
+        <div key={`${e.id}-${lepes}`} className="esemeny-nagy esemeny-csuszik">
+          <CalendarBadge iso={e.datuma} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <strong style={{ fontSize: "var(--font-size-lg)", display: "block" }}>{e.cim}</strong>
+            <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+              {formatDate(e.datuma)}
+              {e.gyulekezet ? ` · ${e.gyulekezet.nev}` : ""}
+              {statusLabels[e.status] ? ` · ${statusLabels[e.status]}` : ""}
             </div>
-            {(isAdmin(user) || (e.gyulekezetId && ownGyulekezetIds(user).includes(e.gyulekezetId))) && (
-              <button className="btn btn-secondary btn-sm" onClick={() => remove(e.id)}>
-                Törlés
-              </button>
-            )}
+            {e.leiras && <p style={{ margin: "6px 0 0" }}>{e.leiras}</p>}
           </div>
-        ))}
+          {canDelete(e) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => onDelete(e.id)}>
+              Törlés
+            </button>
+          )}
+        </div>
       </div>
+
+      {kovetkezok.length > 0 && (
+        <div className="stack" style={{ gap: 4 }}>
+          {kovetkezok.map(({ item, i }) => (
+            <button key={item.id} type="button" className="esemeny-kicsi" onClick={() => ugras(i)}>
+              <span className="esemeny-kicsi-datum">{formatDate(item.datuma)}</span>
+              <span className="esemeny-kicsi-nev">{item.cim}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {db > 1 && (
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+            {aktualis + 1} / {db}
+          </span>
+          <button className="btn btn-secondary btn-sm" onClick={() => ugras(aktualis + 1)}>
+            Tovább →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

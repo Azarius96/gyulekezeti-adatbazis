@@ -875,3 +875,21 @@ a.row:active,
 @media (max-width: 700px) {
   .row:has(> .field) > .field:not([style*="flex-basis"]) { flex: 1 1 100% !important; }
 }
+
+/* Hirdetőtábla: a váltó esemény jobbról balra csúszik be */
+.esemeny-ablak { overflow: hidden; }
+.esemeny-nagy { display: flex; align-items: flex-start; gap: 14px; padding: 4px 2px; }
+.esemeny-csuszik { animation: esemeny-bejon 0.35s ease-out; }
+@keyframes esemeny-bejon {
+  from { transform: translateX(60%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.esemeny-kicsi {
+  display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left;
+  background: transparent; border: 0; border-top: 1px solid var(--color-border);
+  padding: 6px 2px; cursor: pointer; font: inherit; color: inherit;
+}
+.esemeny-kicsi:hover { background: var(--color-surface-alt, rgba(0,0,0,0.04)); }
+.esemeny-kicsi-datum { color: var(--color-text-muted); font-size: var(--font-size-sm); flex-shrink: 0; min-width: 7.5em; }
+.esemeny-kicsi-nev { font-size: var(--font-size-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .esemeny-csuszik { animation: none; } }
