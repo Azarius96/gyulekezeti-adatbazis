@@ -508,6 +508,7 @@ export async function personRoutes(app: FastifyInstance) {
         spouseBId: z.string().optional().nullable(),
         kulsoHazastarsNeve: z.string().optional().nullable(),
         kulsoHazastarsVallasa: z.string().optional().nullable(),
+        masVallasu: z.boolean().optional(),
         datuma: z.string().optional().nullable(),
         helye: z.string().optional().nullable(),
         lelkeszNeve: z.string().optional().nullable(),
@@ -534,6 +535,7 @@ export async function personRoutes(app: FastifyInstance) {
         spouseBId: data.kulso ? null : data.spouseBId ?? null,
         kulsoHazastarsNeve: data.kulso ? data.kulsoHazastarsNeve ?? null : null,
         kulsoHazastarsVallasa: data.kulso ? data.kulsoHazastarsVallasa ?? null : null,
+        masVallasu: data.masVallasu ?? false,
         datuma: data.datuma ? new Date(data.datuma) : null,
         helye: data.helye ?? null,
         lelkeszNeve: data.lelkeszNeve ?? null,
@@ -555,7 +557,7 @@ export async function personRoutes(app: FastifyInstance) {
   app.put("/api/marriages/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const parsed = z
-      .object({ datuma: optStr, helye: optStr, lelkeszNeve: optStr, anyakonyviSzam: optStr, tanuk: optStr })
+      .object({ datuma: optStr, helye: optStr, lelkeszNeve: optStr, anyakonyviSzam: optStr, tanuk: optStr, masVallasu: z.boolean().optional() })
       .safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
     const marriage = await prisma.marriage.findUnique({ where: { id } });
@@ -572,6 +574,7 @@ export async function personRoutes(app: FastifyInstance) {
         ...(d.lelkeszNeve !== undefined ? { lelkeszNeve: s(d.lelkeszNeve) } : {}),
         ...(d.anyakonyviSzam !== undefined ? { anyakonyviSzam: s(d.anyakonyviSzam) } : {}),
         ...(d.tanuk !== undefined ? { tanuk: s(d.tanuk) } : {}),
+        ...(d.masVallasu !== undefined ? { masVallasu: d.masVallasu } : {}),
       },
     });
   });

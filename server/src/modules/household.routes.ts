@@ -17,8 +17,8 @@ const memberPersonSelect = {
   elhunyt: true,
   vallas: true,
   nyitoTartozas: true,
-  marriagesA: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
-  marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
+  marriagesA: { where: { vege: null }, select: { kulsoHazastarsVallasa: true, masVallasu: true } },
+  marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true, masVallasu: true } },
   positions: { where: { vege: null }, select: { tisztseg: true } },
   confirmation: { select: { id: true } },
   duesPayments: { where: { deletedAt: null }, select: { ev: true, osszeg: true } },
@@ -63,12 +63,13 @@ function memberMatchesFilters(
   return true;
 }
 
-function vallasokOfMembers(members: { person: { vallas: string | null; marriagesA: { kulsoHazastarsVallasa: string | null }[]; marriagesB: { kulsoHazastarsVallasa: string | null }[] } }[]) {
+function vallasokOfMembers(members: { person: { vallas: string | null; marriagesA: { kulsoHazastarsVallasa: string | null; masVallasu: boolean }[]; marriagesB: { kulsoHazastarsVallasa: string | null; masVallasu: boolean }[] } }[]) {
   const vallasok = new Set<string>();
   for (const m of members) {
     if (m.person.vallas) vallasok.add(m.person.vallas);
     for (const marr of m.person.marriagesA) if (marr.kulsoHazastarsVallasa) vallasok.add(marr.kulsoHazastarsVallasa);
     for (const marr of m.person.marriagesB) if (marr.kulsoHazastarsVallasa) vallasok.add(marr.kulsoHazastarsVallasa);
+    if ([...m.person.marriagesA, ...m.person.marriagesB].some((x) => x.masVallasu)) { vallasok.add("__sajat__"); vallasok.add("__mas_vallasu_hazastars__"); }
   }
   return vallasok;
 }

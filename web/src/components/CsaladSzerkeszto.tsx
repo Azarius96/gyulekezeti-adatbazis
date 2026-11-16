@@ -47,6 +47,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
   const [hazastarsId, setHazastarsId] = useState("");
   const [kulsoNev, setKulsoNev] = useState("");
   const [hazassagDatum, setHazassagDatum] = useState("");
+  const [masVallasu, setMasVallasu] = useState(false);
 
   useEffect(() => {
     api
@@ -95,6 +96,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
         kulso: !hazastarsId,
         ...(hazastarsId ? { spouseBId: hazastarsId } : { kulsoHazastarsNeve: kulsoNev.trim() }),
         datuma: hazassagDatum || null,
+        masVallasu,
       });
     }
     // Gyerekei
@@ -162,7 +164,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
             {person.csalad.hazastarsak.map((h, i) => (
               <span key={i} className="badge">
                 {h.vezeteknev} {h.keresztnev}
-                {h.haztartasbol ? " (háztartási szerep alapján)" : h.vege ? " (lezárt házasság)" : ""}
+                {h.haztartasbol ? " (háztartási szerep alapján)" : h.vege ? " (lezárt házasság)" : ""}{h.masVallasu ? " · más vallású" : ""}
               </span>
             ))}
           </div>
@@ -190,6 +192,10 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
             <DateInput value={hazassagDatum} onChange={(e) => setHazassagDatum(e.target.value)} />
           </div>
         </div>
+        <label className="row" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}>
+          <input type="checkbox" style={{ width: 18, height: 18 }} checked={masVallasu} onChange={(e) => setMasVallasu(e.target.checked)} />
+          <span>A házastárs más vallású (a család vegyes vallásúnak számít)</span>
+        </label>
       </div>
       <div className="stack" style={{ gap: 8 }}>
         <label style={{ fontWeight: 600 }}>Gyerekei</label>

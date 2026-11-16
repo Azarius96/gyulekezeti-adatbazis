@@ -54,6 +54,7 @@ export interface FamilyOverview {
     vege: Date | null;
     /** true: nincs rögzített házasság, a házastársi viszony a háztartás szerepeiből (apa + anya) következik. */
     haztartasbol?: boolean;
+    masVallasu?: boolean;
   }[];
   testverek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem }[];
 }
@@ -123,12 +124,13 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
         helye: m.helye,
         anyakonyviSzam: m.anyakonyviSzam,
         tanuk: m.tanuk,
+        masVallasu: m.masVallasu,
         kulso: true,
         marriageId: m.id,
         vege: m.vege,
       };
     }
-    return { ...spouse, datuma: m.datuma, helye: m.helye, anyakonyviSzam: m.anyakonyviSzam, tanuk: m.tanuk, kulso: false, marriageId: m.id, vege: m.vege };
+    return { ...spouse, datuma: m.datuma, helye: m.helye, anyakonyviSzam: m.anyakonyviSzam, tanuk: m.tanuk, masVallasu: m.masVallasu, kulso: false, marriageId: m.id, vege: m.vege };
   });
 
   // Házastárs a háztartás szerepeiből: ha nincs rögzített házasság, de a háztartásban egyértelműen van egy

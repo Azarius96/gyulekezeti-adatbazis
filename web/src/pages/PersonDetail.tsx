@@ -475,12 +475,13 @@ function HazassagSzerkeszto({ h, canEdit, onChanged }: { h: PersonDetailType["cs
   const [helye, setHelye] = useState(h.helye ?? "");
   const [szam, setSzam] = useState(h.anyakonyviSzam ?? "");
   const [tanuk, setTanuk] = useState(h.tanuk ?? "");
+  const [masVallasu, setMasVallasu] = useState(!!h.masVallasu);
   const [saving, setSaving] = useState(false);
 
   async function mentes() {
     setSaving(true);
     try {
-      await api.put(`/api/marriages/${h.marriageId}`, { datuma: datuma || null, helye: helye || null, anyakonyviSzam: szam || null, tanuk: tanuk || null });
+      await api.put(`/api/marriages/${h.marriageId}`, { datuma: datuma || null, helye: helye || null, anyakonyviSzam: szam || null, tanuk: tanuk || null, masVallasu });
       setSzerkeszt(false);
       onChanged();
     } finally {
@@ -494,6 +495,7 @@ function HazassagSzerkeszto({ h, canEdit, onChanged }: { h: PersonDetailType["cs
       h.helye ? `helye: ${h.helye}` : null,
       h.anyakonyviSzam ? `sorszám: ${h.anyakonyviSzam}` : null,
       h.tanuk ? `tanúk: ${h.tanuk}` : null,
+      h.masVallasu ? "más vallású házastárs" : null,
     ].filter(Boolean);
     return (
       <span className="row" style={{ alignItems: "center", fontSize: "var(--font-size-sm)", color: "var(--color-text-muted)" }}>
@@ -508,6 +510,10 @@ function HazassagSzerkeszto({ h, canEdit, onChanged }: { h: PersonDetailType["cs
   }
   return (
     <div className="row" style={{ alignItems: "flex-end", flexBasis: "100%", padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--color-surface-alt)" }}>
+      <label className="row" style={{ flexBasis: "100%", alignItems: "center", gap: 10, cursor: "pointer" }}>
+        <input type="checkbox" style={{ width: 18, height: 18 }} checked={masVallasu} onChange={(e) => setMasVallasu(e.target.checked)} />
+        <span>A házastárs más vallású (vegyes vallású család)</span>
+      </label>
       <div className="field" style={{ width: 170 }}>
         <label>Esketés ideje</label>
         <DateInput value={datuma} onChange={(e) => setDatuma(e.target.value)} />
@@ -541,6 +547,7 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
   const [spouseId, setSpouseId] = useState<string | null>(null);
   const [kulsoNev, setKulsoNev] = useState("");
   const [kulsoVallas, setKulsoVallas] = useState("");
+  const [masVallasu, setMasVallasu] = useState(false);
   const [datuma, setDatuma] = useState("");
   const [helye, setHelye] = useState("");
   const [anyakonyviSzam, setAnyakonyviSzam] = useState("");
@@ -576,6 +583,7 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
         spouseBId: kulso ? null : spouseId,
         kulsoHazastarsNeve: kulso ? kulsoNev || null : null,
         kulsoHazastarsVallasa: kulso ? kulsoVallas || null : null,
+        masVallasu,
         datuma: datuma || null,
         helye: helye || null,
         anyakonyviSzam: anyakonyviSzam || null,
@@ -594,6 +602,10 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
       <label className="row" style={{ fontWeight: 600 }}>
         <input type="checkbox" checked={kulso} onChange={(e) => setKulso(e.target.checked)} />
         A házastárs nem gyülekezeti tag (nincs a rendszerben)
+      </label>
+      <label className="row" style={{ fontWeight: 600 }}>
+        <input type="checkbox" checked={masVallasu} onChange={(e) => setMasVallasu(e.target.checked)} />
+        A házastárs más vallású (a család vegyes vallásúnak számít)
       </label>
       {kulso ? (
         <div className="row">

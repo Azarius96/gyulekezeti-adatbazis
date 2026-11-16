@@ -128,6 +128,7 @@ async function computeLelekszamAdatok(gyulekezetId: string, ev: number) {
         spouseA: { select: { vallas: true } },
         spouseB: { select: { vallas: true } },
         kulsoHazastarsVallasa: true,
+        masVallasu: true,
       },
     }),
     prisma.household.findMany({
@@ -143,8 +144,8 @@ async function computeLelekszamAdatok(gyulekezetId: string, ev: number) {
                 elhunyt: true,
                 csaladiAllapot: true,
                 szuletesiDatum: true,
-                marriagesA: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
-                marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true } },
+                marriagesA: { where: { vege: null }, select: { kulsoHazastarsVallasa: true, masVallasu: true } },
+                marriagesB: { where: { vege: null }, select: { kulsoHazastarsVallasa: true, masVallasu: true } },
               },
             },
           },
@@ -204,6 +205,7 @@ async function computeLelekszamAdatok(gyulekezetId: string, ev: number) {
       if (m.person.vallas) vallasok.add(m.person.vallas);
       for (const marr of m.person.marriagesA) if (marr.kulsoHazastarsVallasa) vallasok.add(marr.kulsoHazastarsVallasa);
       for (const marr of m.person.marriagesB) if (marr.kulsoHazastarsVallasa) vallasok.add(marr.kulsoHazastarsVallasa);
+      if ([...m.person.marriagesA, ...m.person.marriagesB].some((x) => x.masVallasu)) { vallasok.add("__sajat__"); vallasok.add("__mas_vallasu_hazastars__"); }
     }
     const tipus = h.vallasTipusManualis ?? (vallasok.size <= 1 ? "EGYEZO" : "VEGYES");
     if (tipus === "EGYEZO") csaladokEgyezoVallasu++;
@@ -221,7 +223,7 @@ async function computeLelekszamAdatok(gyulekezetId: string, ev: number) {
   let hazassagNemEgyezoVallasu = 0;
   for (const m of hazassagok) {
     const bVallas = m.spouseB?.vallas ?? m.kulsoHazastarsVallasa ?? null;
-    if (m.spouseA.vallas && bVallas && m.spouseA.vallas === bVallas) hazassagEgyezoVallasu++;
+    if (!m.masVallasu && m.spouseA.vallas && bVallas && m.spouseA.vallas === bVallas) hazassagEgyezoVallasu++;
     else hazassagNemEgyezoVallasu++;
   }
 

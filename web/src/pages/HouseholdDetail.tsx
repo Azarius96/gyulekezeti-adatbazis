@@ -181,6 +181,9 @@ export function HouseholdDetail() {
       <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
         {household.nev ?? `${household.address.telepules}, ${household.address.utca} ${household.address.hazszam}`}
       </h1>
+      {household.vallasTipus === "VEGYES" && (
+        <span className="badge" style={{ background: "rgba(255, 159, 10, 0.16)", color: "#ffb340", fontWeight: 600 }}>vegyes vallású család</span>
+      )}
       {household.nev && (
         <p style={{ color: "var(--color-text-muted)", margin: 0 }}>
           {household.address.telepules}, {household.address.utca} {household.address.hazszam}

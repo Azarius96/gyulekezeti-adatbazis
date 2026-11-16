@@ -344,6 +344,11 @@ export function Households() {
                     }}
                   >
                     {addressText}{" "}
+                    {h.vallasTipus === "VEGYES" && (
+                      <>
+                        <span className="badge" style={{ background: "rgba(255, 159, 10, 0.16)", color: "#ffb340", fontWeight: 600 }}>vegyes vallású család</span>{" "}
+                      </>
+                    )}
                     <span style={{ color: "var(--color-text-muted)", fontWeight: 400, fontSize: "var(--font-size-sm)" }}>
                       — a teljes család megtekintése →
                     </span>

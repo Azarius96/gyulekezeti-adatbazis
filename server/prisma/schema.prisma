@@ -326,6 +326,8 @@ model Marriage {
   spouseBId  String?
   kulsoHazastarsNeve String?
   kulsoHazastarsVallasa String?
+  // A házastárs más vallású (a család vegyes vallású) - a statisztika és a háztartás besorolása ebből is számol
+  masVallasu Boolean   @default(false)
   datuma     DateTime?
   helye      String?
   lelkeszNeve String?
