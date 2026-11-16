@@ -1676,8 +1676,16 @@ export function PersonDetail() {
           )}
           {currentAddressMembership && !currentAddressMembership.vege && (
             <div>
-              <strong>Szerepe a családban:</strong> {szerepNev(currentAddressMembership.szerep, person.nem)}
+              <strong>Szerepe a családban:</strong>{" "}
+              {(currentAddressMembership.szerep === "CSALADFO" || currentAddressMembership.szerep === "HAZASTARS") &&
+              person.csalad.hazastarsak.some((h) => h.id)
+                ? person.nem === "FERFI"
+                  ? "férj"
+                  : "feleség"
+                : szerepNev(currentAddressMembership.szerep, person.nem)}
               <SzerepRokonok
+                nem={person.nem}
+                hazastarsak={person.csalad.hazastarsak.filter((h) => h.id && !h.vege).map((h) => ({ id: h.id as string, vezeteknev: h.vezeteknev, keresztnev: h.keresztnev, nem: h.nem }))}
                 szerep={currentAddressMembership.szerep}
                 szulok={person.csalad.szulok}
                 gyermekek={person.csalad.gyermekek}
@@ -1959,9 +1967,17 @@ export function PersonDetail() {
                           (lezárva: {new Date(h.vege).toLocaleDateString("hu-HU")})
                         </span>
                       )}
-                      <HazassagSzerkeszto h={h} canEdit={canEdit} onChanged={load} />
-                      {canEdit && !h.vege && <EndMarriageButton marriageId={h.marriageId} onDone={load} />}
-                      {canEdit && <DeleteMarriageButton marriageId={h.marriageId} onDone={load} />}
+                      {h.haztartasbol ? (
+                        <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
+                          (a háztartási szerepek alapján - a házasság adatai (dátum, anyakönyvi szám) a „Házasság hozzáadása" gombbal rögzíthetők)
+                        </span>
+                      ) : (
+                        <>
+                          <HazassagSzerkeszto h={h} canEdit={canEdit} onChanged={load} />
+                          {canEdit && !h.vege && <EndMarriageButton marriageId={h.marriageId} onDone={load} />}
+                          {canEdit && <DeleteMarriageButton marriageId={h.marriageId} onDone={load} />}
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -52,6 +52,8 @@ export interface FamilyOverview {
     kulso: boolean;
     marriageId: string;
     vege: Date | null;
+    /** true: nincs rögzített házasság, a házastársi viszony a háztartás szerepeiből (apa + anya) következik. */
+    haztartasbol?: boolean;
   }[];
   testverek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem }[];
 }
@@ -110,7 +112,7 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
       spouseB: { select: personSelect },
     },
   });
-  const hazastarsak = marriages.map((m) => {
+  const hazastarsak: FamilyOverview["hazastarsak"] = marriages.map((m) => {
     const spouse = m.spouseAId === personId ? m.spouseB : m.spouseA;
     if (!spouse) {
       return {
@@ -128,6 +130,20 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
     }
     return { ...spouse, datuma: m.datuma, helye: m.helye, anyakonyviSzam: m.anyakonyviSzam, tanuk: m.tanuk, kulso: false, marriageId: m.id, vege: m.vege };
   });
+
+  // Házastárs a háztartás szerepeiből: ha nincs rögzített házasság, de a háztartásban egyértelműen van egy
+  // családfő (apa/anya) és egy házastárs szerepű tag, ők egymás házastársai.
+  const sajat = await prisma.householdMember.findFirst({ where: { personId, vege: null, household: {} } });
+  if (sajat && (sajat.szerep === "CSALADFO" || sajat.szerep === "HAZASTARS")) {
+    const masikSzerep = sajat.szerep === "CSALADFO" ? "HAZASTARS" : "CSALADFO";
+    const parok = await prisma.householdMember.findMany({
+      where: { householdId: sajat.householdId, vege: null, szerep: masikSzerep, personId: { not: personId }, person: { deletedAt: null, elkoltozott: false } },
+      include: { person: { select: personSelect } },
+    });
+    if (parok.length === 1 && !hazastarsak.some((h) => h.id === parok[0].person.id)) {
+      hazastarsak.push({ ...parok[0].person, datuma: null, helye: null, anyakonyviSzam: null, tanuk: null, kulso: false, marriageId: "", vege: null, haztartasbol: true });
+    }
+  }
 
   const testverekRaw = szuloIds.length
     ? await prisma.familyLink.findMany({

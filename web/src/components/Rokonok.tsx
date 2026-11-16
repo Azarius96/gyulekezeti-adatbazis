@@ -38,18 +38,24 @@ export function SzerepRokonok({
   gyermekek,
   nagyszulok = [],
   unokak = [],
+  hazastarsak = [],
+  nem,
 }: {
   szerep: string;
   szulok: RokonRef[];
   gyermekek: RokonRef[];
   nagyszulok?: RokonRef[];
   unokak?: RokonRef[];
+  /** Az (élő, rögzített vagy háztartási szerepből következő) házastárs(ak) - kattintható névvel, "Férje:" / "Felesége:" címkével. */
+  hazastarsak?: RokonRef[];
+  nem?: "FERFI" | "NO" | null;
 }) {
   const szulo = szerep === "CSALADFO" || szerep === "HAZASTARS";
   const gyerek = szerep === "GYERMEK";
   if (!gyerek && !szulo && szulok.length + gyermekek.length + nagyszulok.length + unokak.length === 0) return null;
   return (
     <div style={{ fontSize: "var(--font-size-sm)", marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 18px" }}>
+      {szulo && hazastarsak.length > 0 && <Nevek cimke={nem === "FERFI" ? "Felesége" : nem === "NO" ? "Férje" : "Házastársa"} emberek={hazastarsak} />}
       {szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} ures="nincs rögzítve" />}
       {!szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} />}
       <Nevek cimke="Szülei" emberek={szulok} ures={gyerek ? "nincs rögzítve" : undefined} />

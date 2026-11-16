@@ -7,6 +7,7 @@ import { QuickPay } from "../components/QuickPay";
 import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { IconDownload } from "../components/icons";
 import { DateInput } from "../components/DateInput";
+import { PageLoader } from "../components/Loading";
 import { memberHighlight, reszfizetesSzoveg, szerepNev, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
@@ -80,6 +81,8 @@ function DuesBadge({ dues, becsult }: { dues: DuesResult; becsult?: boolean }) {
   );
 }
 
+const BETOLTES_IDOKORLAT_MS = 15000;
+
 const HTML_ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const esc = (v: string) => v.replace(/[&<>"]/g, (c) => HTML_ESC[c]);
 
@@ -129,6 +132,9 @@ function korosztalyPdf(households: HouseholdView[], cim: string, gyulekezetNev: 
 export function Households() {
   const { user } = useAuth();
   const [households, setHouseholds] = useState<HouseholdView[]>([]);
+  // Betöltés közben vázlat (skeleton) látszik; "Nincs találat" csak akkor, ha a betöltés lefutott üresen, vagy ha
+  // BETOLTES_IDOKORLAT_MS alatt nem érkezett válasz.
+  const [betolt, setBetolt] = useState(true);
   const gyulekezetek = useGyulekezetek();
   // Csak azok a gyülekezetek, amelyekhez a felhasználónak ténylegesen szerkesztési joga van
   // (nem csak esperesként/püspökként látja) - új személy létrehozásakor csak ezek választhatók.
@@ -156,10 +162,18 @@ export function Households() {
     else effectiveParams.delete("gyulekezetId");
     const qs = effectiveParams.toString();
     const requestId = ++loadRequestId.current;
+    setBetolt(true);
+    const idokorlat = window.setTimeout(() => {
+      if (requestId === loadRequestId.current) setBetolt(false);
+    }, BETOLTES_IDOKORLAT_MS);
     api
       .get<HouseholdView[]>(`/api/households${qs ? `?${qs}` : ""}`)
       .then((rows) => requestId === loadRequestId.current && setHouseholds(rows))
-      .catch(() => requestId === loadRequestId.current && setHouseholds([]));
+      .catch(() => requestId === loadRequestId.current && setHouseholds([]))
+      .finally(() => {
+        window.clearTimeout(idokorlat);
+        if (requestId === loadRequestId.current) setBetolt(false);
+      });
   }
 
   useReloadOnPayment(load);
@@ -311,7 +325,8 @@ export function Households() {
         </div>
       )}
 
-      {households.length === 0 && <p>Nincs találat.</p>}
+      {betolt && households.length === 0 && <PageLoader compact />}
+      {!betolt && households.length === 0 && <p>Nincs találat.</p>}
       <div className="stack">
         {households.map((h) => {
           const addressText = `${h.address.iranyitoszam ? h.address.iranyitoszam + " " : ""}${h.address.telepules}, ${h.address.utca} ${h.address.hazszam}${h.address.emeletAjto ? `, ${h.address.emeletAjto}` : ""}`;
