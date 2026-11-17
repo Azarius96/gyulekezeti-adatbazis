@@ -7,7 +7,7 @@ import { SzerepRokonok } from "../components/Rokonok";
 import { MezoLista, AnyakonyviReszletek, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, HALOTTI_MEZOK, ertekekBol, torzsBol } from "../components/AnyakonyviMezok";
 import { useCsaladSzerkeszto } from "../components/CsaladSzerkeszto";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
-import { memberHighlight, szerepNev, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
+import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { IconTrash, IconCross, IconMapPin } from "../components/icons";
 import { DateInput } from "../components/DateInput";
@@ -15,6 +15,7 @@ import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { AddBurialForm, useCemeteries } from "../components/AddBurialForm";
 import { szemelyNev } from "../lib/nev";
+import { cimkeEv, useHaztartasTagjai } from "../components/SzemelyValaszto";
 
 function RelativeGroup({ title, people, felirat }: { title: string; people: FamilyPersonRef[]; felirat?: (p: FamilyPersonRef) => string }) {
   if (people.length === 0) return null;
@@ -548,6 +549,7 @@ function HazassagSzerkeszto({ h, canEdit, onChanged }: { h: PersonDetailType["cs
 }
 
 function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () => void }) {
+  const hazi = useHaztartasTagjai(personId);
   const [kulso, setKulso] = useState(false);
   const [spouseQuery, setSpouseQuery] = useState("");
   const [spouseResults, setSpouseResults] = useState<{ id: string; vezeteknev: string; keresztnev: string }[]>([]);
@@ -628,6 +630,18 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
       ) : (
         <div className="field" style={{ maxWidth: 320 }}>
           <label>Házastárs keresése (név)</label>
+          {!spouseId && hazi.length > 0 && (
+            <div className="stack" style={{ gap: 4, marginBottom: 6 }}>
+              <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>A háztartásban élők:</span>
+              <div className="row" style={{ gap: 6 }}>
+                {hazi.map((t) => (
+                  <button key={t.id} type="button" className="btn btn-secondary btn-sm" onClick={() => { setSpouseId(t.id); setSpouseQuery(szemelyNev(t)); setSpouseResults([]); }}>
+                    {cimkeEv(t)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <input value={spouseQuery} onChange={(e) => search(e.target.value)} placeholder="pl. Kovács Mária" />
           {spouseResults.length > 0 && !spouseId && (
             <div className="card" style={{ padding: 8, marginTop: 4 }}>
@@ -675,6 +689,7 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
 }
 
 function AddChildForm({ personId, gyulekezetId, onAdded }: { personId: string; gyulekezetId: string; onAdded: () => void }) {
+  const hazi = useHaztartasTagjai(personId);
   const [uj, setUj] = useState(false);
   const [childQuery, setChildQuery] = useState("");
   const [childResults, setChildResults] = useState<{ id: string; vezeteknev: string; keresztnev: string }[]>([]);
@@ -763,6 +778,18 @@ function AddChildForm({ personId, gyulekezetId, onAdded }: { personId: string; g
       ) : (
         <div className="field" style={{ maxWidth: 320 }}>
           <label>Gyermek keresése (név)</label>
+          {!childId && hazi.length > 0 && (
+            <div className="stack" style={{ gap: 4, marginBottom: 6 }}>
+              <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>A háztartásban élők:</span>
+              <div className="row" style={{ gap: 6 }}>
+                {hazi.map((t) => (
+                  <button key={t.id} type="button" className="btn btn-secondary btn-sm" onClick={() => { setChildId(t.id); setChildQuery(szemelyNev(t)); setChildResults([]); }}>
+                    {cimkeEv(t)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <input value={childQuery} onChange={(e) => search(e.target.value)} placeholder="pl. Kovács Mária" />
           {childResults.length > 0 && !childId && (
             <div className="card" style={{ padding: 8, marginTop: 4 }}>
@@ -792,6 +819,7 @@ function AddChildForm({ personId, gyulekezetId, onAdded }: { personId: string; g
 }
 
 function AddParentForm({ personId, gyulekezetId, onAdded }: { personId: string; gyulekezetId: string; onAdded: () => void }) {
+  const hazi = useHaztartasTagjai(personId);
   const [uj, setUj] = useState(false);
   const [parentQuery, setParentQuery] = useState("");
   const [parentResults, setParentResults] = useState<{ id: string; vezeteknev: string; keresztnev: string }[]>([]);
@@ -880,6 +908,18 @@ function AddParentForm({ personId, gyulekezetId, onAdded }: { personId: string; 
       ) : (
         <div className="field" style={{ maxWidth: 320 }}>
           <label>Szülő keresése (név)</label>
+          {!parentId && hazi.length > 0 && (
+            <div className="stack" style={{ gap: 4, marginBottom: 6 }}>
+              <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>A háztartásban élők:</span>
+              <div className="row" style={{ gap: 6 }}>
+                {hazi.map((t) => (
+                  <button key={t.id} type="button" className="btn btn-secondary btn-sm" onClick={() => { setParentId(t.id); setParentQuery(szemelyNev(t)); setParentResults([]); }}>
+                    {cimkeEv(t)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <input value={parentQuery} onChange={(e) => search(e.target.value)} placeholder="pl. Kovács Mária" />
           {parentResults.length > 0 && !parentId && (
             <div className="card" style={{ padding: 8, marginTop: 4 }}>
@@ -1700,17 +1740,11 @@ export function PersonDetail() {
           )}
           {currentAddressMembership && !currentAddressMembership.vege && (
             <div>
-              <strong>Szerepe a családban:</strong>{" "}
-              {(currentAddressMembership.szerep === "CSALADFO" || currentAddressMembership.szerep === "HAZASTARS") &&
-              person.csalad.hazastarsak.some((h) => h.id)
-                ? person.nem === "FERFI"
-                  ? "férj"
-                  : "feleség"
-                : szerepNev(currentAddressMembership.szerep, person.nem)}
+              <strong>Családi állapot:</strong> {person.csaladiAllapot ? csaladiAllapotLabels[person.csaladiAllapot] : "nincs megadva"}
               <SzerepRokonok
                 nem={person.nem}
                 hazastarsak={person.csalad.hazastarsak.filter((h) => h.id && !h.vege).map((h) => ({ id: h.id as string, vezeteknev: h.vezeteknev, keresztnev: h.keresztnev, nem: h.nem }))}
-                szerep={currentAddressMembership.szerep}
+                fiatal={!!person.szuletesiDatum && (Date.now() - new Date(person.szuletesiDatum).getTime()) / (365.25 * 24 * 3600 * 1000) < 18}
                 szulok={person.csalad.szulok}
                 gyermekek={person.csalad.gyermekek}
                 nagyszulok={person.csalad.nagyszulok}
@@ -1993,7 +2027,7 @@ export function PersonDetail() {
                       )}
                       {h.haztartasbol ? (
                         <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                          (a háztartási szerepek alapján - a házasság adatai (dátum, anyakönyvi szám) a „Házasság hozzáadása" gombbal rögzíthetők)
+                          (a háztartás alapján - a házasság adatai (dátum, anyakönyvi szám) a „Házasság hozzáadása" gombbal rögzíthetők)
                         </span>
                       ) : (
                         <>

@@ -109,6 +109,14 @@ export interface FamilyOverview {
 
 export type CsaladiAllapot = "NOTLEN_HAJADON" | "HAZAS" | "OZVEGY" | "ELVALT";
 
+/** A családi állapot megjelenített neve (a háztartásban és a személy adatlapján is ugyanez a lista). */
+export const CSALADI_ALLAPOT_NEVEK: Record<CsaladiAllapot, string> = {
+  NOTLEN_HAJADON: "Nőtlen / hajadon",
+  HAZAS: "Házas",
+  OZVEGY: "Özvegy",
+  ELVALT: "Elvált",
+};
+
 export interface DuesResult {
   /** Volt-e egyáltalán rögzített díjszabás erre az évre ennél a gyülekezetnél. */
   ismertDijszabas: boolean;

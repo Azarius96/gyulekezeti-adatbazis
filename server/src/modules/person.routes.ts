@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, canEditGyulekezet, assertCanEditPerson, isAdmin } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath, javasoltHaztartasiSzerep, kapcsolatokHaztartasbol } from "./family.js";
+import { getFamilyOverview, applyWidowhoodCascade, endPositionsOnDeath, javasoltHaztartasiSzerep, kapcsolatokHaztartasbol, szulokKeresztelesbol, masikSzuloHazastarsbol } from "./family.js";
 import { ageOn } from "../lib/age.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { matchesAllWords } from "../lib/search.js";
@@ -143,6 +143,24 @@ export async function personRoutes(app: FastifyInstance) {
     });
   });
 
+  // A személy háztartásában élő többi tag - a családi kapcsolatok (szülő, gyerek, házastárs) gyors kiválasztásához.
+  app.get("/api/persons/:id/haztartas-tagjai", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const user = req.currentUser!;
+    const person = await prisma.person.findUnique({ where: { id }, select: { gyulekezetId: true } });
+    if (!person) return reply.code(404).send({ error: "Nem található" });
+    const accessible = await getAccessibleGyulekezetIds(user);
+    if (accessible !== "ALL" && !accessible.includes(person.gyulekezetId)) return reply.code(403).send({ error: "Nincs jogosultság" });
+    const sajat = await prisma.householdMember.findMany({ where: { personId: id, vege: null }, select: { householdId: true } });
+    if (sajat.length === 0) return [];
+    const tagok = await prisma.householdMember.findMany({
+      where: { householdId: { in: sajat.map((s) => s.householdId) }, vege: null, personId: { not: id }, person: { deletedAt: null, elkoltozott: false } },
+      include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true } } },
+      orderBy: { szerep: "asc" },
+    });
+    return tagok.map((t) => ({ ...t.person, szerep: t.szerep }));
+  });
+
   app.get("/api/persons/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const user = req.currentUser!;
@@ -223,6 +241,8 @@ export async function personRoutes(app: FastifyInstance) {
         },
       });
     }
+    // a keresztelési anyakönyv szülő-nevei alapján a szülő-gyermek kapcsolatok automatikusan létrejönnek
+    if (data.kereszteles) await szulokKeresztelesbol(person.id);
     if (data.koltozottHonnan) {
       await prisma.movingRequest.create({
         data: {
@@ -345,10 +365,8 @@ export async function personRoutes(app: FastifyInstance) {
         szerepIndok = "Új háztartás, nincs más tag";
       } else {
         const javaslat = await javasoltHaztartasiSzerep(id, target!.id);
-        if (javaslat.szerep === null) {
-          return { ok: false, valtozott: false, szerepKerdes: true, indok: javaslat.indok, tagok: javaslat.tagok };
-        }
-        szerep = javaslat.szerep;
+        // A háztartási szerep belső adat (a felhasználónak nem kell megadnia): ha nem állapítható meg, "egyéb", és nem kérdezünk rá.
+        szerep = javaslat.szerep ?? "EGYEB";
         szerepIndok = javaslat.indok;
       }
     }
@@ -459,6 +477,7 @@ export async function personRoutes(app: FastifyInstance) {
         },
       });
     }
+    if (data.kereszteles) await szulokKeresztelesbol(id);
 
     return person;
   });
@@ -482,6 +501,8 @@ export async function personRoutes(app: FastifyInstance) {
     const letezo = await prisma.familyLink.findFirst({ where: parsed.data });
     if (letezo) return letezo;
     const link = await prisma.familyLink.create({ data: parsed.data });
+    // a szülő házastársa (ha a gyerekkel egy háztartásban él) automatikusan a másik szülő lesz
+    await masikSzuloHazastarsbol(parsed.data.parentId, parsed.data.childId);
     return link;
   });
 

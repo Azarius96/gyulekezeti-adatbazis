@@ -250,6 +250,168 @@ const SZULO_MIN_KORKULONBSEG = 16;
 const ANYA_MAX_KORKULONBSEG = 47;
 const APA_MAX_KORKULONBSEG = 50;
 
+// ---------- Szülők a keresztelési anyakönyv neveiből ----------
+
+const nevTokenek = (s: string | null | undefined): string[] =>
+  (s ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z ]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 1 && !["id", "ifj", "ozv"].includes(t));
+const tokenEgyezik = (a: string, b: string) => a === b || (a.length >= 4 && b.length >= 4 && a.slice(0, 4) === b.slice(0, 4));
+/** Az "egyik" lista minden eleme megvan a "masik" listában (ékezet nélkül, 4 betűs előtaggal is). */
+const mindenMegvan = (egyik: string[], masik: string[]) => egyik.length > 0 && egyik.every((t) => masik.some((m) => tokenEgyezik(t, m)));
+
+type KapcsolatJelolt = { id: string; vezeteknev: string; keresztnev: string; leanykoriNev: string | null; nem: "FERFI" | "NO"; szuletesiDatum: Date | null };
+
+function evKulonbseg(szulo: Date | null, gyerek: Date | null): number | null {
+  if (!szulo || !gyerek) return null;
+  return (gyerek.getTime() - szulo.getTime()) / (365.25 * 24 * 3600 * 1000);
+}
+
+/**
+ * A keresztelési anyakönyvben szereplő szülő-nevek (apa, anya) alapján összeköti a gyereket a szüleivel.
+ * Elsősorban a gyerek háztartásának tagjai között keres; ha ott nincs, a gyülekezet többi tagja között csak akkor,
+ * ha egyértelmű (egyetlen találat, és a korkülönbség ismert és elfogadható). Meglévő kapcsolatot nem módosít, és ha a gyereknek
+ * már van azonos nemű szülője, azt nem bántja. Visszaadja a létrehozott kapcsolatok számát.
+ */
+export async function szulokKeresztelesbol(childId: string, proba = false): Promise<number> {
+  const child = await prisma.person.findUnique({
+    where: { id: childId },
+    include: { baptism: true, parentLinks: { include: { parent: { select: { nem: true } } } }, householdMemberships: { where: { vege: null }, select: { householdId: true } } },
+  });
+  if (!child || child.deletedAt || !child.baptism) return 0;
+  const apaNev = child.baptism.szuloApaNev?.trim();
+  const anyaNev = child.baptism.szuloAnyaNev?.trim();
+  if (!apaNev && !anyaNev) return 0;
+  const vanApa = child.parentLinks.some((l) => l.parent.nem === "FERFI");
+  const vanAnya = child.parentLinks.some((l) => l.parent.nem === "NO");
+  const select = { id: true, vezeteknev: true, keresztnev: true, leanykoriNev: true, nem: true, szuletesiDatum: true } as const;
+
+  const haztartasIds = child.householdMemberships.map((m) => m.householdId);
+  const haziak: KapcsolatJelolt[] = haztartasIds.length
+    ? (
+        await prisma.householdMember.findMany({
+          where: { householdId: { in: haztartasIds }, vege: null, personId: { not: childId }, person: { deletedAt: null } },
+          include: { person: { select } },
+        })
+      ).map((m) => m.person)
+    : [];
+  const gyulekezetiek = async (nem: "FERFI" | "NO"): Promise<KapcsolatJelolt[]> =>
+    prisma.person.findMany({ where: { gyulekezetId: child.gyulekezetId, nem, deletedAt: null, id: { not: childId } }, select });
+
+  const korOk = (j: KapcsolatJelolt, anya: boolean) => {
+    const k = evKulonbseg(j.szuletesiDatum, child.szuletesiDatum);
+    return k === null ? null : k >= 15 && k <= (anya ? 50 : 65);
+  };
+  async function keres(nev: string, nem: "FERFI" | "NO", apaJelolt?: KapcsolatJelolt | null): Promise<KapcsolatJelolt | null> {
+    const nevTk = nevTokenek(nev);
+    const egyezik = (j: KapcsolatJelolt) => {
+      if (j.nem !== nem) return false;
+      const kerTk = nevTokenek(j.keresztnev);
+      if (!mindenMegvan(kerTk, nevTk)) return false;
+      const vezTk = nevTokenek(j.vezeteknev);
+      if (nem === "FERFI") return mindenMegvan(vezTk, nevTk);
+      // anya: leánykori név, a nevében szereplő családnév, vagy (házas név) azonos az apa családnevével
+      if (j.leanykoriNev && mindenMegvan(nevTokenek(j.leanykoriNev), nevTk)) return true;
+      if (mindenMegvan(vezTk, nevTk)) return true;
+      return !!apaJelolt && mindenMegvan(vezTk, nevTokenek(apaJelolt.vezeteknev));
+    };
+    const haz = haziak.filter(egyezik).filter((j) => korOk(j, nem === "NO") !== false);
+    if (haz.length === 1) return haz[0];
+    if (haz.length > 1) return null;
+    const mind = (await gyulekezetiek(nem)).filter(egyezik).filter((j) => korOk(j, nem === "NO") === true);
+    return mind.length === 1 ? mind[0] : null;
+  }
+
+  let letrehozva = 0;
+  const kapcsol = async (parentId: string) => {
+    if (parentId === childId) return;
+    const letezo = await prisma.familyLink.findFirst({ where: { parentId, childId } });
+    const fordito = await prisma.familyLink.findFirst({ where: { parentId: childId, childId: parentId } });
+    if (letezo || fordito) return;
+    if (proba) console.log(`[próba] ${child!.vezeteknev} ${child!.keresztnev} <- szülő ${parentId} (keresztelési anyakönyv: ${apaNev ?? ""} / ${anyaNev ?? ""})`);
+    else await prisma.familyLink.create({ data: { parentId, childId } });
+    letrehozva++;
+  };
+  let apa: KapcsolatJelolt | null = null;
+  if (apaNev && !vanApa) {
+    apa = await keres(apaNev, "FERFI");
+    if (apa) await kapcsol(apa.id);
+  }
+  if (anyaNev && !vanAnya) {
+    const anya = await keres(anyaNev, "NO", apa);
+    if (anya) await kapcsol(anya.id);
+  }
+  return letrehozva;
+}
+
+/**
+ * Ha a szülőnek van (nem lezárt) házastársa, aki a gyerekkel egy háztartásban él, és a gyereknek még nincs azonos nemű szülője,
+ * a házastársat is hozzáadja szülőnek - így az egyik szülő rögzítése a másiknál is megjelenik. Ismert születési dátumoknál a
+ * korkülönbségnek elfogadhatónak kell lennie. Visszaadja a létrehozott kapcsolatok számát (0 vagy 1).
+ */
+export async function masikSzuloHazastarsbol(parentId: string, childId: string): Promise<number> {
+  const hazassag = await prisma.marriage.findFirst({
+    where: { deletedAt: null, vege: null, OR: [{ spouseAId: parentId, spouseBId: { not: null } }, { spouseBId: parentId }] },
+  });
+  if (!hazassag) return 0;
+  const masikId = hazassag.spouseAId === parentId ? hazassag.spouseBId : hazassag.spouseAId;
+  if (!masikId || masikId === childId) return 0;
+  const [masik, gyerek, vanLink] = await Promise.all([
+    prisma.person.findUnique({ where: { id: masikId }, select: { id: true, nem: true, szuletesiDatum: true, deletedAt: true, elhunyt: true } }),
+    prisma.person.findUnique({ where: { id: childId }, select: { szuletesiDatum: true } }),
+    prisma.familyLink.findMany({ where: { childId }, include: { parent: { select: { nem: true } } } }),
+  ]);
+  if (!masik || masik.deletedAt || !gyerek) return 0;
+  if (vanLink.some((l) => l.parentId === masikId || l.parent.nem === masik.nem)) return 0;
+  const k = evKulonbseg(masik.szuletesiDatum, gyerek.szuletesiDatum);
+  if (k !== null && (k < 15 || k > (masik.nem === "NO" ? 50 : 65))) return 0;
+  // egy háztartásban kell élniük (különben nem tudjuk, hogy a házastárs is szülő)
+  const gyerekHaz = await prisma.householdMember.findMany({ where: { personId: childId, vege: null }, select: { householdId: true } });
+  if (gyerekHaz.length === 0) return 0;
+  const kozos = await prisma.householdMember.findFirst({ where: { personId: masikId, vege: null, householdId: { in: gyerekHaz.map((g) => g.householdId) } } });
+  if (!kozos) return 0;
+  if (await prisma.familyLink.findFirst({ where: { parentId: childId, childId: masikId } })) return 0;
+  await prisma.familyLink.create({ data: { parentId: masikId, childId } });
+  return 1;
+}
+
+// ---------- Házasság a háztartási szerepekből ----------
+
+/**
+ * Ha a háztartásban pontosan egy (élő, helyben lakó) családfő és pontosan egy házastárs szerepű tag van, és köztük nincs rögzített
+ * házasság, létrehozza a házasságot (dátum nélkül) - így mindkét félnél ugyanúgy megjelenik. Ha valamelyiknek már van másik,
+ * nem lezárt házassága, nem nyúl hozzá. A "nőtlen/hajadon" vagy üres családi állapotot "házas"-ra állítja.
+ */
+export async function hazassagokHaztartasbol(householdId: string, proba = false): Promise<number> {
+  const tagok = await prisma.householdMember.findMany({
+    where: { householdId, vege: null, szerep: { in: ["CSALADFO", "HAZASTARS"] }, person: { deletedAt: null, elhunyt: false, elkoltozott: false } },
+    select: { personId: true, szerep: true },
+  });
+  const cf = tagok.filter((t) => t.szerep === "CSALADFO");
+  const hz = tagok.filter((t) => t.szerep === "HAZASTARS");
+  if (cf.length !== 1 || hz.length !== 1) return 0;
+  const [a, b] = [cf[0].personId, hz[0].personId];
+  const van = await prisma.marriage.findFirst({
+    where: { deletedAt: null, OR: [{ spouseAId: a, spouseBId: b }, { spouseAId: b, spouseBId: a }] },
+  });
+  if (van) return 0;
+  const masikAktiv = await prisma.marriage.findFirst({
+    where: { deletedAt: null, vege: null, OR: [{ spouseAId: { in: [a, b] } }, { spouseBId: { in: [a, b] } }] },
+  });
+  if (masikAktiv) return 0;
+  if (proba) { console.log(`[próba] házasság a háztartás szerepeiből: ${a} + ${b}`); return 1; }
+  await prisma.marriage.create({ data: { spouseAId: a, spouseBId: b } });
+  for (const id of [a, b]) {
+    const p = await prisma.person.findUnique({ where: { id }, select: { csaladiAllapot: true } });
+    if (p && (p.csaladiAllapot === null || p.csaladiAllapot === "NOTLEN_HAJADON")) await prisma.person.update({ where: { id }, data: { csaladiAllapot: "HAZAS" } });
+  }
+  return 1;
+}
+
 /**
  * A háztartás szerepeiből (apa/anya = családfő és házastárs, gyerek) létrehozza a hiányzó szülő-gyermek kapcsolatokat:
  * a "gyerek" szerepű tag szülője lesz a háztartás "apa/anya" szerepű (élő) tagja - DE csak akkor, ha mindkettőjük
@@ -263,16 +425,20 @@ export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ le
     include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
   });
   const elok = tagok.filter((m) => !m.person.elkoltozott);
+  // 1) a keresztelési anyakönyv szülő-nevei (dátum nélkül is egyértelmű), 2) házasság a családfő + házastárs szerepből
+  let nevekbolLetrehozva = 0;
+  for (const t of elok) nevekbolLetrehozva += await szulokKeresztelesbol(t.personId);
+  await hazassagokHaztartasbol(householdId);
   const szulok = elok.filter((m) => (m.szerep === "CSALADFO" || m.szerep === "HAZASTARS") && !m.person.elhunyt);
   const gyerekek = elok.filter((m) => m.szerep === "GYERMEK");
-  if (szulok.length === 0 || gyerekek.length === 0) return { letrehozva: 0, kihagyva: [] };
+  if (szulok.length === 0 || gyerekek.length === 0) return { letrehozva: nevekbolLetrehozva, kihagyva: [] };
 
   const meglevo = await prisma.familyLink.findMany({
     where: { parentId: { in: szulok.map((s) => s.personId) }, childId: { in: gyerekek.map((g) => g.personId) } },
     select: { parentId: true, childId: true },
   });
   const van = new Set(meglevo.map((l) => `${l.parentId}:${l.childId}`));
-  let letrehozva = 0;
+  let letrehozva = nevekbolLetrehozva;
   const kihagyva: string[] = [];
   for (const sz of szulok) {
     for (const gy of gyerekek) {

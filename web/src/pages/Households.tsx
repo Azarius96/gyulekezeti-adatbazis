@@ -8,7 +8,7 @@ import { useReloadOnPayment } from "../context/PaymentSessionContext";
 import { IconDownload } from "../components/icons";
 import { DateInput } from "../components/DateInput";
 import { PageLoader } from "../components/Loading";
-import { memberHighlight, reszfizetesSzoveg, szerepNev, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
+import { memberHighlight, reszfizetesSzoveg, CSALADI_ALLAPOT_NEVEK, type CsaladiAllapot, ownGyulekezetIds, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult, type Gyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
@@ -18,6 +18,7 @@ import { szemelyNev } from "../lib/nev";
 interface HouseholdMemberTag {
   id: string;
   vezeteknev: string;
+  csaladiAllapot?: CsaladiAllapot | null;
   keresztnev: string;
   nem: "FERFI" | "NO";
   szerep: string;
@@ -390,7 +391,7 @@ export function Households() {
                         )}
                         {age !== null && <span style={{ color: "var(--color-text-muted)" }}> ({age} év)</span>}{" "}
                         {t.elhunyt && <span style={{ color: "var(--color-danger)" }}>(elhunyt) </span>}
-                        <span style={{ color: "var(--color-text-muted)" }}>({szerepNev(t.szerep, t.nem)})</span>
+                        {t.csaladiAllapot && <span style={{ color: "var(--color-text-muted)" }}>({CSALADI_ALLAPOT_NEVEK[t.csaladiAllapot]})</span>}
                         <DuesBadge dues={t.egyhazfenntarto} becsult={t.egyhazfenntartoBecsult} />
                         {t.tobbEveElmaradt && (
                           <span style={{ color: "var(--color-danger)", fontWeight: 700, fontSize: "var(--font-size-sm)" }}>

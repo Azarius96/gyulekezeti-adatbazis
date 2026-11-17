@@ -5,7 +5,7 @@ import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/
 import { requireAuth } from "../auth/plugin.js";
 import { loadDuesBandsByYear, computeMemberDuesInfo } from "./duesCalc.js";
 import { ageOn } from "../lib/age.js";
-import { kapcsolatokHaztartasbol } from "./family.js";
+import { kapcsolatokHaztartasbol, hazassagokHaztartasbol } from "./family.js";
 import { matchesAllWords } from "../lib/search.js";
 
 const memberPersonSelect = {
@@ -13,6 +13,7 @@ const memberPersonSelect = {
   vezeteknev: true, leanykoriNev: true,
   keresztnev: true,
   nem: true,
+  csaladiAllapot: true,
   szuletesiDatum: true,
   elhunyt: true,
   vallas: true,
@@ -310,6 +311,7 @@ export async function householdRoutes(app: FastifyInstance) {
     const member = await prisma.householdMember.create({
       data: { householdId: id, personId: parsed.data.personId, szerep: parsed.data.szerep },
     });
+    await hazassagokHaztartasbol(id);
     return member;
   });
 

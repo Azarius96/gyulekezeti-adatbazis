@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { QuickPay } from "../components/QuickPay";
 import { useReloadOnPayment } from "../context/PaymentSessionContext";
-import { memberHighlight, reszfizetesSzoveg, szerepNev, canEditGyulekezet, tartozasSzoveg, type TartozasEv, type DuesResult } from "../lib/types";
+import { memberHighlight, reszfizetesSzoveg, CSALADI_ALLAPOT_NEVEK, canEditGyulekezet, tartozasSzoveg, type CsaladiAllapot, type TartozasEv, type DuesResult } from "../lib/types";
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 import { SzerepRokonok, type RokonRef } from "../components/Rokonok";
@@ -34,6 +34,7 @@ interface HouseholdMemberView {
     szuletesiDatum: string | null;
     elhunyt: boolean;
     vallas: string | null;
+    csaladiAllapot?: CsaladiAllapot | null;
   };
 }
 
@@ -97,40 +98,26 @@ function CsaladkonyvSzerkeszto({ household, canEdit, onSaved }: { household: Hou
   );
 }
 
-function SzerepEditor({
-  memberId,
-  szerep,
-  nem,
-  vanMasCsaladfo,
-  onChanged,
-}: {
-  memberId: string;
-  szerep: string;
-  nem: "FERFI" | "NO";
-  /** Igaz, ha a háztartásban egy másik tag már "családfő" - ilyenkor az újonnan szülőnek jelölt a "házastárs" szerepet kapja. */
-  vanMasCsaladfo: boolean;
-  onChanged: () => void;
-}) {
+/** A tag családi állapota (nőtlen/hajadon, házas, özvegy, elvált) - ugyanaz a mező, mint a személy adatlapján. */
+function CsaladiAllapotEditor({ personId, allapot, onChanged }: { personId: string; allapot: CsaladiAllapot | null | undefined; onChanged: () => void }) {
   const [saving, setSaving] = useState(false);
-  const szuloE = szerep === "CSALADFO" || szerep === "HAZASTARS";
-
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const v = e.target.value;
-    const ujSzerep = v === "SZULO" ? (vanMasCsaladfo ? "HAZASTARS" : "CSALADFO") : v;
     setSaving(true);
     try {
-      await api.put(`/api/household-members/${memberId}`, { szerep: ujSzerep });
+      await api.put(`/api/persons/${personId}`, { csaladiAllapot: e.target.value || null });
       onChanged();
     } finally {
       setSaving(false);
     }
   }
-
   return (
-    <select value={szuloE ? "SZULO" : szerep} onChange={handleChange} disabled={saving} style={{ fontSize: "var(--font-size-sm)" }}>
-      <option value="SZULO">{szerepNev("CSALADFO", nem)}</option>
-      <option value="GYERMEK">{szerepNev("GYERMEK")}</option>
-      <option value="EGYEB">{szerepNev("EGYEB")}</option>
+    <select value={allapot ?? ""} onChange={handleChange} disabled={saving} style={{ fontSize: "var(--font-size-sm)" }}>
+      <option value="">— családi állapot —</option>
+      {(Object.keys(CSALADI_ALLAPOT_NEVEK) as CsaladiAllapot[]).map((k) => (
+        <option key={k} value={k}>
+          {CSALADI_ALLAPOT_NEVEK[k]}
+        </option>
+      ))}
     </select>
   );
 }
@@ -259,19 +246,13 @@ export function HouseholdDetail() {
                   </span>
                 )}
               </Link>
-                <SzerepRokonok szerep={m.szerep} szulok={m.szulok} gyermekek={m.gyermekek} nagyszulok={m.nagyszulok} unokak={m.unokak} />
+                <SzerepRokonok fiatal={age !== null && age < 18} szulok={m.szulok} gyermekek={m.gyermekek} nagyszulok={m.nagyszulok} unokak={m.unokak} />
               </div>
               {canEdit ? (
-                <SzerepEditor
-                  memberId={m.id}
-                  szerep={m.szerep}
-                  nem={m.person.nem}
-                  vanMasCsaladfo={household.members.some((x) => x.id !== m.id && x.szerep === "CSALADFO")}
-                  onChanged={load}
-                />
+                <CsaladiAllapotEditor personId={m.person.id} allapot={m.person.csaladiAllapot} onChanged={load} />
               ) : (
                 <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
-                  {szerepNev(m.szerep, m.person.nem)}
+                  {m.person.csaladiAllapot ? CSALADI_ALLAPOT_NEVEK[m.person.csaladiAllapot] : ""}
                 </span>
               )}
               {!m.person.elhunyt && canEdit && (

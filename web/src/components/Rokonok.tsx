@@ -34,7 +34,7 @@ function Nevek({ cimke, emberek, ures }: { cimke: string; emberek: RokonRef[]; u
  * (a gyerekei gyerekei). Gyereknél a szülei mindig látszanak (ha nincs rögzítve, azt jelezzük), szülőnél a gyerekei is.
  */
 export function SzerepRokonok({
-  szerep,
+  fiatal = false,
   szulok,
   gyermekek,
   nagyszulok = [],
@@ -42,7 +42,8 @@ export function SzerepRokonok({
   hazastarsak = [],
   nem,
 }: {
-  szerep: string;
+  /** Kiskorú: a szülei akkor is látszanak, ha még nincsenek rögzítve (jelezzük, hogy hiányoznak). */
+  fiatal?: boolean;
   szulok: RokonRef[];
   gyermekek: RokonRef[];
   nagyszulok?: RokonRef[];
@@ -51,15 +52,12 @@ export function SzerepRokonok({
   hazastarsak?: RokonRef[];
   nem?: "FERFI" | "NO" | null;
 }) {
-  const szulo = szerep === "CSALADFO" || szerep === "HAZASTARS";
-  const gyerek = szerep === "GYERMEK";
-  if (!gyerek && !szulo && szulok.length + gyermekek.length + nagyszulok.length + unokak.length === 0) return null;
+  if (!fiatal && szulok.length + gyermekek.length + nagyszulok.length + unokak.length + hazastarsak.length === 0) return null;
   return (
     <div style={{ fontSize: "var(--font-size-sm)", marginTop: 4, display: "flex", flexWrap: "wrap", gap: "2px 18px" }}>
-      {szulo && hazastarsak.length > 0 && <Nevek cimke={nem === "FERFI" ? "Felesége" : nem === "NO" ? "Férje" : "Házastársa"} emberek={hazastarsak} />}
-      {szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} ures="nincs rögzítve" />}
-      {!szulo && <Nevek cimke="Gyerekei" emberek={gyermekek} />}
-      <Nevek cimke="Szülei" emberek={szulok} ures={gyerek ? "nincs rögzítve" : undefined} />
+      {hazastarsak.length > 0 && <Nevek cimke={nem === "FERFI" ? "Felesége" : nem === "NO" ? "Férje" : "Házastársa"} emberek={hazastarsak} />}
+      <Nevek cimke="Gyerekei" emberek={gyermekek} />
+      <Nevek cimke="Szülei" emberek={szulok} ures={fiatal ? "nincs rögzítve" : undefined} />
       <Nevek cimke="Nagyszülei" emberek={nagyszulok} />
       <Nevek cimke="Unokái" emberek={unokak} />
     </div>
