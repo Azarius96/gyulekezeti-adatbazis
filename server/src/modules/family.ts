@@ -59,7 +59,7 @@ export interface FamilyOverview {
   testverek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem }[];
 }
 
-const personSelect = { id: true, vezeteknev: true, keresztnev: true, nem: true } as const;
+const personSelect = { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true } as const;
 
 export async function getFamilyOverview(personId: string): Promise<FamilyOverview> {
   const parentLinks = await prisma.familyLink.findMany({
@@ -187,7 +187,7 @@ export async function javasoltHaztartasiSzerep(personId: string, householdId: st
   const most = new Date();
   const tagsagok = await prisma.householdMember.findMany({
     where: { householdId, vege: null, personId: { not: personId }, person: { deletedAt: null } },
-    include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true } } },
+    include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true } } },
   });
   const elok = tagsagok.filter((m) => !m.person.elhunyt);
   const tagok = elok.map((m) => ({
@@ -260,7 +260,7 @@ const APA_MAX_KORKULONBSEG = 50;
 export async function kapcsolatokHaztartasbol(householdId: string): Promise<{ letrehozva: number; kihagyva: string[] }> {
   const tagok = await prisma.householdMember.findMany({
     where: { householdId, vege: null, person: { deletedAt: null } },
-    include: { person: { select: { id: true, vezeteknev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
+    include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true, szuletesiDatum: true, elhunyt: true, elkoltozott: true } } },
   });
   const elok = tagok.filter((m) => !m.person.elkoltozott);
   const szulok = elok.filter((m) => (m.szerep === "CSALADFO" || m.szerep === "HAZASTARS") && !m.person.elhunyt);

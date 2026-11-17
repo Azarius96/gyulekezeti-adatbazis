@@ -10,7 +10,7 @@ import { matchesAllWords } from "../lib/search.js";
 
 const memberPersonSelect = {
   id: true,
-  vezeteknev: true,
+  vezeteknev: true, leanykoriNev: true,
   keresztnev: true,
   nem: true,
   szuletesiDatum: true,
@@ -99,7 +99,7 @@ export async function householdRoutes(app: FastifyInstance) {
 
     // Rokoni kapcsolatok tagonként: a gyereknek a szülei, a szülőnek a gyerekei ÉS a saját szülei is
     const tagIds = household.members.map((m) => m.personId);
-    const rokonSelect = { id: true, vezeteknev: true, keresztnev: true, nem: true } as const;
+    const rokonSelect = { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true } as const;
     const [szuloLinkek, gyerekLinkek] = await Promise.all([
       prisma.familyLink.findMany({ where: { childId: { in: tagIds } }, include: { parent: { select: rokonSelect } } }),
       prisma.familyLink.findMany({ where: { parentId: { in: tagIds } }, include: { child: { select: rokonSelect } } }),

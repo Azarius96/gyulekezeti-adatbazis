@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { DateInput } from "../components/DateInput";
+import { szemelyNev } from "../lib/nev";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -196,7 +197,7 @@ export function ValasztokNevjegyzeke() {
                 <tr key={p.id}>
                   <td style={tdStyle}>{i + 1}</td>
                   <td style={tdStyle}>
-                    {p.vezeteknev} {p.keresztnev}
+                    {szemelyNev(p)}
                   </td>
                   <td style={tdStyle}>
                     {p.szuletesiDatum ? fmtHu(p.szuletesiDatum) : ""} ({p.eletkor} év)

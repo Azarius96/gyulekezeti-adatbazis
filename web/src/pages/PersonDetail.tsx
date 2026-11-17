@@ -14,6 +14,7 @@ import { DateInput } from "../components/DateInput";
 import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { AddBurialForm, useCemeteries } from "../components/AddBurialForm";
+import { szemelyNev } from "../lib/nev";
 
 function RelativeGroup({ title, people, felirat }: { title: string; people: FamilyPersonRef[]; felirat?: (p: FamilyPersonRef) => string }) {
   if (people.length === 0) return null;
@@ -25,7 +26,7 @@ function RelativeGroup({ title, people, felirat }: { title: string; people: Fami
       <div className="row">
         {people.map((p) => (
           <Link key={p.id} to={`/szemelyek/${p.id}`} className="btn btn-secondary btn-sm">
-            {p.vezeteknev} {p.keresztnev}
+            {szemelyNev(p)}
             {felirat && <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}> · {felirat(p)}</span>}
           </Link>
         ))}
@@ -56,7 +57,7 @@ function RelativeGroupEditable({
         {people.map((p) => (
           <div key={p.id} className="row" style={{ alignItems: "center" }}>
             <Link to={`/szemelyek/${p.id}`} className="btn btn-secondary btn-sm">
-              {p.vezeteknev} {p.keresztnev}
+              {szemelyNev(p)}
             </Link>
             {canEdit && <DeleteFamilyLinkButton linkId={p.linkId} onDone={onDeleted} />}
           </div>
@@ -89,6 +90,7 @@ function toDateInput(value: string | null | undefined): string {
 function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onSaved: () => void; onCancel: () => void }) {
   const [vezeteknev, setVezeteknev] = useState(person.vezeteknev);
   const [keresztnev, setKeresztnev] = useState(person.keresztnev);
+  const [leanykoriNev, setLeanykoriNev] = useState(person.leanykoriNev ?? "");
   const [nem, setNem] = useState(person.nem);
   const [szuletesiDatum, setSzuletesiDatum] = useState(toDateInput(person.szuletesiDatum));
   const [szuletesiHely, setSzuletesiHely] = useState(person.szuletesiHely ?? "");
@@ -154,6 +156,7 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
       await api.put(`/api/persons/${person.id}`, {
         vezeteknev,
         keresztnev,
+        leanykoriNev: leanykoriNev.trim() || null,
         nem,
         szuletesiDatum: szuletesiDatum || null,
         szuletesiHely: szuletesiHely || null,
@@ -215,6 +218,10 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
         <div className="field" style={{ flex: 1 }}>
           <label>Keresztnév</label>
           <input required value={keresztnev} onChange={(e) => setKeresztnev(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Leánykori név</label>
+          <input value={leanykoriNev} onChange={(e) => setLeanykoriNev(e.target.value)} placeholder="pl. Nagy Anna (nőknél)" />
         </div>
       </div>
       <div className="stack" style={{ gap: 8 }}>
@@ -630,11 +637,11 @@ function AddMarriageForm({ personId, onAdded }: { personId: string; onAdded: () 
                   style={{ padding: 6, cursor: "pointer" }}
                   onClick={() => {
                     setSpouseId(r.id);
-                    setSpouseQuery(`${r.vezeteknev} ${r.keresztnev}`);
+                    setSpouseQuery(`${szemelyNev(r)}`);
                     setSpouseResults([]);
                   }}
                 >
-                  {r.vezeteknev} {r.keresztnev}
+                  {szemelyNev(r)}
                 </div>
               ))}
             </div>
@@ -765,11 +772,11 @@ function AddChildForm({ personId, gyulekezetId, onAdded }: { personId: string; g
                   style={{ padding: 6, cursor: "pointer" }}
                   onClick={() => {
                     setChildId(r.id);
-                    setChildQuery(`${r.vezeteknev} ${r.keresztnev}`);
+                    setChildQuery(`${szemelyNev(r)}`);
                     setChildResults([]);
                   }}
                 >
-                  {r.vezeteknev} {r.keresztnev}
+                  {szemelyNev(r)}
                 </div>
               ))}
             </div>
@@ -882,11 +889,11 @@ function AddParentForm({ personId, gyulekezetId, onAdded }: { personId: string; 
                   style={{ padding: 6, cursor: "pointer" }}
                   onClick={() => {
                     setParentId(r.id);
-                    setParentQuery(`${r.vezeteknev} ${r.keresztnev}`);
+                    setParentQuery(`${szemelyNev(r)}`);
                     setParentResults([]);
                   }}
                 >
-                  {r.vezeteknev} {r.keresztnev}
+                  {szemelyNev(r)}
                 </div>
               ))}
             </div>
@@ -1618,7 +1625,7 @@ export function PersonDetail() {
       </button>
       <div className="row">
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
-          {person.vezeteknev} {person.keresztnev}
+          {szemelyNev(person)}
           {person.elhunyt && (
             <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-danger)", marginLeft: 12 }}>
               elhunyt
@@ -1795,7 +1802,7 @@ export function PersonDetail() {
                     <strong>Korábbi (nyitó) tartozás: {nyitoTartozasOsszeg} lej</strong>
                     <span style={{ fontWeight: 400 }}> — a rendszer bevezetése előttről áthozott hátralék</span>
                   </span>
-                  {canEdit && !person.elhunyt && <PayOffOpeningDebtButton personId={person.id} nev={`${person.vezeteknev} ${person.keresztnev}`} osszeg={nyitoTartozasOsszeg} onDone={load} />}
+                  {canEdit && !person.elhunyt && <PayOffOpeningDebtButton personId={person.id} nev={`${szemelyNev(person)}`} osszeg={nyitoTartozasOsszeg} onDone={load} />}
                 </div>
               </div>
             )}
@@ -1835,7 +1842,7 @@ export function PersonDetail() {
             {canEdit && !person.elhunyt && (
               <QuickPaymentForm
                 personId={person.id}
-                nev={`${person.vezeteknev} ${person.keresztnev}`}
+                nev={`${szemelyNev(person)}`}
                 kind="dues"
                 defaultOsszeg={person.tartozasEvek[0]?.hianyzo ?? null}
                 defaultEv={person.tartozasEvek[0]?.ev}
@@ -1863,7 +1870,7 @@ export function PersonDetail() {
               canEdit={canEdit}
             />
           ))}
-          {canEdit && !person.elhunyt && <QuickPaymentForm personId={person.id} nev={`${person.vezeteknev} ${person.keresztnev}`} kind="donation" defaultOsszeg={null} onAdded={load} />}
+          {canEdit && !person.elhunyt && <QuickPaymentForm personId={person.id} nev={`${szemelyNev(person)}`} kind="donation" defaultOsszeg={null} onAdded={load} />}
         </div>
       )}
 
@@ -1972,11 +1979,11 @@ export function PersonDetail() {
                     <div key={i} className="row" style={{ alignItems: "center" }}>
                       {h.kulso || !h.id ? (
                         <span className="badge">
-                          {h.vezeteknev} {h.keresztnev}
+                          {szemelyNev(h)}
                         </span>
                       ) : (
                         <Link to={`/szemelyek/${h.id}`} className="btn btn-secondary btn-sm">
-                          {h.vezeteknev} {h.keresztnev}
+                          {szemelyNev(h)}
                         </Link>
                       )}
                       {h.vege && (
@@ -2131,7 +2138,7 @@ export function PersonDetail() {
         {confirmDelete && (
           <div className="row" style={{ alignItems: "center" }}>
             <span style={{ color: "var(--color-danger)" }}>
-              Biztosan törli {person.vezeteknev} {person.keresztnev} adatait? A papírkosárba kerül, onnan
+              Biztosan törli {szemelyNev(person)} adatait? A papírkosárba kerül, onnan
               bármikor visszaállítható.
             </span>
             <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>

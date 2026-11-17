@@ -25,7 +25,7 @@ import { getAccessibleGyulekezetIds, canEditGyulekezet, isAdmin } from "../auth/
 
 const personSnapshotSelect = {
   id: true,
-  vezeteknev: true,
+  vezeteknev: true, leanykoriNev: true,
   keresztnev: true,
   nem: true,
   szuletesiDatum: true,
@@ -75,7 +75,7 @@ export async function movingRoutes(app: FastifyInstance) {
       where,
       orderBy: { kezdemenyezve: "desc" },
       include: {
-        person: { select: { id: true, vezeteknev: true, keresztnev: true, gyulekezet: { select: { nev: true } } } },
+        person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, gyulekezet: { select: { nev: true } } } },
         celGyulekezet: { select: { nev: true } },
       },
     });

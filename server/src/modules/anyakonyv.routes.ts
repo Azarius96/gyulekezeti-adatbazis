@@ -34,7 +34,7 @@ function yearRange(ev: number) {
   return { gte: new Date(ev, 0, 1), lte: new Date(ev, 11, 31, 23, 59, 59) };
 }
 
-const personSelect = { id: true, vezeteknev: true, keresztnev: true, szuletesiDatum: true } as const;
+const personSelect = { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, szuletesiDatum: true } as const;
 
 export async function anyakonyvRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);

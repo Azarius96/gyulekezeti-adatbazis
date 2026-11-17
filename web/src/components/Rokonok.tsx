@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { szemelyNev } from "../lib/nev";
 
 export interface RokonRef {
   id: string;
@@ -19,7 +20,7 @@ function Nevek({ cimke, emberek, ures }: { cimke: string; emberek: RokonRef[]; u
           <span key={p.id}>
             {i > 0 && ", "}
             <Link to={`/szemelyek/${p.id}`} style={{ color: "var(--color-primary-dark)" }}>
-              {p.vezeteknev} {p.keresztnev}
+              {szemelyNev(p)}
             </Link>
           </span>
         ))

@@ -6,6 +6,7 @@ import { burialHelye, type PersonDetail } from "../lib/types";
 import { DateInput } from "../components/DateInput";
 import { IconChevronDown, IconChevronRight } from "../components/icons";
 import { age as computeAge } from "../lib/age";
+import { szemelyNev } from "../lib/nev";
 
 type Tipus =
   | "kereszteles"
@@ -304,11 +305,11 @@ function buildCtx(person: PersonDetail, gyulekezet: GyulekezetFejlec, t: Tenyek)
   const hm = person.householdMemberships[0];
   const cim = hm ? `${hm.household.address.telepules}, ${hm.household.address.utca} ${hm.household.address.hazszam}` : "";
   return {
-    nev: `${person.vezeteknev} ${person.keresztnev}`,
+    nev: `${szemelyNev(person)}`,
     szuletesiDatum: (nv) => fmtDate(person.szuletesiDatum, nv),
     szuletesiHely: person.szuletesiHely ?? "",
-    szuloNevek: (nv) => person.csalad.szulok.map((s) => `${s.vezeteknev} ${s.keresztnev}`).join(ES[nv]),
-    gyermekNevek: person.csalad.gyermekek.map((g) => `${g.vezeteknev} ${g.keresztnev}`).join(", "),
+    szuloNevek: (nv) => person.csalad.szulok.map((s) => `${szemelyNev(s)}`).join(ES[nv]),
+    gyermekNevek: person.csalad.gyermekek.map((g) => `${szemelyNev(g)}`).join(", "),
     gyulekezetNev: (nv) => gyulekezetNevNyelv(gyulekezet, nv),
     keresztelesDatum: (nv) => fmtDate(t.keresztDatum, nv),
     keresztelesHelye: t.keresztHely,
@@ -467,7 +468,7 @@ export function HivatalosIgazolasok() {
         const utolsoHazassag = p.csalad.hazastarsak[p.csalad.hazastarsak.length - 1];
         setHazassagDatum(utolsoHazassag?.datuma?.slice(0, 10) ?? "");
         setHazassagHelye(utolsoHazassag?.helye ?? "");
-        setHazastarsNev(utolsoHazassag ? `${utolsoHazassag.vezeteknev} ${utolsoHazassag.keresztnev}` : "");
+        setHazastarsNev(utolsoHazassag ? `${szemelyNev(utolsoHazassag)}` : "");
         setElhalalozasDatum(p.elhunytDatuma?.slice(0, 10) ?? "");
         setTemetesDatum(p.burial?.datuma?.slice(0, 10) ?? "");
         setTemetoNev(p.burial ? burialHelye(p.burial).temeto : "");
@@ -521,7 +522,7 @@ export function HivatalosIgazolasok() {
           &larr; Vissza
         </button>
         <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
-          Hivatalos igazolás — {person.vezeteknev} {person.keresztnev}
+          Hivatalos igazolás — {szemelyNev(person)}
         </h1>
 
         <div className="card stack">

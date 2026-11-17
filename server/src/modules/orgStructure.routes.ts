@@ -80,7 +80,7 @@ export async function orgStructureRoutes(app: FastifyInstance) {
         },
         positions: {
           where: { tisztseg: { in: [...GONDNOK_TISZTSEGEK, ...PRESBITER_TISZTSEGEK] }, vege: null },
-          include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+          include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
           orderBy: { person: { vezeteknev: "asc" } },
         },
       },

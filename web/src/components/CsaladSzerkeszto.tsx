@@ -2,6 +2,7 @@ import { DateInput } from "./DateInput";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { szerepNev, type PersonDetail } from "../lib/types";
+import { szemelyNev } from "../lib/nev";
 
 interface Jelolt {
   id: string;
@@ -17,7 +18,7 @@ type SzerepValasztas = "SZULO" | "GYERMEK" | "EGYEB";
 
 function jeloltCimke(j: Jelolt): string {
   const ev = j.szuletesiDatum ? ` (${j.szuletesiDatum.slice(0, 4)})` : "";
-  return `${j.vezeteknev} ${j.keresztnev}${ev}${j.elhunyt ? " †" : ""}${j.cim ? ` — ${j.cim}` : ""}`;
+  return `${szemelyNev(j)}${ev}${j.elhunyt ? " †" : ""}${j.cim ? ` — ${j.cim}` : ""}`;
 }
 
 function korkulonbseg(szulo: Jelolt | undefined, szuletesiDatum: string | null): number | null {
@@ -110,7 +111,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
   const gyerekFigyelmeztetes = (j: Jelolt) => {
     if (!j.szuletesiDatum || !szuletesiDatum) return null;
     const k = Math.round((new Date(j.szuletesiDatum).getTime() - new Date(szuletesiDatum).getTime()) / (365.25 * 24 * 3600 * 1000));
-    return k < 12 ? `${j.vezeteknev} ${j.keresztnev}: ${k} év korkülönbség` : null;
+    return k < 12 ? `${szemelyNev(j)}: ${k} év korkülönbség` : null;
   };
   const figyelmeztetesek = [
     apaKulonbseg !== null && (apaKulonbseg < 12 || apaKulonbseg > 65) ? `Az apa és a gyerek között ${apaKulonbseg} év a korkülönbség - biztos?` : null,
@@ -163,7 +164,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
           <div className="row">
             {person.csalad.hazastarsak.map((h, i) => (
               <span key={i} className="badge">
-                {h.vezeteknev} {h.keresztnev}
+                {szemelyNev(h)}
                 {h.haztartasbol ? " (háztartási szerep alapján)" : h.vege ? " (lezárt házasság)" : ""}{h.masVallasu ? " · más vallású" : ""}
               </span>
             ))}
@@ -203,7 +204,7 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
         <div className="row">
           {gyerekek.map((g) => (
             <span key={g.id} className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              {g.vezeteknev} {g.keresztnev}
+              {szemelyNev(g)}
               {g.szuletesiDatum ? ` (${g.szuletesiDatum.slice(0, 4)})` : ""}
               <button
                 type="button"
@@ -242,8 +243,8 @@ export function useCsaladSzerkeszto(person: PersonDetail, szuletesiDatum: string
       ))}
       <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
         <strong>Automatikusan számított (nem szerkeszthető):</strong> nagyszülők:{" "}
-        {person.csalad.nagyszulok.length ? person.csalad.nagyszulok.map((n) => `${n.vezeteknev} ${n.keresztnev}`).join(", ") : "—"}; unokák:{" "}
-        {person.csalad.unokak.length ? person.csalad.unokak.map((n) => `${n.vezeteknev} ${n.keresztnev}`).join(", ") : "—"}. Ezek az apa/anya és a gyerekek
+        {person.csalad.nagyszulok.length ? person.csalad.nagyszulok.map((n) => `${szemelyNev(n)}`).join(", ") : "—"}; unokák:{" "}
+        {person.csalad.unokak.length ? person.csalad.unokak.map((n) => `${szemelyNev(n)}`).join(", ") : "—"}. Ezek az apa/anya és a gyerekek
         módosításakor mentés után frissülnek.
       </div>
     </div>

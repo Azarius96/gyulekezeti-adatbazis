@@ -83,7 +83,7 @@ export async function cemeteryRoutes(app: FastifyInstance) {
         burials: {
           where: { deletedAt: null, sirhelyId: null },
           orderBy: { datuma: "desc" },
-          include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+          include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
         },
         parcellak: {
           where: { deletedAt: null },
@@ -96,12 +96,12 @@ export async function cemeteryRoutes(app: FastifyInstance) {
                 burials: {
                   where: { deletedAt: null },
                   orderBy: { datuma: "desc" },
-                  include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+                  include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
                 },
                 purchases: {
                   where: { deletedAt: null },
                   orderBy: { datuma: "desc" },
-                  include: { megvaltoPerson: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+                  include: { megvaltoPerson: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
                 },
               },
             },

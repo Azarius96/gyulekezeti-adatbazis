@@ -8,6 +8,7 @@ import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconDroplet, IconBook, IconRings, IconCross, IconMapPin, IconTrash } from "../components/icons";
 import { ageOn as calcAge } from "../lib/age";
 import { ApiError } from "../lib/api";
+import { szemelyNev } from "../lib/nev";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -276,7 +277,7 @@ function Keresztelesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: stri
           <PersonRow
             key={k.id}
             personId={k.person.id}
-            nev={`${k.person.vezeteknev} ${k.person.keresztnev}`}
+            nev={`${szemelyNev(k.person)}`}
             korInfo={null}
             gyulekezetNev={k.person.gyulekezet.nev}
             showGyulekezetNev={showGyulekezetNev}
@@ -310,7 +311,7 @@ function Konfirmaciok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: strin
           <PersonRow
             key={k.id}
             personId={k.person.id}
-            nev={`${k.person.vezeteknev} ${k.person.keresztnev}`}
+            nev={`${szemelyNev(k.person)}`}
             korInfo={calcAge(k.person.szuletesiDatum, k.datuma) !== null ? `${calcAge(k.person.szuletesiDatum, k.datuma)} év` : null}
             gyulekezetNev={k.person.gyulekezet.nev}
             showGyulekezetNev={showGyulekezetNev}
@@ -345,12 +346,12 @@ function Hazassagok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       <div className="stack" style={{ gap: 10 }}>
         {items.map((h) => {
-          const masikFel = h.spouseB ? `${h.spouseB.vezeteknev} ${h.spouseB.keresztnev}` : h.kulsoHazastarsNeve ?? "ismeretlen";
+          const masikFel = h.spouseB ? `${szemelyNev(h.spouseB)}` : h.kulsoHazastarsNeve ?? "ismeretlen";
           return (
             <PersonRow
               key={h.id}
               personId={h.spouseA.id}
-              nev={`${h.spouseA.vezeteknev} ${h.spouseA.keresztnev} & ${masikFel}`}
+              nev={`${szemelyNev(h.spouseA)} & ${masikFel}`}
               korInfo={null}
               gyulekezetNev={h.spouseA.gyulekezet.nev}
               showGyulekezetNev={showGyulekezetNev}
@@ -474,7 +475,7 @@ function KoltozesRow({
       <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
         <span style={{ minWidth: 0, flex: 1 }}>
           <Link to={`/szemelyek/${item.personId}`} style={{ fontWeight: 700 }}>
-            {item.person.vezeteknev} {item.person.keresztnev}
+            {szemelyNev(item.person)}
           </Link>
           {showGyulekezetNev && <span style={{ color: "var(--color-text-muted)" }}> — {item.person.gyulekezet.nev}</span>}
           <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)", marginTop: 4 }}>
@@ -545,7 +546,7 @@ function Temetesek({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; 
           <PersonRow
             key={t.id}
             personId={t.person.id}
-            nev={`${t.person.vezeteknev} ${t.person.keresztnev}`}
+            nev={`${szemelyNev(t.person)}`}
             korInfo={t.person.elhunytDatuma && calcAge(t.person.szuletesiDatum, t.person.elhunytDatuma) !== null ? `${calcAge(t.person.szuletesiDatum, t.person.elhunytDatuma)} év` : null}
             gyulekezetNev={t.person.gyulekezet.nev}
             showGyulekezetNev={showGyulekezetNev}

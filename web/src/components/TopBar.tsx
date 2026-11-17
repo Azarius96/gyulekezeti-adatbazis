@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { paymentDaysLeft, isStatsOnly } from "../lib/types";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconSearch, IconBell, IconLogout, IconHeart, IconMenu } from "./icons";
+import { szemelyNev } from "../lib/nev";
 
 const SUPPORT_URL = "https://revolut.me/laszlo37zx";
 
@@ -324,11 +325,11 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                       flexShrink: 0,
                     }}
                   >
-                    {initials(`${p.vezeteknev} ${p.keresztnev}`)}
+                    {initials(`${szemelyNev(p)}`)}
                   </span>
                   <span style={{ minWidth: 0, textAlign: "left" }}>
                     <span>
-                      {p.vezeteknev} {p.keresztnev}
+                      {szemelyNev(p)}
                       {p.szuletesiDatum && <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}> · {calcAge(p.szuletesiDatum)} év</span>}
                       {p.elhunyt && <span style={{ color: "var(--color-text-muted)" }}> (elhunyt)</span>}
                     </span>
@@ -581,7 +582,7 @@ function IncomingMovingRow({ item, onDone }: { item: IncomingMoving; onDone: () 
     <div className="stack" style={{ gap: 6, padding: "8px 8px", borderRadius: "var(--radius-sm)" }}>
       <div>
         <div style={{ fontWeight: 700, fontSize: "var(--font-size-sm)" }}>
-          {p.vezeteknev} {p.keresztnev}
+          {szemelyNev(p)}
           {age !== null && <span style={{ fontWeight: 400, color: "var(--color-text-muted)" }}> ({age} év)</span>}
         </div>
         <div style={{ color: "var(--color-text-muted)", fontSize: 13 }}>

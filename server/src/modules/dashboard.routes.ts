@@ -131,19 +131,19 @@ export async function dashboardRoutes(app: FastifyInstance) {
         where,
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, vezeteknev: true, keresztnev: true, createdAt: true },
+        select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, createdAt: true },
       }),
       prisma.duesPayment.findMany({
         where: { gyulekezetIdEkkor: gyulekezetIdEkkorFilter },
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, osszeg: true, createdAt: true, person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+        select: { id: true, osszeg: true, createdAt: true, person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
       }),
       prisma.donation.findMany({
         where: { gyulekezetIdEkkor: gyulekezetIdEkkorFilter },
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, osszeg: true, createdAt: true, person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+        select: { id: true, osszeg: true, createdAt: true, person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
       }),
     ]);
     const legutobbiAktivitas = [

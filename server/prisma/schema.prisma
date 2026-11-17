@@ -249,6 +249,8 @@ model Person {
   id            String     @id @default(cuid())
   vezeteknev    String
   keresztnev    String
+  // Nőknél a leánykori név (a vezetéknév a férj neve szokott lenni); a név mellett zárójelben jelenik meg
+  leanykoriNev  String?
   nem           Nem
   szuletesiDatum DateTime?
   szuletesiHely String?

@@ -72,7 +72,7 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
     where: { gyulekezet: gyulekezetWhere, elhunyt: false, ...(personId ? { id: personId } : {}) },
     select: {
       id: true,
-      vezeteknev: true,
+      vezeteknev: true, leanykoriNev: true,
       keresztnev: true,
       szuletesiDatum: true,
       gyulekezetId: true,
@@ -313,7 +313,7 @@ export async function duesRoutes(app: FastifyInstance) {
     const ev = parsed.data.ev ?? currentYear;
     const payments = await prisma.duesPayment.findMany({
       where: { ev, gyulekezetIdEkkor: scope.gyulekezetIdFilter },
-      include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+      include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
       orderBy: { fizetesDatuma: "desc" },
     });
 
@@ -340,7 +340,7 @@ export async function duesRoutes(app: FastifyInstance) {
     const ev = parsed.data.ev ?? currentYear;
     const donations = await prisma.donation.findMany({
       where: { ev, gyulekezetIdEkkor: scope.gyulekezetIdFilter },
-      include: { person: { select: { id: true, vezeteknev: true, keresztnev: true } } },
+      include: { person: { select: { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true } } },
       orderBy: { fizetesDatuma: "desc" },
     });
 

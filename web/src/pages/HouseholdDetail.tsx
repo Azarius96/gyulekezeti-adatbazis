@@ -8,6 +8,7 @@ import { memberHighlight, reszfizetesSzoveg, szerepNev, canEditGyulekezet, tarto
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 import { SzerepRokonok, type RokonRef } from "../components/Rokonok";
+import { szemelyNev } from "../lib/nev";
 
 interface HouseholdMemberView {
   id: string;
@@ -224,7 +225,7 @@ export function HouseholdDetail() {
                 style={{ textDecoration: "none", color: "var(--color-text)", display: "block" }}
               >
                 <span style={{ fontWeight: 600, color: color?.fg ?? "inherit" }}>
-                  {m.person.vezeteknev} {m.person.keresztnev}
+                  {szemelyNev(m.person)}
                   {m.fizetveIdenre && (
                     <span title="Idén már fizetett" style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
                       {" "}
@@ -276,7 +277,7 @@ export function HouseholdDetail() {
               {!m.person.elhunyt && canEdit && (
                 <QuickPay
                   personId={m.person.id}
-                  nev={`${m.person.vezeteknev} ${m.person.keresztnev}`}
+                  nev={`${szemelyNev(m.person)}`}
                   defaultOsszeg={m.reszbenFizetett ? m.idenHianyzo : m.egyhazfenntarto.esedekesOsszeg}
                   fizetveIdenre={m.fizetveIdenre}
                   reszbenFizetett={m.reszbenFizetett}

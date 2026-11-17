@@ -4,6 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { szerepNev, type PersonDetail } from "../lib/types";
 import { DateInput } from "../components/DateInput";
+import { szemelyNev } from "../lib/nev";
 
 interface GyulekezetFejlec {
   id: string;
@@ -75,7 +76,7 @@ export function SzemelyiAdatlap() {
       .get<PersonDetail>(`/api/persons/${id}`)
       .then((p) => {
         setPerson(p);
-        setTargy(`Adatszolgáltatás ${p.vezeteknev} ${p.keresztnev} egyháztag adatairól`);
+        setTargy(`Adatszolgáltatás ${szemelyNev(p)} egyháztag adatairól`);
         return api.get<GyulekezetFejlec>(`/api/gyulekezetek/${p.gyulekezetId}`);
       })
       .then((g) => {
@@ -92,11 +93,11 @@ export function SzemelyiAdatlap() {
   const cim = hm ? `${hm.household.address.telepules}, ${hm.household.address.utca} ${hm.household.address.hazszam}` : "";
 
   const hazastarsak = person.csalad.hazastarsak
-    .map((h) => `${h.vezeteknev} ${h.keresztnev}${h.datuma ? ` (${fmtHu(h.datuma)}${h.vege ? `, lezárva: ${fmtHu(h.vege)}` : ""})` : ""}`)
+    .map((h) => `${szemelyNev(h)}${h.datuma ? ` (${fmtHu(h.datuma)}${h.vege ? `, lezárva: ${fmtHu(h.vege)}` : ""})` : ""}`)
     .join("; ");
-  const szulok = person.csalad.szulok.map((s) => `${s.vezeteknev} ${s.keresztnev}`).join("; ");
-  const testverek = person.csalad.testverek.map((s) => `${s.vezeteknev} ${s.keresztnev}`).join("; ");
-  const gyermekek = person.csalad.gyermekek.map((g) => `${g.vezeteknev} ${g.keresztnev}`).join("; ");
+  const szulok = person.csalad.szulok.map((s) => `${szemelyNev(s)}`).join("; ");
+  const testverek = person.csalad.testverek.map((s) => `${szemelyNev(s)}`).join("; ");
+  const gyermekek = person.csalad.gyermekek.map((g) => `${szemelyNev(g)}`).join("; ");
   const tisztsegek = person.positions
     .map((pos) => `${tisztsegLabels[pos.tisztseg] ?? pos.tisztseg} (${fmtHu(pos.kezdete)}${pos.vege ? `–${fmtHu(pos.vege)}` : " –"})`)
     .join("; ");
@@ -112,7 +113,7 @@ export function SzemelyiAdatlap() {
         </button>
         <div>
           <h1 style={{ fontSize: "var(--font-size-xl)", margin: 0 }}>
-            Személyi adatlap — {person.vezeteknev} {person.keresztnev}
+            Személyi adatlap — {szemelyNev(person)}
           </h1>
           <p style={{ color: "var(--color-text-muted)", margin: "6px 0 0" }}>
             A rendszerben rögzített összes adat a személyről, hivatalos levélfejléccel. Töltse ki a címzettet és az
@@ -184,7 +185,7 @@ export function SzemelyiAdatlap() {
 
         <table style={{ marginTop: 16, borderCollapse: "collapse" }}>
           <tbody>
-            <Row label="Név" value={`${person.vezeteknev} ${person.keresztnev}`} />
+            <Row label="Név" value={`${szemelyNev(person)}`} />
             <Row label="Nem" value={person.nem === "FERFI" ? "Férfi" : "Nő"} />
             <Row label="Születési dátum" value={fmtHu(person.szuletesiDatum)} />
             <Row label="Születési hely" value={person.szuletesiHely ?? ""} />

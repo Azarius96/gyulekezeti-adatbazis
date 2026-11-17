@@ -80,6 +80,7 @@ export function canEditGyulekezet(user: CurrentUser | null, gyulekezetId: string
 export interface PersonListItem {
   id: string;
   vezeteknev: string;
+  leanykoriNev?: string | null;
   keresztnev: string;
   nem: "FERFI" | "NO";
   szuletesiDatum: string | null;
@@ -90,6 +91,7 @@ export interface PersonListItem {
 export interface FamilyPersonRef {
   id: string;
   vezeteknev: string;
+  leanykoriNev?: string | null;
   keresztnev: string;
   nem?: "FERFI" | "NO";
 }

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { DateInput } from "./DateInput";
 import { MezoLista, HALOTTI_MEZOK, uresErtekek, torzsBol } from "./AnyakonyviMezok";
+import { szemelyNev } from "../lib/nev";
 
 /** Ennyi hónapon belül lejáró sírhelymegváltásokat jelezzük előre, hogy legyen idő
  * a megújításról dönteni vagy - lejárat után - a sírhelyet a szabályzat szerint kezelni. */
@@ -227,7 +228,7 @@ export function AddBurialForm({
             {matchedSirhely!.burials.map((b, i) => (
               <span key={b.id}>
                 {i > 0 && ", "}
-                <Link to={`/szemelyek/${b.person.id}`}>{b.person.vezeteknev} {b.person.keresztnev}</Link> ({b.datuma?.slice(0, 10) ?? "dátum nem ismert"})
+                <Link to={`/szemelyek/${b.person.id}`}>{szemelyNev(b.person)}</Link> ({b.datuma?.slice(0, 10) ?? "dátum nem ismert"})
               </span>
             ))}
           </div>

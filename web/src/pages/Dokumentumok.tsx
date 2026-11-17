@@ -4,6 +4,7 @@ import { api, API_BASE } from "../lib/api";
 import type { PersonListItem } from "../lib/types";
 import { IconDownload } from "../components/icons";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
+import { szemelyNev } from "../lib/nev";
 
 function DocumentCard({
   title,
@@ -55,7 +56,7 @@ function SzemelyKereso({ hrefBuilder, linkLabel }: { hrefBuilder: (id: string) =
           {results.map((p) => (
             <Link key={p.id} to={hrefBuilder(p.id)} className="list-row row" style={{ justifyContent: "space-between" }}>
               <span>
-                {p.vezeteknev} {p.keresztnev}
+                {szemelyNev(p)}
               </span>
               <span style={{ color: "var(--color-text-muted)" }}>{linkLabel} →</span>
             </Link>

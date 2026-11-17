@@ -32,6 +32,7 @@ const konfirmacioSchema = sacramentSchema.merge(szovegesSema(KONFIRMACIO_MEZOK))
 const personCreateSchema = z.object({
   vezeteknev: z.string().min(1),
   keresztnev: z.string().min(1),
+  leanykoriNev: z.string().optional().nullable(),
   nem: z.enum(["FERFI", "NO"]),
   szuletesiDatum: z.string().optional().nullable(),
   szuletesiHely: z.string().optional().nullable(),
@@ -101,7 +102,7 @@ export async function personRoutes(app: FastifyInstance) {
       orderBy: [{ vezeteknev: "asc" }, { keresztnev: "asc" }],
       select: {
         id: true,
-        vezeteknev: true,
+        vezeteknev: true, leanykoriNev: true,
         keresztnev: true,
         nem: true,
         szuletesiDatum: true,
@@ -116,7 +117,7 @@ export async function personRoutes(app: FastifyInstance) {
 
     let persons = query.q
       ? personsRaw.filter((p) => {
-          if (matchesAllWords([p.vezeteknev, p.keresztnev], query.q!)) return true;
+          if (matchesAllWords([p.vezeteknev, p.keresztnev, p.leanykoriNev ?? ""], query.q!)) return true;
           return p.householdMemberships.some((hm) =>
             matchesAllWords([hm.household.address.utca, hm.household.address.telepules, hm.household.address.hazszam], query.q!)
           );
@@ -187,6 +188,7 @@ export async function personRoutes(app: FastifyInstance) {
       data: {
         vezeteknev: data.vezeteknev,
         keresztnev: data.keresztnev,
+        leanykoriNev: data.leanykoriNev?.trim() || null,
         nem: data.nem,
         szuletesiDatum: data.szuletesiDatum ? new Date(data.szuletesiDatum) : null,
         szuletesiHely: data.szuletesiHely ?? null,
@@ -396,6 +398,7 @@ export async function personRoutes(app: FastifyInstance) {
       data: {
         ...(data.vezeteknev !== undefined ? { vezeteknev: data.vezeteknev } : {}),
         ...(data.keresztnev !== undefined ? { keresztnev: data.keresztnev } : {}),
+        ...(data.leanykoriNev !== undefined ? { leanykoriNev: data.leanykoriNev?.trim() || null } : {}),
         ...(data.nem !== undefined ? { nem: data.nem } : {}),
         ...(data.szuletesiDatum !== undefined
           ? { szuletesiDatum: data.szuletesiDatum ? new Date(data.szuletesiDatum) : null }

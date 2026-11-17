@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { MezoLista, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, uresErtekek, torzsBol } from "../components/AnyakonyviMezok";
+import { szemelyNev } from "../lib/nev";
 
 interface HouseholdMemberTag {
   id: string;
@@ -95,7 +96,7 @@ function korosztalyPdf(households: HouseholdView[], cim: string, gyulekezetNev: 
       const tagok = h.tagok
         .map((t) => {
           const kor = calcAge(t.szuletesiDatum);
-          return `<tr><td>${esc(`${t.vezeteknev} ${t.keresztnev}`)}</td><td>${esc(addr)}</td><td>${fmt(t.szuletesiDatum)}</td><td class="r">${kor === null ? "—" : kor + " év"}</td></tr>`;
+          return `<tr><td>${esc(`${szemelyNev(t)}`)}</td><td>${esc(addr)}</td><td>${fmt(t.szuletesiDatum)}</td><td class="r">${kor === null ? "—" : kor + " év"}</td></tr>`;
         })
         .join("");
       return `<tbody><tr class="hh"><td colspan="4">${esc(h.nev ? `${h.nev} — ${addr}` : addr)} · ${h.tagok.length} fő</td></tr>${tagok}</tbody>`;
@@ -380,7 +381,7 @@ export function Households() {
                         to={`/szemelyek/${t.id}`}
                         style={{ textDecoration: "none", color: color?.fg ?? "var(--color-text)" }}
                       >
-                        {t.vezeteknev} {t.keresztnev}
+                        {szemelyNev(t)}
                         {t.fizetveIdenre && (
                           <span title="Idén már fizetett" style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
                             {" "}
@@ -407,7 +408,7 @@ export function Households() {
                       {!t.elhunyt && canEdit && (
                         <QuickPay
                           personId={t.id}
-                          nev={`${t.vezeteknev} ${t.keresztnev}`}
+                          nev={`${szemelyNev(t)}`}
                           defaultOsszeg={t.reszbenFizetett ? t.idenHianyzo : t.egyhazfenntarto.esedekesOsszeg}
                           fizetveIdenre={t.fizetveIdenre}
                           reszbenFizetett={t.reszbenFizetett}
