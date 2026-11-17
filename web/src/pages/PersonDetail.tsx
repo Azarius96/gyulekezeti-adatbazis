@@ -1738,20 +1738,15 @@ export function PersonDetail() {
               <strong>Lakcím:</strong> nincs háztartáshoz rendelve
             </div>
           )}
-          {currentAddressMembership && !currentAddressMembership.vege && (
-            <div>
-              <strong>Családi állapot:</strong> {person.csaladiAllapot ? csaladiAllapotLabels[person.csaladiAllapot] : "nincs megadva"}
-              <SzerepRokonok
-                nem={person.nem}
-                hazastarsak={person.csalad.hazastarsak.filter((h) => h.id && !h.vege).map((h) => ({ id: h.id as string, vezeteknev: h.vezeteknev, keresztnev: h.keresztnev, nem: h.nem }))}
-                fiatal={!!person.szuletesiDatum && (Date.now() - new Date(person.szuletesiDatum).getTime()) / (365.25 * 24 * 3600 * 1000) < 18}
-                szulok={person.csalad.szulok}
-                gyermekek={person.csalad.gyermekek}
-                nagyszulok={person.csalad.nagyszulok}
-                unokak={person.csalad.unokak}
-              />
-            </div>
-          )}
+          <SzerepRokonok
+            nem={person.nem}
+            hazastarsak={person.csalad.hazastarsak.filter((h) => h.id && !h.vege).map((h) => ({ id: h.id as string, vezeteknev: h.vezeteknev, keresztnev: h.keresztnev, nem: h.nem }))}
+            fiatal={!!person.szuletesiDatum && (Date.now() - new Date(person.szuletesiDatum).getTime()) / (365.25 * 24 * 3600 * 1000) < 18}
+            szulok={person.csalad.szulok}
+            gyermekek={person.csalad.gyermekek}
+            nagyszulok={person.csalad.nagyszulok}
+            unokak={person.csalad.unokak}
+          />
           <div className="row">
             {person.foglalkozas && (
               <div>
