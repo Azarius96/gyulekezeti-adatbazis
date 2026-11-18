@@ -8,7 +8,7 @@ import { memberHighlight, reszfizetesSzoveg, CSALADI_ALLAPOT_NEVEK, canEditGyule
 import { age as calcAge } from "../lib/age";
 import { useAuth } from "../context/AuthContext";
 import { SzerepRokonok, type RokonRef } from "../components/Rokonok";
-import { szemelyNev } from "../lib/nev";
+import { szemelyNev, szuletesiSorrend } from "../lib/nev";
 
 interface HouseholdMemberView {
   id: string;
@@ -191,7 +191,7 @@ export function HouseholdDetail() {
       )}
 
       <div className="card" style={{ padding: 0 }}>
-        {household.members.map((m) => {
+        {szuletesiSorrend(household.members, (m) => m.person.szuletesiDatum, (m) => szemelyNev(m.person)).map((m) => {
           const age = calcAge(m.person.szuletesiDatum);
           const color = memberHighlight(m.egyhazfenntarto, m.tobbEveElmaradt, m.reszbenFizetett);
           return (

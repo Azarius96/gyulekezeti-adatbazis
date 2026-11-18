@@ -59,7 +59,16 @@ export interface FamilyOverview {
   testverek: { id: string; vezeteknev: string; keresztnev: string; nem: Nem }[];
 }
 
-const personSelect = { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true } as const;
+const personSelect = { id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, nem: true, szuletesiDatum: true } as const;
+
+/** Születési sorrend: a legidősebb elöl, a legfiatalabb a végén; akinek nincs dátuma, a sor végére kerül. */
+function korrend<T>(lista: T[]): T[] {
+  return [...lista].sort((a, b) => {
+    const x = (a as { szuletesiDatum?: Date | null }).szuletesiDatum?.getTime() ?? Infinity;
+    const y = (b as { szuletesiDatum?: Date | null }).szuletesiDatum?.getTime() ?? Infinity;
+    return x === y ? 0 : x - y;
+  });
+}
 
 export async function getFamilyOverview(personId: string): Promise<FamilyOverview> {
   const parentLinks = await prisma.familyLink.findMany({
@@ -156,7 +165,7 @@ export async function getFamilyOverview(personId: string): Promise<FamilyOvervie
   const testverMap = new Map(testverekRaw.map((l) => [l.child.id, l.child]));
   const testverek = Array.from(testverMap.values());
 
-  return { szulok, nagyszulok, gyermekek, unokak, hazastarsak, testverek };
+  return { szulok: korrend(szulok), nagyszulok: korrend(nagyszulok), gyermekek: korrend(gyermekek), unokak: korrend(unokak), hazastarsak, testverek: korrend(testverek) };
 }
 
 // ---------- Háztartási szerep automatikus felismerése ----------

@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { MezoLista, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, uresErtekek, torzsBol } from "../components/AnyakonyviMezok";
-import { szemelyNev } from "../lib/nev";
+import { szemelyNev, szuletesiSorrend } from "../lib/nev";
 
 interface HouseholdMemberTag {
   id: string;
@@ -94,7 +94,7 @@ function korosztalyPdf(households: HouseholdView[], cim: string, gyulekezetNev: 
   const sorok = households
     .map((h) => {
       const addr = `${h.address.iranyitoszam ? h.address.iranyitoszam + " " : ""}${h.address.telepules}, ${h.address.utca} ${h.address.hazszam}${h.address.emeletAjto ? `, ${h.address.emeletAjto}` : ""}`;
-      const tagok = h.tagok
+      const tagok = szuletesiSorrend(h.tagok, (t) => t.szuletesiDatum, (t) => szemelyNev(t))
         .map((t) => {
           const kor = calcAge(t.szuletesiDatum);
           return `<tr><td>${esc(`${szemelyNev(t)}`)}</td><td>${esc(addr)}</td><td>${fmt(t.szuletesiDatum)}</td><td class="r">${kor === null ? "—" : kor + " év"}</td></tr>`;
@@ -363,7 +363,7 @@ export function Households() {
                 </div>
               </div>
               <div className="stack">
-                {h.tagok.map((t) => {
+                {szuletesiSorrend(h.tagok, (t) => t.szuletesiDatum, (t) => szemelyNev(t)).map((t) => {
                   const age = calcAge(t.szuletesiDatum);
                   const color = memberHighlight(t.egyhazfenntarto, t.tobbEveElmaradt, t.reszbenFizetett);
                   return (
