@@ -6,6 +6,7 @@ import { useSelectedGyulekezet } from "../context/GyulekezetContext";
 import { IconWallet, IconGift, IconUsers, IconClock } from "../components/icons";
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
+import { tartozasPdf } from "../lib/tartozasPdf";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -232,11 +233,13 @@ interface DebtorYear {
   fizetve: number;
   hianyzo: number;
   becsult: boolean;
+  befizetesek: { osszeg: number; datum: string; nyugta: string | null }[];
 }
 
 interface Debtor {
   personId: string;
   nev: string;
+  cim: string;
   gyulekezetId: string;
   gyulekezetNev: string;
   osszesTartozas: number;
@@ -369,6 +372,18 @@ function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
         </FieldButton>
         <FieldButton className="btn btn-secondary" onClick={includePreviousYears} disabled={loading}>
           Korábbi évek is (utolsó 5 év)
+        </FieldButton>
+        <FieldButton
+          className="btn btn-secondary"
+          disabled={loading || !data || data.debtors.length === 0}
+          onClick={() => {
+            if (!data) return;
+            const nevek = Array.from(new Set(data.debtors.map((d) => d.gyulekezetNev)));
+            tartozasPdf(data.debtors, data.evTol, data.evIg, nevek.length === 1 ? nevek[0] : "", nevek.length > 1);
+          }}
+          title="Nyomtatható kimutatás: a részben fizetők nyugtaszámmal és dátummal, majd az összes tartozó cím szerint (PDF-be menthető)"
+        >
+          PDF letöltése
         </FieldButton>
       </div>
 

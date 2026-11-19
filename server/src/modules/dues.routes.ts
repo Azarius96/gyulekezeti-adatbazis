@@ -43,11 +43,15 @@ interface YearlyDebt {
    * sztenderd (legmagasabb) díját vettük irányadónak - ezt jelzi ez a mező, hogy a felület
    * megkülönböztethesse a pontos és a becsült tartozásokat. */
   becsult: boolean;
+  /** Az adott évre rögzített (rész)befizetések - dátummal és (ha rögzítve van) nyugtaszámmal. */
+  befizetesek: { osszeg: number; datum: Date; nyugta: string | null }[];
 }
 
 interface Debtor {
   personId: string;
   nev: string;
+  /** Jelenlegi lakcím (utca házszám), ha van háztartása. */
+  cim: string;
   gyulekezetId: string;
   gyulekezetNev: string;
   osszesTartozas: number;
@@ -78,9 +82,10 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
       gyulekezetId: true,
       nyitoTartozas: true,
       gyulekezet: { select: { nev: true } },
+      householdMemberships: { where: { vege: null }, select: { household: { select: { address: { select: { utca: true, hazszam: true } } } } } },
       duesPayments: {
         where: { deletedAt: null, ev: { gte: evTol, lte: evIg } },
-        select: { ev: true, osszeg: true },
+        select: { ev: true, osszeg: true, fizetesDatuma: true, megjegyzes: true },
       },
     },
   });
@@ -113,7 +118,11 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
       const fizetve = paidByYear.get(ev) ?? 0;
       const hianyzo = dues.esedekesOsszeg - fizetve;
       if (hianyzo > 0.01) {
-        evek.push({ ev, esedekesOsszeg: dues.esedekesOsszeg, fizetve, hianyzo, becsult });
+        const befizetesek = person.duesPayments
+          .filter((p) => p.ev === ev)
+          .sort((a, b) => a.fizetesDatuma.getTime() - b.fizetesDatuma.getTime())
+          .map((p) => ({ osszeg: Number(p.osszeg), datum: p.fizetesDatuma, nyugta: p.megjegyzes?.match(/Nyugta:\s*([^|(]*)/)?.[1]?.trim() || null }));
+        evek.push({ ev, esedekesOsszeg: dues.esedekesOsszeg, fizetve, hianyzo, becsult, befizetesek });
       }
     }
 
@@ -123,6 +132,7 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
     debtors.push({
       personId: person.id,
       nev: `${person.vezeteknev} ${person.keresztnev}`,
+      cim: (() => { const a = person.householdMemberships[0]?.household.address; return a ? `${a.utca} ${a.hazszam}` : ""; })(),
       gyulekezetId: person.gyulekezetId,
       gyulekezetNev: person.gyulekezet.nev,
       osszesTartozas: evek.reduce((sum, e) => sum + e.hianyzo, 0) + korabbiTartozas,
