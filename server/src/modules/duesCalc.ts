@@ -20,10 +20,10 @@ import { ageOn } from "../lib/age.js";
  *    becsüljük meg egy másik év díjszabásából, és nem tekintjük automatikusan mentesnek
  *    vagy fizetendőnek sem. A `DuesResult.ismertDijszabas` mező jelzi ezt kifelé.
  *
- * 3. A KOR MINDIG AZ ADOTT ÉV VÉGÉN (december 31.) SZÁMÍT, konzisztensen minden évre
- *    (a folyó évre is) - így a "ma látott" díj mindig megegyezik azzal, amit egy később
- *    lezajló évvégi elszámolás is adna, függetlenül attól, hogy az adott napon még volt-e
- *    a személynek születésnapja.
+ * 3. A KOR 2026-TÓL AZ ADOTT ÉV JANUÁR 1-JÉN SZÁMÍT (a korábbi, lezárt éveknél az év végi kor marad): a kedvezmény (vagy mentesség) csak attól az évtől jár, amelynek január 1-jén a
+ *    személy már betöltötte a kedvezményes kort. Aki az év közben tölti be, arra az évre még
+ *    nem kedvezményezett - a következő január 1-jétől az. Így a "ma látott" díj mindig
+ *    megegyezik azzal, amit egy később lezajló elszámolás adna.
  *
  * 4. ÁTFEDŐ KORSÁVOK ESETÉN A KEDVEZŐBB (ALACSONYABB ÖSSZEGŰ) SÁV ÉRVÉNYES.
  *    Ha pl. egy "0-21" és egy "21-75" sáv is létezik ugyanabban a generációban, a 21 éves
@@ -120,10 +120,15 @@ export function resolveDuesForAge(age: number, bands: DuesBand[]): DuesResult {
   };
 }
 
-/** Egy személy díja egy adott évre, a személy azévi (év végi) életkora alapján. */
+/** Ettől az évtől számít a kor az év január 1-jén (a kedvezmény csak az után jár, hogy a személy már január 1-jén betöltötte a kedvezményes kort). */
+export const JANUAR_1_SZABALY_EVTOL = 2026;
+
+/** Egy személy díja egy adott évre, a személy azévi január 1-jei életkora alapján (2026-tól; korábbi éveknél az év végi életkor). */
 export function resolveDuesForYear(szuletesiDatum: Date | null, year: number, bands: DuesBand[]): DuesResult {
   if (!szuletesiDatum) return UNKNOWN_DUES;
-  return resolveDuesForAge(ageOn(szuletesiDatum, new Date(year, 11, 31)), bands);
+  // A januári szabály a lezárt évek (2025 és korábbi) számítását nem változtatja meg: ott a korábbi, év végi életkor marad.
+  const referencia = year >= JANUAR_1_SZABALY_EVTOL ? new Date(year, 0, 1) : new Date(year, 11, 31);
+  return resolveDuesForAge(ageOn(szuletesiDatum, referencia), bands);
 }
 
 /**

@@ -14,14 +14,14 @@ const KOR_SAVOK = [
 
 /**
  * Az élő (nem elhunyt, nem kiköltözött, nem törölt) tagok statisztikája EGYETLEN adatbázis-lekérdezéssel:
- * nemek, kor szerinti sávok (év végi életkor), konfirmáló korúak (12-14 év, mai életkor), 18 év alattiak
+ * nemek, kor szerinti sávok (az év január 1-jei életkor), konfirmáló korúak (12-14 év, mai életkor), 18 év alattiak
  * és a születési dátum nélküliek. Az összesítést az adatbázis végzi (nem töltjük le a tagok sorait), ezért
  * az adatmennyiséggel alig lassul. Az életkor számítása ugyanaz, mint a korábbi (befejezett évek száma).
  */
 async function eloTagokStatisztika(gyulekezetIds: string[] | undefined, currentYear: number) {
   const now = new Date();
   const ma = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const evVege = `${currentYear}-12-31`;
+  const evEleje = `${currentYear}-01-01`;
   const scope =
     gyulekezetIds === undefined
       ? Prisma.empty
@@ -35,7 +35,7 @@ async function eloTagokStatisztika(gyulekezetIds: string[] | undefined, currentY
     WITH t AS (
       SELECT nem, "szuletesiDatum" AS sz,
         date_part('year', age(${ma}::date, "szuletesiDatum"::date))::int AS ma_kor,
-        date_part('year', age(${evVege}::date, "szuletesiDatum"::date))::int AS ev_kor
+        date_part('year', age(${evEleje}::date, "szuletesiDatum"::date))::int AS ev_kor
       FROM "Person"
       WHERE "deletedAt" IS NULL AND elhunyt = false AND elkoltozott = false ${scope}
     )
@@ -107,7 +107,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const { ferfiak, nok, ismeretlenKor, konfirmaloKoruak, fiatalkoruak } = kor;
     const osszlétszám = ferfiak + nok; // élő tagok (elhunytak és kiköltözöttek nélkül)
 
-    // Kor szerinti megoszlás (élő tagok) - az áttekintő kördiagramjához. Az adott év végi életkor szerint
+    // Kor szerinti megoszlás (élő tagok) - az áttekintő kördiagramjához. Az adott év január 1-jei életkora szerint
     // számol, a díjszabással (kedvezményes/mentes sávok) azonos módon, így a "70+" sáv pontosan a 70 éves
     // kori kedvezmény alá eső tagokat jelenti. A "nincs születési dátum" külön sor, hogy a sávok összege
     // mindig kiadja az összlétszámot.

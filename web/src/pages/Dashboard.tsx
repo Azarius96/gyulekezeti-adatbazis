@@ -262,7 +262,7 @@ export function Dashboard() {
         {stats && (
           <div className="card stack" style={{ flex: "2 1 420px" }}>
             <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Kor szerinti megoszlás</h2>
-            <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Az év végi életkor szerint (ugyanígy számol az egyházfenntartói díjszabás is).</p>
+            <p style={{ margin: 0, color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>Az év január 1-jei életkor szerint (ugyanígy számol az egyházfenntartói díjszabás is: a kedvezmény attól az évtől jár, amelynek január 1-jén a kedvezményes kort már betöltötte).</p>
             <div className="row" style={{ alignItems: "center", flexWrap: "nowrap", gap: "var(--space-3)" }}>
               <div style={{ width: 180, height: 180, flexShrink: 0, position: "relative" }}>
                 <ResponsiveContainer width="100%" height="100%">
