@@ -12,21 +12,19 @@ export const RENDEZESEK: { id: Rendezes; cimke: string }[] = [
 
 export interface SzuroBeallitas {
   rendez: Rendezes;
-  /** egyező / vegyes vallású család */
-  vtip: "" | "EGYEZO" | "VEGYES";
-  /** élő tagok száma: "1" (egyedülálló), "2", "3+", "4+" */
-  meret: "" | "1" | "2" | "3+" | "4+";
-  /** van-e 18 év alatti tag */
+  /** csak a kiskorú (18 év alatti) személyek / csak a 18 éves és idősebbek */
   kisk: "" | "van" | "nincs";
-  /** van-e 70 éves vagy idősebb tag */
+  /** csak a 70 éves vagy idősebb személyek */
   idos: "" | "van";
-  /** valamelyik tag családi állapota */
+  /** a személy családi állapota */
   csall: string;
-  /** van-e tag, akinek hiányzik a születési dátuma */
+  /** a személy vallása (pontos egyezés) */
+  vallas: string;
+  /** csak azok a személyek, akiknek hiányzik a születési dátuma */
   hiany: "" | "van";
 }
 
-export const URES_SZURO: SzuroBeallitas = { rendez: "cim", vtip: "", meret: "", kisk: "", idos: "", csall: "", hiany: "" };
+export const URES_SZURO: SzuroBeallitas = { rendez: "cim", kisk: "", idos: "", csall: "", vallas: "", hiany: "" };
 
 export interface SzuroTag {
   vezeteknev: string;
@@ -34,6 +32,7 @@ export interface SzuroTag {
   szuletesiDatum: string | null;
   elhunyt: boolean;
   csaladiAllapot?: string | null;
+  vallas?: string | null;
 }
 export interface SzuroHaztartas<T extends SzuroTag = SzuroTag> {
   nev: string | null;
@@ -54,23 +53,19 @@ export function legfiatalabbTag<T extends SzuroTag>(h: SzuroHaztartas<T>): T | n
   return d.length ? d.reduce((a, b) => (a.szuletesiDatum! >= b.szuletesiDatum! ? a : b)) : null;
 }
 
-export function haztartasMegfelel<T extends SzuroTag>(h: SzuroHaztartas<T>, s: SzuroBeallitas, kor: (t: T) => number | null): boolean {
-  const e = elok(h);
-  if (s.vtip && h.vallasTipus !== s.vtip) return false;
-  if (s.meret) {
-    const n = e.length;
-    if (s.meret === "1" && n !== 1) return false;
-    if (s.meret === "2" && n !== 2) return false;
-    if (s.meret === "3+" && n < 3) return false;
-    if (s.meret === "4+" && n < 4) return false;
-  }
-  if (s.kisk === "van" && !e.some((t) => (kor(t) ?? 99) < 18)) return false;
-  if (s.kisk === "nincs" && e.some((t) => (kor(t) ?? 99) < 18)) return false;
-  if (s.idos === "van" && !e.some((t) => (kor(t) ?? -1) >= 70)) return false;
-  if (s.csall && !e.some((t) => t.csaladiAllapot === s.csall)) return false;
-  if (s.hiany === "van" && !e.some((t) => !t.szuletesiDatum)) return false;
+/** Egy SZEMÉLY megfelel-e a (személy szintű) szűrőknek. */
+export function szemelyMegfelel<T extends SzuroTag>(t: T, s: SzuroBeallitas, kor: (t: T) => number | null): boolean {
+  const k = kor(t);
+  if (s.kisk === "van" && !(k !== null && k < 18)) return false;
+  if (s.kisk === "nincs" && !(k !== null && k >= 18)) return false;
+  if (s.idos === "van" && !(k !== null && k >= 70)) return false;
+  if (s.csall && t.csaladiAllapot !== s.csall) return false;
+  if (s.vallas && (t.vallas ?? "").trim().toLowerCase() !== s.vallas.trim().toLowerCase()) return false;
+  if (s.hiany === "van" && t.szuletesiDatum) return false;
   return true;
 }
+
+const aktivSzemelySzuro = (s: SzuroBeallitas) => !!(s.kisk || s.idos || s.csall || s.vallas || s.hiany);
 
 function cimSorrend<T extends SzuroTag>(a: SzuroHaztartas<T>, b: SzuroHaztartas<T>): number {
   const u = a.address.utca.localeCompare(b.address.utca, "hu");
@@ -82,7 +77,10 @@ function cimSorrend<T extends SzuroTag>(a: SzuroHaztartas<T>, b: SzuroHaztartas<
 }
 
 export function szurRendez<T extends SzuroTag, H extends SzuroHaztartas<T>>(lista: H[], s: SzuroBeallitas, kor: (t: T) => number | null): H[] {
-  const szurt = lista.filter((h) => haztartasMegfelel(h, s, kor));
+  // Személy szintű szűrés: a háztartásnál csak a megfelelő SZEMÉLYEK maradnak; akinek senkije sem felel meg, kimarad.
+  const szurt: H[] = aktivSzemelySzuro(s)
+    ? lista.map((h) => ({ ...h, tagok: h.tagok.filter((t) => !t.elhunyt && szemelyMegfelel(t, s, kor)) })).filter((h) => h.tagok.length > 0)
+    : lista;
   const nevKulcs = (h: H) => h.nev ?? (h.tagok[0] ? `${h.tagok[0].vezeteknev} ${h.tagok[0].keresztnev}` : "");
   const rendezo: Record<Rendezes, (a: H, b: H) => number> = {
     cim: cimSorrend,
@@ -100,4 +98,19 @@ export function szurRendez<T extends SzuroTag, H extends SzuroHaztartas<T>>(list
     nev: (a, b) => nevKulcs(a).localeCompare(nevKulcs(b), "hu") || cimSorrend(a, b),
   };
   return [...szurt].sort(rendezo[s.rendez]);
+}
+
+/**
+ * Személy-rangsor: a háztartásokon átívelően, a legidősebb (vagy legfiatalabb) élő személytől kezdve, a születési dátum szerint
+ * csökkenő (növekvő) sorrendben. Akinek nincs születési dátuma, kimarad (a hívó külön jelezheti a darabszámot).
+ */
+export function szemelyRangsor<T extends SzuroTag, H extends SzuroHaztartas<T>>(lista: H[], idosebbElol: boolean): { tag: T; haztartas: H }[] {
+  const sorok: { tag: T; haztartas: H }[] = [];
+  for (const h of lista) for (const t of h.tagok) if (!t.elhunyt && t.szuletesiDatum) sorok.push({ tag: t, haztartas: h });
+  return sorok.sort((a, b) => {
+    const x = a.tag.szuletesiDatum!;
+    const y = b.tag.szuletesiDatum!;
+    if (x !== y) return idosebbElol ? (x < y ? -1 : 1) : x > y ? -1 : 1;
+    return `${a.tag.vezeteknev} ${a.tag.keresztnev}`.localeCompare(`${b.tag.vezeteknev} ${b.tag.keresztnev}`, "hu");
+  });
 }
