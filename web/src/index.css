@@ -899,3 +899,21 @@ a.row:active,
 .esemeny-kicsi.esemeny-urvacsora { border-left: 4px solid var(--color-accent); background: var(--color-accent-light); font-weight: 600; padding-left: 8px; }
 .esemeny-kicsi.esemeny-urvacsora .esemeny-kicsi-datum { color: inherit; }
 .esemeny-jelveny { display: inline-block; background: var(--color-accent); color: #1a1100; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; margin-bottom: 4px; }
+
+/* Szerkesztőűrlap: színes, ikonos szekciók (modern, átlátható tagolás) */
+.szekcio { --sz: #0a84ff; --sz-vilagos: #7fbcff; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--sz) 38%, transparent); background: color-mix(in srgb, var(--sz) 7%, transparent); overflow: hidden; }
+.szekcio-kek { --sz: #0a84ff; --sz-vilagos: #7fbcff; }
+.szekcio-turkiz { --sz: #1fc8e0; --sz-vilagos: #7fe3f1; }
+.szekcio-zold { --sz: #30d158; --sz-vilagos: #86eaa1; }
+.szekcio-narancs { --sz: #ff9f0a; --sz-vilagos: #ffc666; }
+.szekcio-lila { --sz: #bf5af2; --sz-vilagos: #dba1f8; }
+.szekcio-fej { display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: color-mix(in srgb, var(--sz) 16%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--sz) 28%, transparent); }
+.szekcio-ikon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: linear-gradient(150deg, color-mix(in srgb, var(--sz) 78%, #fff) 0%, var(--sz) 100%); box-shadow: 0 4px 12px color-mix(in srgb, var(--sz) 40%, transparent); }
+.szekcio-cim { margin: 0; font-size: var(--font-size-base); color: var(--sz-vilagos); letter-spacing: 0.01em; }
+.szekcio-leiras { margin: 2px 0 0; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.szekcio-torzs { padding: 16px 18px 18px; gap: var(--space-2); }
+.szekcio-torzs h3.szekcio-alcim { margin: 6px 0 0; font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--sz-vilagos); }
+/* a szekción belüli korábbi "üveg" dobozok ne lógjanak ki a tagolásból */
+.szekcio .szekcio-torzs > .stack[style*="surface-alt"] { background: color-mix(in srgb, var(--sz) 9%, transparent) !important; }
+/* mentés-sáv: az űrlap alján, görgetés közben is látszik */
+.szerkeszto-muveletek { position: sticky; bottom: 0; z-index: 5; display: flex; gap: var(--space-2); align-items: center; padding: 12px 16px; margin: 0 -4px; border-top: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--glass-bg); backdrop-filter: var(--glass-blur); }

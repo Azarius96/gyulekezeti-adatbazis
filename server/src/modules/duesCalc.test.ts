@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dijStatisztika, resolveDuesForYear, resolveDuesForYearOrEstimate, szemelyDijBesorolas, type DuesBand } from "./duesCalc.js";
+import { dijKategoria, dijStatisztika, resolveDuesForYear, resolveDuesForYearOrEstimate, szemelyDijBesorolas, type DuesBand } from "./duesCalc.js";
 
 const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 // A Búzásbocsárdi Református Egyházközség éles díjszabása (2026-tól): 0-20 mentes, 21-70 teljes díj, 70-120 kedvezményes.
@@ -79,4 +79,15 @@ test("a statisztika ugyanabból a besorolásból számol, mint a díj: létszám
   // az egyes személyek díjának összege = a statisztika összege
   const egyenkent = szulok.reduce((s, sz) => s + (ossz(sz, 2026, B26) ?? 0), 0);
   assert.equal(egyenkent, st.esedekesOsszeg);
+});
+
+test("a névsor (kategória szerinti szűrés) és a statisztika létszáma mindig egyezik", () => {
+  const szulok = ["1956-02-05", "1956-01-01", "1955-12-31", "1940-03-03", "1980-05-05", "2005-01-02", "2005-01-01", "2012-01-01", "1990-03-03", "1999-09-09"];
+  const bes = szulok.map((s) => szemelyDijBesorolas(d(s), 2026, B26));
+  const st = dijStatisztika(bes);
+  assert.equal(bes.filter((b) => dijKategoria(b) === "mentes").length, st.mentes);
+  assert.equal(bes.filter((b) => dijKategoria(b) === "kedvezmenyes").length, st.kedvezmenyes);
+  assert.equal(bes.filter((b) => ["teljes", "kedvezmenyes"].includes(dijKategoria(b) ?? "")).length, st.fizetendo);
+  assert.equal(dijKategoria(szemelyDijBesorolas(d("1956-02-05"), 2026, B26)), "teljes"); // még nem 70 január 1-jén
+  assert.equal(dijKategoria(szemelyDijBesorolas(d("1956-01-01"), 2026, B26)), "kedvezmenyes");
 });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { assertCanEditPerson, getAccessibleGyulekezetIds, isAdmin, type AuthUser } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getDuesBandsForYear, resolveDuesForYearOrEstimate, szemelyDijBesorolas, dijStatisztika } from "./duesCalc.js";
+import { getDuesBandsForYear, resolveDuesForYearOrEstimate, szemelyDijBesorolas, dijStatisztika, dijKategoria } from "./duesCalc.js";
 
 /**
  * Egységesen eldönti, hogy a felhasználó lekérdezheti-e a kért gyülekezet (vagy az összes
@@ -52,6 +52,7 @@ interface Debtor {
   nev: string;
   /** Jelenlegi lakcím (utca házszám), ha van háztartása. */
   cim: string;
+  szuletesiDatum: Date | null;
   gyulekezetId: string;
   gyulekezetNev: string;
   osszesTartozas: number;
@@ -131,7 +132,8 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
 
     debtors.push({
       personId: person.id,
-      nev: `${person.vezeteknev} ${person.keresztnev}`,
+      nev: `${person.vezeteknev} ${person.keresztnev}${person.leanykoriNev ? ` (${person.leanykoriNev})` : ""}`,
+      szuletesiDatum: person.szuletesiDatum,
       cim: (() => { const a = person.householdMemberships[0]?.household.address; return a ? `${a.utca} ${a.hazszam}` : ""; })(),
       gyulekezetId: person.gyulekezetId,
       gyulekezetNev: person.gyulekezet.nev,
@@ -143,6 +145,33 @@ async function computeDebtors(gyulekezetWhere: Record<string, unknown>, evTol: n
 
   debtors.sort((a, b) => b.osszesTartozas - a.osszesTartozas);
   return debtors;
+}
+
+/**
+ * Az élő tagok a megadott évre vonatkozó díj-besorolásukkal (mentes / kedvezményes / teljes) - EGYETLEN közös forrás az összesítő
+ * statisztikának és a hozzá tartozó névsoroknak (a besorolás a duesCalc.szemelyDijBesorolas-ból jön, ugyanaz, mint a befizetéseknél).
+ */
+async function tagokDijBesorolassal(gyulekezetWhere: Record<string, unknown>, ev: number) {
+  const persons = await prisma.person.findMany({
+    where: { gyulekezet: gyulekezetWhere, elhunyt: false },
+    select: {
+      id: true, vezeteknev: true, leanykoriNev: true, keresztnev: true, szuletesiDatum: true, gyulekezetId: true,
+      gyulekezet: { select: { nev: true } },
+      householdMemberships: { where: { vege: null }, select: { household: { select: { address: { select: { utca: true, hazszam: true } } } } } },
+    },
+  });
+  const bandCache = new Map<string, Awaited<ReturnType<typeof getDuesBandsForYear>>>();
+  const out = [];
+  for (const person of persons) {
+    let bands = bandCache.get(person.gyulekezetId);
+    if (!bands) {
+      bands = await getDuesBandsForYear(person.gyulekezetId, ev);
+      bandCache.set(person.gyulekezetId, bands);
+    }
+    const a = person.householdMemberships[0]?.household.address;
+    out.push({ person, cim: a ? `${a.utca} ${a.hazszam}` : "", besorolas: szemelyDijBesorolas(person.szuletesiDatum, ev, bands) });
+  }
+  return out;
 }
 
 const yearQuerySchema = z.object({
@@ -213,6 +242,33 @@ export async function duesRoutes(app: FastifyInstance) {
     return { evek };
   });
 
+  // Az összesítő "mentes" / "kedvezményes" számához tartozó névsor (ugyanabból a besorolásból, mint a szám).
+  app.get("/api/dues-kategoria", async (req, reply) => {
+    const parsed = z
+      .object({ gyulekezetId: z.string().optional(), ev: z.coerce.number().int().min(1900).max(3000).optional(), kategoria: z.enum(["mentes", "kedvezmenyes"]) })
+      .safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "Hibás adatok" });
+    const scope = await resolveGyulekezetScope(req.currentUser!, parsed.data.gyulekezetId);
+    if (!scope.ok) return reply.code(403).send({ error: "Nincs jogosultság" });
+    const ev = parsed.data.ev ?? new Date().getFullYear();
+    const tagok = await tagokDijBesorolassal(scope.gyulekezetWhere, ev);
+    return {
+      ev,
+      kategoria: parsed.data.kategoria,
+      szemelyek: tagok
+        .filter(({ besorolas: b }) => dijKategoria(b) === parsed.data.kategoria)
+        .map(({ person, cim, besorolas: b }) => ({
+          id: person.id,
+          nev: `${person.vezeteknev} ${person.keresztnev}${person.leanykoriNev ? ` (${person.leanykoriNev})` : ""}`,
+          szuletesiDatum: person.szuletesiDatum,
+          cim,
+          gyulekezetNev: person.gyulekezet.nev,
+          esedekesOsszeg: b.dues.esedekesOsszeg ?? 0,
+        }))
+        .sort((x, y) => x.nev.localeCompare(y.nev, "hu")),
+    };
+  });
+
   // Egy adott év befizetéseinek/adományainak és a hátralékok összesítése - a pénzügyek áttekintéséhez.
   app.get("/api/penzugyi-osszesito", async (req, reply) => {
     const currentYear = new Date().getFullYear();
@@ -227,10 +283,7 @@ export async function duesRoutes(app: FastifyInstance) {
     const [duesSum, donationSum, persons, debtors, payers] = await Promise.all([
       prisma.duesPayment.aggregate({ _sum: { osszeg: true }, where: { ev, gyulekezetIdEkkor: scope.gyulekezetIdFilter } }),
       prisma.donation.aggregate({ _sum: { osszeg: true }, where: { ev, gyulekezetIdEkkor: scope.gyulekezetIdFilter } }),
-      prisma.person.findMany({
-        where: { gyulekezet: scope.gyulekezetWhere, elhunyt: false },
-        select: { szuletesiDatum: true, gyulekezetId: true },
-      }),
+      tagokDijBesorolassal(scope.gyulekezetWhere, ev),
       computeDebtors(scope.gyulekezetWhere, ev, ev),
       // Ki fizetett ténylegesen erre az évre - ez pusztán tényadat, nem függ attól, hogy ismerjük-e
       // az akkori díjszabást (ellentétben a "fizetendő"/"mentes"/"kedvezményes" besorolással).
@@ -241,19 +294,8 @@ export async function duesRoutes(app: FastifyInstance) {
       }),
     ]);
 
-    const bandCache = new Map<string, Awaited<ReturnType<typeof getDuesBandsForYear>>>();
-    async function bandsFor(gyulekezetId: string) {
-      let cached = bandCache.get(gyulekezetId);
-      if (!cached) {
-        cached = await getDuesBandsForYear(gyulekezetId, ev);
-        bandCache.set(gyulekezetId, cached);
-      }
-      return cached;
-    }
-
     // Ugyanabból a díj-besorolásból számol, mint a befizetések/tartozások (duesCalc.szemelyDijBesorolas).
-    const besorolasok = [];
-    for (const person of persons) besorolasok.push(szemelyDijBesorolas(person.szuletesiDatum, ev, await bandsFor(person.gyulekezetId)));
+    const besorolasok = persons.map((x) => x.besorolas);
     const { mentes: mentesSzemelyek, fizetendo: fizetendoSzemelyek, kedvezmenyes: kedvezmenyesSzemelyek, esedekesOsszeg: esedekesOsszesen } = dijStatisztika(besorolasok);
 
     // A "korábbi (nyitó) tartozás" nem az adott évhez kötött összeg, hanem egy állandó, a rendszer

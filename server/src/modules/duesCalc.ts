@@ -180,15 +180,23 @@ export interface DijStatisztika {
   esedekesOsszeg: number;
 }
 
+/** Egy besorolás kategóriája: "mentes", "kedvezmenyes", "teljes" - vagy null, ha nincs ismert díjszabás / nincs esedékes összeg. */
+export function dijKategoria(b: DijBesorolas): "mentes" | "kedvezmenyes" | "teljes" | null {
+  if (!b.dues.ismertDijszabas) return null; // erre az évre nincs (visszamenőleg) ismert vagy becsülhető díjszabás
+  if (b.dues.mentes) return "mentes";
+  if (!b.dues.esedekesOsszeg || b.dues.esedekesOsszeg <= 0) return null;
+  return b.dues.kedvezmenyes ? "kedvezmenyes" : "teljes";
+}
+
 export function dijStatisztika(besorolasok: DijBesorolas[]): DijStatisztika {
   const st: DijStatisztika = { mentes: 0, fizetendo: 0, kedvezmenyes: 0, esedekesOsszeg: 0 };
   for (const b of besorolasok) {
-    if (!b.dues.ismertDijszabas) continue; // erre az évre nincs (visszamenőleg) ismert vagy becsülhető díjszabás
-    if (b.dues.mentes) st.mentes++;
-    else if (b.dues.esedekesOsszeg && b.dues.esedekesOsszeg > 0) {
+    const k = dijKategoria(b);
+    if (k === "mentes") st.mentes++;
+    else if (k) {
       st.fizetendo++;
-      st.esedekesOsszeg += b.dues.esedekesOsszeg;
-      if (b.dues.kedvezmenyes) st.kedvezmenyes++;
+      st.esedekesOsszeg += b.dues.esedekesOsszeg ?? 0;
+      if (k === "kedvezmenyes") st.kedvezmenyes++;
     }
   }
   return st;

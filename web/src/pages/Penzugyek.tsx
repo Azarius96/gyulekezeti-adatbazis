@@ -7,6 +7,7 @@ import { IconWallet, IconGift, IconUsers, IconClock } from "../components/icons"
 import { canEditGyulekezet } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
 import { tartozasPdf } from "../lib/tartozasPdf";
+import { age as eletkor } from "../lib/age";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -141,7 +142,53 @@ export function Penzugyek() {
   );
 }
 
+interface KategoriaSzemely {
+  id: string;
+  nev: string;
+  szuletesiDatum: string | null;
+  cim: string;
+  gyulekezetNev: string;
+  esedekesOsszeg: number;
+}
+
+/** A mentes / kedvezményes személyek névsora (a számra kattintva nyílik meg). */
+function KategoriaLista({ kategoria, ev, gyulekezetId }: { kategoria: "mentes" | "kedvezmenyes"; ev: number; gyulekezetId: string }) {
+  const hely = useLocation();
+  const vissza = hely.pathname + hely.search;
+  const [szemelyek, setSzemelyek] = useState<KategoriaSzemely[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setSzemelyek(null);
+    const params = new URLSearchParams({ kategoria, ev: String(ev) });
+    if (gyulekezetId) params.set("gyulekezetId", gyulekezetId);
+    api
+      .get<{ szemelyek: KategoriaSzemely[] }>(`/api/dues-kategoria?${params.toString()}`)
+      .then((r) => setSzemelyek(r.szemelyek))
+      .catch(() => setError("Nem sikerült betölteni a névsort"));
+  }, [kategoria, ev, gyulekezetId]);
+  if (error) return <p style={{ color: "var(--color-danger)", padding: "0 16px" }}>{error}</p>;
+  if (!szemelyek) return <p style={{ padding: "0 16px", color: "var(--color-text-muted)" }}>Betöltés...</p>;
+  return (
+    <div className="stack" style={{ gap: 0, padding: "4px 16px 12px", background: "var(--color-surface-alt)" }}>
+      {szemelyek.length === 0 && <span style={{ color: "var(--color-text-muted)" }}>Nincs ilyen személy.</span>}
+      {szemelyek.map((p) => (
+        <div key={p.id} className="row" style={{ justifyContent: "space-between", padding: "5px 0", borderTop: "1px solid var(--color-border)" }}>
+          <span>
+            <Link to={`/szemelyek/${p.id}`} state={{ vissza }} style={{ fontWeight: 600 }}>
+              {p.nev}
+            </Link>
+            {eletkor(p.szuletesiDatum) !== null && <span> ({eletkor(p.szuletesiDatum)} év)</span>}
+            {p.cim && <span style={{ color: "var(--color-text-muted)" }}> — {p.cim}</span>}
+          </span>
+          {kategoria === "kedvezmenyes" && <span style={{ color: "var(--color-text-muted)", whiteSpace: "nowrap" }}>{p.esedekesOsszeg} lej/év</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Osszesito({ gyulekezetId }: { gyulekezetId: string; showGyulekezetNev: boolean }) {
+  const [nyitott, setNyitott] = useState<"mentes" | "kedvezmenyes" | null>(null);
   const [ev, setEv] = useState(String(CURRENT_YEAR));
   const [data, setData] = useState<OsszesitoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -172,8 +219,8 @@ function Osszesito({ gyulekezetId }: { gyulekezetId: string; showGyulekezetNev: 
         { label: "Hátralék (erre az évre)", value: `${data.osszesTartozas} lej` },
         { label: "Korábbi (nyitó) tartozással rendelkezők", value: data.nyitoTartozasSzemelyek },
         { label: "Korábbi (nyitó) tartozás összesen", value: `${data.nyitoTartozasOsszeg} lej` },
-        { label: "Mentes személyek", value: data.mentesSzemelyek },
-        { label: "Kedvezményes személyek", value: data.kedvezmenyesSzemelyek },
+        { label: "Mentes személyek", value: data.mentesSzemelyek, kategoria: "mentes" as const },
+        { label: "Kedvezményes személyek", value: data.kedvezmenyesSzemelyek, kategoria: "kedvezmenyes" as const },
       ]
     : [];
 
@@ -192,13 +239,29 @@ function Osszesito({ gyulekezetId }: { gyulekezetId: string; showGyulekezetNev: 
       {data && (
         <div className="card stack" style={{ padding: 0 }}>
           {rows.map((r) => (
-            <div
-              key={r.label}
-              className="row"
-              style={{ justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--color-border)" }}
-            >
-              <span>{r.label}</span>
-              <strong>{r.value}</strong>
+            <div key={r.label}>
+              {"kategoria" in r && r.kategoria ? (
+                <button
+                  type="button"
+                  className="esemeny-kicsi"
+                  onClick={() => setNyitott(nyitott === r.kategoria ? null : r.kategoria)}
+                  style={{ justifyContent: "space-between", padding: "10px 16px", borderTop: 0, borderBottom: "1px solid var(--color-border)", alignItems: "center" }}
+                  title="Kattints a névsor megnyitásához"
+                >
+                  <span style={{ color: "var(--color-primary-dark)", textDecoration: "underline" }}>
+                    {r.label} {nyitott === r.kategoria ? "▾" : "▸"}
+                  </span>
+                  <strong>{r.value}</strong>
+                </button>
+              ) : (
+                <div className="row" style={{ justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--color-border)" }}>
+                  <span>{r.label}</span>
+                  <strong>{r.value}</strong>
+                </div>
+              )}
+              {"kategoria" in r && r.kategoria && nyitott === r.kategoria && (
+                <KategoriaLista kategoria={r.kategoria} ev={data.ev} gyulekezetId={gyulekezetId} />
+              )}
             </div>
           ))}
         </div>
@@ -244,6 +307,7 @@ interface Debtor {
   personId: string;
   nev: string;
   cim: string;
+  szuletesiDatum: string | null;
   gyulekezetId: string;
   gyulekezetNev: string;
   osszesTartozas: number;
@@ -423,7 +487,8 @@ function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
                   <Link to={`/szemelyek/${d.personId}`} state={{ vissza }} style={{ fontWeight: 700 }}>
                     {d.nev}
                   </Link>
-                  {showGyulekezetNev && <span style={{ color: "var(--color-text-muted)" }}> — {d.gyulekezetNev}</span>}
+                  {eletkor(d.szuletesiDatum) !== null && <span style={{ fontWeight: 400 }}> ({eletkor(d.szuletesiDatum)} év)</span>}
+                  {(d.cim || showGyulekezetNev) && <span style={{ color: "var(--color-text-muted)" }}> — {d.cim || d.gyulekezetNev}</span>}
                   <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
                     {reszletek.join(", ")}
                   </div>

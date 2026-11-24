@@ -4,12 +4,13 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
 import { SzerepRokonok } from "../components/Rokonok";
+import { SzerkesztoSzekcio } from "../components/SzerkesztoSzekcio";
 import { MezoLista, AnyakonyviReszletek, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, HALOTTI_MEZOK, ertekekBol, torzsBol } from "../components/AnyakonyviMezok";
 import { useCsaladSzerkeszto } from "../components/CsaladSzerkeszto";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { memberHighlight, canEditGyulekezet, tartozasSzoveg, burialHelye, type FamilyPersonRef, type PersonDetail as PersonDetailType } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
-import { IconTrash, IconCross, IconMapPin } from "../components/icons";
+import { IconTrash, IconCross, IconMapPin, IconUsers, IconHeart, IconBook, IconWallet } from "../components/icons";
 import { DateInput } from "../components/DateInput";
 import { age as calcAge } from "../lib/age";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
@@ -211,6 +212,7 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
   return (
     <form onSubmit={handleSubmit} className="card stack">
       <h2 style={{ fontSize: "var(--font-size-lg)", margin: 0 }}>Adatok szerkesztése</h2>
+      <SzerkesztoSzekcio cim="Személyes adatok" leiras="Név, születés, vallás, családi állapot" szin="kek" ikon={IconUsers}>
       <div className="row">
         <div className="field" style={{ flex: 1 }}>
           <label>Vezetéknév</label>
@@ -225,6 +227,46 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           <input value={leanykoriNev} onChange={(e) => setLeanykoriNev(e.target.value)} placeholder="pl. Nagy Anna (nőknél)" />
         </div>
       </div>
+      <div className="row">
+        <div className="field">
+          <label>Nem</label>
+          <select value={nem} onChange={(e) => setNem(e.target.value as "FERFI" | "NO")}>
+            <option value="FERFI">Férfi</option>
+            <option value="NO">Nő</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Születési dátum</label>
+          <DateInput value={szuletesiDatum} onChange={(e) => setSzuletesiDatum(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Születési hely</label>
+          <input value={szuletesiHely} onChange={(e) => setSzuletesiHely(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Vallás</label>
+          <input value={vallas} onChange={(e) => setVallas(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Foglalkozás</label>
+          <input value={foglalkozas} onChange={(e) => setFoglalkozas(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Családi állapot</label>
+          <select value={csaladiAllapot} onChange={(e) => setCsaladiAllapot(e.target.value)}>
+            <option value="">— nincs megadva —</option>
+            {Object.entries(csaladiAllapotLabels).map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      </SzerkesztoSzekcio>
+
+      <SzerkesztoSzekcio cim="Lakcím" leiras="Hol lakik; elköltözés rögzítése" szin="turkiz" ikon={IconMapPin}>
       <div className="stack" style={{ gap: 8 }}>
         <div className="row">
           <div className="field" style={{ flex: 1, minWidth: 160 }}>
@@ -279,51 +321,23 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
           </div>
         )}
       </div>
-      <div className="row">
-        <div className="field">
-          <label>Nem</label>
-          <select value={nem} onChange={(e) => setNem(e.target.value as "FERFI" | "NO")}>
-            <option value="FERFI">Férfi</option>
-            <option value="NO">Nő</option>
-          </select>
-        </div>
-        <div className="field">
-          <label>Születési dátum</label>
-          <DateInput value={szuletesiDatum} onChange={(e) => setSzuletesiDatum(e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Születési hely</label>
-          <input value={szuletesiHely} onChange={(e) => setSzuletesiHely(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Vallás</label>
-          <input value={vallas} onChange={(e) => setVallas(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Foglalkozás</label>
-          <input value={foglalkozas} onChange={(e) => setFoglalkozas(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Családi állapot</label>
-          <select value={csaladiAllapot} onChange={(e) => setCsaladiAllapot(e.target.value)}>
-            <option value="">— nincs megadva —</option>
-            {Object.entries(csaladiAllapotLabels).map(([k, label]) => (
-              <option key={k} value={k}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      </SzerkesztoSzekcio>
 
+      <SzerkesztoSzekcio cim="Család" leiras="Szülők, házastárs, gyerekek" szin="zold" ikon={IconHeart}>
       {csalad.szerkesztoUi}
 
-      <h3 style={{ margin: "8px 0 0" }}>Keresztelés (keresztelési anyakönyv)</h3>
+      </SzerkesztoSzekcio>
+
+      <SzerkesztoSzekcio cim="Anyakönyvi adatok" leiras="Keresztelés és konfirmáció a papír anyakönyv szerint" szin="narancs" ikon={IconBook}>
+      <h3 className="szekcio-alcim">Keresztelés (keresztelési anyakönyv)</h3>
       <MezoLista defs={KERESZTELES_MEZOK} ertekek={keresztelesErt} onChange={setKeresztelesErt} />
 
-      <h3 style={{ margin: "8px 0 0" }}>Konfirmáció (konfirmáltak anyakönyve)</h3>
+      <h3 className="szekcio-alcim">Konfirmáció (konfirmáltak anyakönyve)</h3>
       <MezoLista defs={KONFIRMACIO_MEZOK} ertekek={konfirmacioErt} onChange={setKonfirmacioErt} />
 
+      </SzerkesztoSzekcio>
+
+      <SzerkesztoSzekcio cim="Megjegyzés és pénzügy" leiras="Szabad szöveges megjegyzés, korábbi tartozás" szin="lila" ikon={IconWallet}>
       <div className="field">
         <label>Megjegyzés</label>
         <textarea rows={3} value={megjegyzes} onChange={(e) => setMegjegyzes(e.target.value)} />
@@ -334,8 +348,10 @@ function EditForm({ person, onSaved, onCancel }: { person: PersonDetailType; onS
         <input type="number" min="0" value={nyitoTartozas} onChange={(e) => setNyitoTartozas(e.target.value)} />
       </div>
 
+      </SzerkesztoSzekcio>
+
       {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
-      <div className="row">
+      <div className="szerkeszto-muveletek">
         <button className="btn" type="submit" disabled={saving}>
           {saving ? "Mentés..." : "Mentés"}
         </button>
