@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { assertCanEditPerson, getAccessibleGyulekezetIds, isAdmin, type AuthUser } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { getDuesBandsForYear, resolveDuesForYearOrEstimate } from "./duesCalc.js";
+import { getDuesBandsForYear, resolveDuesForYearOrEstimate, szemelyDijBesorolas, dijStatisztika } from "./duesCalc.js";
 
 /**
  * Egységesen eldönti, hogy a felhasználó lekérdezheti-e a kért gyülekezet (vagy az összes
@@ -251,19 +251,10 @@ export async function duesRoutes(app: FastifyInstance) {
       return cached;
     }
 
-    let mentesSzemelyek = 0;
-    let kedvezmenyesSzemelyek = 0;
-    let fizetendoSzemelyek = 0;
-    for (const person of persons) {
-      const bands = await bandsFor(person.gyulekezetId);
-      const { dues } = resolveDuesForYearOrEstimate(person.szuletesiDatum, ev, bands);
-      if (!dues.ismertDijszabas) continue; // erre az évre nincs (visszamenőleg) ismert vagy becsülhető díjszabás
-      if (dues.mentes) mentesSzemelyek++;
-      else if (dues.esedekesOsszeg && dues.esedekesOsszeg > 0) {
-        fizetendoSzemelyek++;
-        if (dues.kedvezmenyes) kedvezmenyesSzemelyek++;
-      }
-    }
+    // Ugyanabból a díj-besorolásból számol, mint a befizetések/tartozások (duesCalc.szemelyDijBesorolas).
+    const besorolasok = [];
+    for (const person of persons) besorolasok.push(szemelyDijBesorolas(person.szuletesiDatum, ev, await bandsFor(person.gyulekezetId)));
+    const { mentes: mentesSzemelyek, fizetendo: fizetendoSzemelyek, kedvezmenyes: kedvezmenyesSzemelyek, esedekesOsszeg: esedekesOsszesen } = dijStatisztika(besorolasok);
 
     // A "korábbi (nyitó) tartozás" nem az adott évhez kötött összeg, hanem egy állandó, a rendszer
     // bevezetése előttről áthozott hátralék - ezért külön kell kezelni, nem szabad belekeverni az
@@ -297,6 +288,7 @@ export async function duesRoutes(app: FastifyInstance) {
       egyhazfenntartoBefolyt: Number(duesSum._sum.osszeg ?? 0),
       adomanyBefolyt: Number(donationSum._sum.osszeg ?? 0),
       fizetendoSzemelyek,
+      esedekesOsszesen,
       // "Már fizettek" a ténylegesen befizetett tranzakciókból számít, NEM a fizetendő/tartozik
       // különbségéből - így olyan évekre is helyes marad, amikre nem ismert a díjszabás (pl. a
       // rendszer bevezetése előtti évek), ahol a fizetendő/tartozik számítás nem is végezhető el.

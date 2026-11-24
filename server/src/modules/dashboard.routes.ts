@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { getAccessibleGyulekezetIds, isStatsOnly } from "../auth/scope.js";
 import { requireAuth } from "../auth/plugin.js";
-import { Prisma } from "@prisma/client";
+import { ageOn, ageOnJan1 } from "../lib/age.js";
 
 const KOR_SAVOK = [
   { label: "0–14 év", min: 0, max: 14 },
@@ -13,49 +13,33 @@ const KOR_SAVOK = [
 ];
 
 /**
- * Az élő (nem elhunyt, nem kiköltözött, nem törölt) tagok statisztikája EGYETLEN adatbázis-lekérdezéssel:
- * nemek, kor szerinti sávok (az év január 1-jei életkor), konfirmáló korúak (12-14 év, mai életkor), 18 év alattiak
- * és a születési dátum nélküliek. Az összesítést az adatbázis végzi (nem töltjük le a tagok sorait), ezért
- * az adatmennyiséggel alig lassul. Az életkor számítása ugyanaz, mint a korábbi (befejezett évek száma).
+ * Az élő (nem elhunyt, nem kiköltözött, nem törölt) tagok statisztikája: nemek, kor szerinti sávok (az év január 1-jei életkor -
+ * ugyanaz a kor és ugyanaz az adatforrás, amiből az egyházfenntartói díj és a befizetések is számolódnak), konfirmáló korúak
+ * (12-14 év, mai életkor), 18 év alattiak és a születési dátum nélküliek.
  */
 async function eloTagokStatisztika(gyulekezetIds: string[] | undefined, currentYear: number) {
-  const now = new Date();
-  const ma = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const evEleje = `${currentYear}-01-01`;
-  const scope =
-    gyulekezetIds === undefined
-      ? Prisma.empty
-      : gyulekezetIds.length === 0
-        ? Prisma.sql`AND false`
-        : Prisma.sql`AND "gyulekezetId" IN (${Prisma.join(gyulekezetIds)})`;
-  const savFeltetelek = KOR_SAVOK.map(
-    (b, i) => Prisma.sql`count(*) FILTER (WHERE ev_kor BETWEEN ${b.min} AND ${b.max})::int AS ${Prisma.raw(`sav${i}`)}`
-  );
-  const rows = await prisma.$queryRaw<Record<string, number>[]>`
-    WITH t AS (
-      SELECT nem, "szuletesiDatum" AS sz,
-        date_part('year', age(${ma}::date, "szuletesiDatum"::date))::int AS ma_kor,
-        date_part('year', age(${evEleje}::date, "szuletesiDatum"::date))::int AS ev_kor
-      FROM "Person"
-      WHERE "deletedAt" IS NULL AND elhunyt = false AND elkoltozott = false ${scope}
-    )
-    SELECT
-      count(*) FILTER (WHERE nem = 'FERFI')::int AS ferfiak,
-      count(*) FILTER (WHERE nem = 'NO')::int AS nok,
-      count(*) FILTER (WHERE sz IS NULL)::int AS ismeretlen,
-      count(*) FILTER (WHERE ma_kor BETWEEN 12 AND 14)::int AS konfirmalo,
-      count(*) FILTER (WHERE ma_kor < 18)::int AS fiatal,
-      ${Prisma.join(savFeltetelek)}
-    FROM t`;
-  const r = rows[0];
-  return {
-    ferfiak: Number(r.ferfiak),
-    nok: Number(r.nok),
-    ismeretlenKor: Number(r.ismeretlen),
-    konfirmaloKoruak: Number(r.konfirmalo),
-    fiatalkoruak: Number(r.fiatal),
-    savok: KOR_SAVOK.map((_, i) => Number(r[`sav${i}`])),
-  };
+  const tagok = await prisma.person.findMany({
+    where: { elhunyt: false, ...(gyulekezetIds === undefined ? {} : { gyulekezetId: { in: gyulekezetIds } }) },
+    select: { nem: true, szuletesiDatum: true },
+  });
+  const ma = new Date();
+  const savok = KOR_SAVOK.map(() => 0);
+  let ferfiak = 0, nok = 0, ismeretlenKor = 0, konfirmaloKoruak = 0, fiatalkoruak = 0;
+  for (const t of tagok) {
+    if (t.nem === "FERFI") ferfiak++;
+    else if (t.nem === "NO") nok++;
+    if (!t.szuletesiDatum) {
+      ismeretlenKor++;
+      continue;
+    }
+    const evKor = ageOnJan1(t.szuletesiDatum, currentYear);
+    const maKor = ageOn(t.szuletesiDatum, ma);
+    if (maKor >= 12 && maKor <= 14) konfirmaloKoruak++;
+    if (maKor < 18) fiatalkoruak++;
+    const i = KOR_SAVOK.findIndex((sv) => evKor >= sv.min && evKor <= sv.max);
+    if (i >= 0) savok[i]++;
+  }
+  return { ferfiak, nok, ismeretlenKor, konfirmaloKoruak, fiatalkoruak, savok };
 }
 
 export async function dashboardRoutes(app: FastifyInstance) {

@@ -8,14 +8,8 @@ import {
   parseCemeteryWorkbook,
 } from "./importExcel.js";
 import { checkDuplicate, normalizeName } from "./duplicateCheck.js";
+import { ageOn } from "../lib/age.js";
 import { applyWidowhoodCascade, endPositionsOnDeath } from "./family.js";
-
-function ageOn(birth: Date, ref: Date): number {
-  let age = ref.getFullYear() - birth.getFullYear();
-  const m = ref.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
-  return age;
-}
 
 async function readUpload(req: any): Promise<{ buffer: Buffer; gyulekezetId: string } | null> {
   let buffer: Buffer | null = null;

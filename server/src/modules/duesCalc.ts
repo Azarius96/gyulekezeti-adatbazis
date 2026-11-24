@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma.js";
-import { ageOn } from "../lib/age.js";
+import { ageOnJan1 } from "../lib/age.js";
 
 /**
  * EGYHÁZFENNTARTÓI JÁRULÉK - ÉVENKÉNTI SZÁMÍTÁS
@@ -20,7 +20,7 @@ import { ageOn } from "../lib/age.js";
  *    becsüljük meg egy másik év díjszabásából, és nem tekintjük automatikusan mentesnek
  *    vagy fizetendőnek sem. A `DuesResult.ismertDijszabas` mező jelzi ezt kifelé.
  *
- * 3. A KOR 2026-TÓL AZ ADOTT ÉV JANUÁR 1-JÉN SZÁMÍT (a korábbi, lezárt éveknél az év végi kor marad): a kedvezmény (vagy mentesség) csak attól az évtől jár, amelynek január 1-jén a
+ * 3. A KOR MINDEN ÉVRE (a múltbeli, a folyó és a jövőbeli évekre is, az akkor érvényes díjszabással) AZ ADOTT ÉV JANUÁR 1-JÉN SZÁMÍT: a kedvezmény (vagy mentesség) csak attól az évtől jár, amelynek január 1-jén a
  *    személy már betöltötte a kedvezményes kort. Aki az év közben tölti be, arra az évre még
  *    nem kedvezményezett - a következő január 1-jétől az. Így a "ma látott" díj mindig
  *    megegyezik azzal, amit egy később lezajló elszámolás adna.
@@ -120,15 +120,10 @@ export function resolveDuesForAge(age: number, bands: DuesBand[]): DuesResult {
   };
 }
 
-/** Ettől az évtől számít a kor az év január 1-jén (a kedvezmény csak az után jár, hogy a személy már január 1-jén betöltötte a kedvezményes kort). */
-export const JANUAR_1_SZABALY_EVTOL = 2026;
-
-/** Egy személy díja egy adott évre, a személy azévi január 1-jei életkora alapján (2026-tól; korábbi éveknél az év végi életkor). */
+/** Egy személy díja egy adott évre, a személy azévi január 1-jei életkora alapján: aki január 1-jén még nem töltötte be a kedvezményes kort (pl. a 70-et), az a teljes díjat fizeti. Minden évre ugyanígy, a jövőbeli évekre is. */
 export function resolveDuesForYear(szuletesiDatum: Date | null, year: number, bands: DuesBand[]): DuesResult {
   if (!szuletesiDatum) return UNKNOWN_DUES;
-  // A januári szabály a lezárt évek (2025 és korábbi) számítását nem változtatja meg: ott a korábbi, év végi életkor marad.
-  const referencia = year >= JANUAR_1_SZABALY_EVTOL ? new Date(year, 0, 1) : new Date(year, 11, 31);
-  return resolveDuesForAge(ageOn(szuletesiDatum, referencia), bands);
+  return resolveDuesForAge(ageOnJan1(szuletesiDatum, year), bands);
 }
 
 /**
@@ -154,6 +149,49 @@ export function resolveDuesForYearOrEstimate(
     dues: { ismertDijszabas: true, esedekesOsszeg: standard, mentes: false, kedvezmenyes: false, korsav: null },
     becsult: true,
   };
+}
+
+// ---------- Díj-besorolás és statisztika (EGYETLEN közös forrás) ----------
+
+export interface DijBesorolas {
+  /** Életkor az adott év január 1-jén (null, ha nincs születési dátum). */
+  kor: number | null;
+  dues: DuesResult;
+  becsult: boolean;
+}
+
+/**
+ * Egy személy díj-besorolása egy évre. A befizetések/tartozások ÉS a statisztikák (mentes / kedvezményes / fizetendő létszám,
+ * esedékes összeg, kor szerinti megoszlás) mind ebből számolnak, hogy a számok sosem térhessenek el egymástól.
+ */
+export function szemelyDijBesorolas(szuletesiDatum: Date | null, ev: number, bands: DuesBand[]): DijBesorolas {
+  const { dues, becsult } = resolveDuesForYearOrEstimate(szuletesiDatum, ev, bands);
+  return { kor: szuletesiDatum ? ageOnJan1(szuletesiDatum, ev) : null, dues, becsult };
+}
+
+export interface DijStatisztika {
+  /** Mentes személyek (ismert díjszabásnál). */
+  mentes: number;
+  /** Fizetendő személyek (nem mentesek) összesen, a kedvezményesekkel együtt. */
+  fizetendo: number;
+  /** Ebből a kedvezményes díjat fizetők. */
+  kedvezmenyes: number;
+  /** A fizetendő személyek összes esedékes díja (lej). */
+  esedekesOsszeg: number;
+}
+
+export function dijStatisztika(besorolasok: DijBesorolas[]): DijStatisztika {
+  const st: DijStatisztika = { mentes: 0, fizetendo: 0, kedvezmenyes: 0, esedekesOsszeg: 0 };
+  for (const b of besorolasok) {
+    if (!b.dues.ismertDijszabas) continue; // erre az évre nincs (visszamenőleg) ismert vagy becsülhető díjszabás
+    if (b.dues.mentes) st.mentes++;
+    else if (b.dues.esedekesOsszeg && b.dues.esedekesOsszeg > 0) {
+      st.fizetendo++;
+      st.esedekesOsszeg += b.dues.esedekesOsszeg;
+      if (b.dues.kedvezmenyes) st.kedvezmenyes++;
+    }
+  }
+  return st;
 }
 
 // ---------- Több éve elmaradt-e valaki ----------
