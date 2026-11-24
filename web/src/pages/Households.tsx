@@ -14,6 +14,7 @@ import { age as calcAge } from "../lib/age";
 import { SzerepKerdes, type SzerepKerdesAdat, type HaztartasiSzerep } from "../components/SzerepKerdes";
 import { MezoLista, KERESZTELES_MEZOK, KONFIRMACIO_MEZOK, uresErtekek, torzsBol } from "../components/AnyakonyviMezok";
 import { szemelyNev, szuletesiSorrend } from "../lib/nev";
+import { RENDEZESEK, szurRendez, legidosebbTag, legfiatalabbTag, type SzuroBeallitas, type Rendezes } from "../lib/haztartasSzuro";
 
 interface HouseholdMemberTag {
   id: string;
@@ -52,7 +53,17 @@ const FILTER_LABELS: Record<string, (v: string) => string> = {
   korIg: (v) => `${v} évig`,
   tisztseg: (v) => `Tisztség: ${v}`,
   konfirmalt: () => "Konfirmált",
+  rendez: (v) => `Rendezés: ${RENDEZESEK.find((r) => r.id === v)?.cimke ?? v}`,
+  vtip: (v) => (v === "VEGYES" ? "Vegyes vallású család" : "Egyező vallású család"),
+  meret: (v) => (v === "1" ? "Egyedülálló (1 fő)" : `${v} fős család`),
+  kisk: (v) => (v === "van" ? "Van kiskorú" : "Nincs kiskorú"),
+  idos: () => "Van 70+ tag",
+  csall: (v) => `Családi állapot: ${CSALADI_ALLAPOT_NEVEK[v as CsaladiAllapot] ?? v}`,
+  hiany: () => "Hiányzó születési dátum",
 };
+
+/** Ezek a szűrők a böngészőben, a már betöltött listán dolgoznak - nem kerülnek a szerver felé. */
+const KLIENS_KULCSOK = ["rendez", "vtip", "meret", "kisk", "idos", "csall", "hiany"];
 
 function DuesBadge({ dues, becsult }: { dues: DuesResult; becsult?: boolean }) {
   if (dues.korsav === null) {
@@ -162,6 +173,7 @@ export function Households() {
     const effectiveParams = new URLSearchParams(searchParams);
     if (gyulekezetId) effectiveParams.set("gyulekezetId", gyulekezetId);
     else effectiveParams.delete("gyulekezetId");
+    for (const k of KLIENS_KULCSOK) effectiveParams.delete(k);
     const qs = effectiveParams.toString();
     const requestId = ++loadRequestId.current;
     setBetolt(true);
@@ -180,11 +192,17 @@ export function Households() {
 
   useReloadOnPayment(load);
 
+  // Csak a szervert érintő paraméterek változása tölti újra a listát (a kliensoldali szűrők/rendezés azonnal érvényesül).
+  const szerverParamKulcs = (() => {
+    const p = new URLSearchParams(searchParams);
+    for (const k of KLIENS_KULCSOK) p.delete(k);
+    return p.toString();
+  })();
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, selectedId]);
+  }, [szerverParamKulcs, selectedId]);
 
   // A bal oldali gyülekezet-választó váltása azonnal átírja az URL-t (és a listát); egy másik oldalról
   // érkező mélylink (URL-ben megadott gyülekezet) viszont átveszi a globális választást.
@@ -235,7 +253,24 @@ export function Households() {
     }
     setSearchParams(params);
   }
-  const talalatTagok = households.reduce((sum, h) => sum + h.tagok.length, 0);
+  const szuro: SzuroBeallitas = {
+    rendez: (RENDEZESEK.some((r) => r.id === searchParams.get("rendez")) ? searchParams.get("rendez") : "cim") as Rendezes,
+    vtip: (searchParams.get("vtip") ?? "") as SzuroBeallitas["vtip"],
+    meret: (searchParams.get("meret") ?? "") as SzuroBeallitas["meret"],
+    kisk: (searchParams.get("kisk") ?? "") as SzuroBeallitas["kisk"],
+    idos: (searchParams.get("idos") ?? "") as SzuroBeallitas["idos"],
+    csall: searchParams.get("csall") ?? "",
+    hiany: (searchParams.get("hiany") ?? "") as SzuroBeallitas["hiany"],
+  };
+  function setSzuro(kulcs: keyof SzuroBeallitas, ertek: string) {
+    const params = new URLSearchParams(searchParams);
+    if (!ertek || (kulcs === "rendez" && ertek === "cim")) params.delete(kulcs);
+    else params.set(kulcs, ertek);
+    setSearchParams(params, { replace: true });
+  }
+  const lathatoHaztartasok = szurRendez(households, szuro, (t) => calcAge(t.szuletesiDatum));
+  const talalatTagok = lathatoHaztartasok.reduce((sum, h) => sum + h.tagok.length, 0);
+  const kliensSzuroAktiv = KLIENS_KULCSOK.some((k) => searchParams.has(k));
 
   function clearExtraFilters() {
     const params = new URLSearchParams();
@@ -304,18 +339,100 @@ export function Households() {
         </div>
       </div>
 
+      <details className="card" open={kliensSzuroAktiv} style={{ padding: "10px 16px" }}>
+        <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "var(--font-size-base)" }}>
+          Több szűrő és rendezés{kliensSzuroAktiv ? " (aktív)" : ""}
+        </summary>
+        <div className="row" style={{ marginTop: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div className="field" style={{ minWidth: 260 }}>
+            <label htmlFor="rendez">Rendezés</label>
+            <select id="rendez" value={szuro.rendez} onChange={(e) => setSzuro("rendez", e.target.value)}>
+              {RENDEZESEK.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.cimke}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 180 }}>
+            <label htmlFor="meret">Család mérete</label>
+            <select id="meret" value={szuro.meret} onChange={(e) => setSzuro("meret", e.target.value)}>
+              <option value="">Bármekkora</option>
+              <option value="1">Egyedülálló (1 fő)</option>
+              <option value="2">2 fős</option>
+              <option value="3+">3 vagy több fős</option>
+              <option value="4+">4 vagy több fős</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 190 }}>
+            <label htmlFor="vtip">Vallás szerint</label>
+            <select id="vtip" value={szuro.vtip} onChange={(e) => setSzuro("vtip", e.target.value)}>
+              <option value="">Mind</option>
+              <option value="EGYEZO">Egyező vallású család</option>
+              <option value="VEGYES">Vegyes vallású család</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 170 }}>
+            <label htmlFor="kisk">Kiskorú (18 év alatti)</label>
+            <select id="kisk" value={szuro.kisk} onChange={(e) => setSzuro("kisk", e.target.value)}>
+              <option value="">Mind</option>
+              <option value="van">Van kiskorú tag</option>
+              <option value="nincs">Nincs kiskorú tag</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 170 }}>
+            <label htmlFor="idos">Idősek</label>
+            <select id="idos" value={szuro.idos} onChange={(e) => setSzuro("idos", e.target.value)}>
+              <option value="">Mind</option>
+              <option value="van">Van 70 éves vagy idősebb tag</option>
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 190 }}>
+            <label htmlFor="csall">Családi állapot (bármely tagé)</label>
+            <select id="csall" value={szuro.csall} onChange={(e) => setSzuro("csall", e.target.value)}>
+              <option value="">Mind</option>
+              {(Object.keys(CSALADI_ALLAPOT_NEVEK) as CsaladiAllapot[]).map((k) => (
+                <option key={k} value={k}>
+                  {CSALADI_ALLAPOT_NEVEK[k]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ minWidth: 200 }}>
+            <label htmlFor="hiany">Adathiány</label>
+            <select id="hiany" value={szuro.hiany} onChange={(e) => setSzuro("hiany", e.target.value)}>
+              <option value="">Mind</option>
+              <option value="van">Van tag születési dátum nélkül</option>
+            </select>
+          </div>
+          {kliensSzuroAktiv && (
+            <button
+              className="btn btn-secondary btn-sm"
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams(searchParams);
+                for (const k of KLIENS_KULCSOK) params.delete(k);
+                setSearchParams(params, { replace: true });
+              }}
+            >
+              Alaphelyzet
+            </button>
+          )}
+        </div>
+      </details>
+
       {(korTol !== "" || korIg !== "") && (
         <div className="row" style={{ alignItems: "center" }}>
           <p style={{ margin: 0, fontWeight: 600 }}>
-            {korTol !== "" ? korTol : "0"}–{korIg !== "" ? korIg : "…"} éves élő tagok: {talalatTagok} fő, {households.length} háztartásban
+            {korTol !== "" ? korTol : "0"}–{korIg !== "" ? korIg : "…"} éves élő tagok: {talalatTagok} fő, {lathatoHaztartasok.length} háztartásban
           </p>
-          {households.length > 0 && (
+          {lathatoHaztartasok.length > 0 && (
             <button
               className="btn btn-secondary btn-sm"
               title="Megnyílik a nyomtatási ablak - válassza a Mentés PDF-ként lehetőséget"
               onClick={() =>
                 korosztalyPdf(
-                  households,
+                  lathatoHaztartasok,
                   `${korTol !== "" ? korTol : "0"}–${korIg !== "" ? korIg : "…"} éves tagok`,
                   gyulekezetek.find((g) => g.id === gyulekezetId)?.nev ?? ""
                 )
@@ -328,9 +445,14 @@ export function Households() {
       )}
 
       {betolt && households.length === 0 && <PageLoader compact />}
-      {!betolt && households.length === 0 && <p>Nincs találat.</p>}
+      {!betolt && lathatoHaztartasok.length === 0 && <p>Nincs találat.</p>}
+      {kliensSzuroAktiv && lathatoHaztartasok.length > 0 && (
+        <p style={{ margin: 0, fontWeight: 600 }}>
+          {lathatoHaztartasok.length} háztartás, {talalatTagok} fő a szűrők szerint (összesen {households.length} háztartásból)
+        </p>
+      )}
       <div className="stack">
-        {households.map((h) => {
+        {lathatoHaztartasok.map((h) => {
           const addressText = `${h.address.iranyitoszam ? h.address.iranyitoszam + " " : ""}${h.address.telepules}, ${h.address.utca} ${h.address.hazszam}${h.address.emeletAjto ? `, ${h.address.emeletAjto}` : ""}`;
           const canEdit = canEditGyulekezet(user, h.gyulekezetId);
           return (
@@ -357,6 +479,16 @@ export function Households() {
                   </div>
                 </Link>
                 <div className="row">
+                  {szuro.rendez === "legidosebb" && legidosebbTag(h) && (
+                    <span className="badge" style={{ background: "var(--color-primary-light)", color: "var(--color-primary-dark)", fontWeight: 700 }}>
+                      Legidősebb: {szemelyNev(legidosebbTag(h)!)} ({calcAge(legidosebbTag(h)!.szuletesiDatum)} év)
+                    </span>
+                  )}
+                  {szuro.rendez === "legfiatalabb" && legfiatalabbTag(h) && (
+                    <span className="badge" style={{ background: "var(--color-primary-light)", color: "var(--color-primary-dark)", fontWeight: 700 }}>
+                      Legfiatalabb: {szemelyNev(legfiatalabbTag(h)!)} ({calcAge(legfiatalabbTag(h)!.szuletesiDatum)} év)
+                    </span>
+                  )}
                   {h.tobbCsaladEzenACimen && (
                     <span className="badge">Több család ezen a címen</span>
                   )}
