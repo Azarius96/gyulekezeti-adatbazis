@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { PageLoader } from "../components/Loading";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePaymentSession } from "../context/PaymentSessionContext";
 import { SzerepRokonok } from "../components/Rokonok";
@@ -1555,6 +1555,9 @@ export function PersonDetail() {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const hely = useLocation();
+  // Ha egy másik oldalról (pl. Pénzügyek) nyitották meg a személyt, a Vissza oda vezet; különben a háztartásra.
+  const visszaCim = (hely.state as { vissza?: string } | null)?.vissza;
   const [person, setPerson] = useState<PersonDetailType | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -1656,9 +1659,10 @@ export function PersonDetail() {
   return (
     <div className="stack">
       <button className="btn btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => {
-          // A vissza gomb mindig arra a háztartásra vezet, amelyikben a személy él (ha nincs háztartása, az előző oldalra)
+          // A Vissza arra az oldalra vezet, ahonnan jöttek (pl. Pénzügyek); egyébként arra a háztartásra, amelyikben a személy él (ha nincs háztartása, az előző oldalra)
           const tagsag = person.householdMemberships.find((hm) => !hm.vege) ?? person.householdMemberships[0];
-          if (tagsag) navigate(`/haztartasok/${tagsag.household.id}`);
+          if (visszaCim) navigate(visszaCim);
+          else if (tagsag) navigate(`/haztartasok/${tagsag.household.id}`);
           else navigate(-1);
         }}>
         &larr; Vissza

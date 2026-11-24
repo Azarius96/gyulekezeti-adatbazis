@@ -1,5 +1,5 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type ComponentType, type SVGProps } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useGyulekezetek } from "../components/GyulekezetSelect";
 import { useSelectedGyulekezet } from "../context/GyulekezetContext";
@@ -107,7 +107,11 @@ function PenzugyiHero({ gyulekezetId }: { gyulekezetId: string }) {
 export function Penzugyek() {
   const gyulekezetek = useGyulekezetek();
   const [gyulekezetId] = useSelectedGyulekezet();
-  const [tab, setTab] = useState<Tab>("osszesito");
+  // A kiválasztott fül a címben van (?ful=...), így egy személyről a "Vissza" gombbal ugyanarra a fülre térünk vissza.
+  const [params, setParams] = useSearchParams();
+  const fulParam = params.get("ful");
+  const tab: Tab = TABS.some((t) => t.id === fulParam) ? (fulParam as Tab) : "osszesito";
+  const setTab = (t: Tab) => setParams(t === "osszesito" ? {} : { ful: t }, { replace: true });
 
   return (
     <div className="stack">
@@ -321,6 +325,8 @@ function PayDebt({
 }
 
 function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string; showGyulekezetNev: boolean }) {
+  const hely = useLocation();
+  const vissza = hely.pathname + hely.search;
   const { user } = useAuth();
   // Alapból a két előző évet is belevesszük (ugyanúgy, mint a személy-/háztartásnézet tartozása), hogy
   // egy korábbi évről áthúzódó elmaradás sose maradjon rejtve pusztán azért, mert valaki csak a folyó évre nézi a listát.
@@ -414,7 +420,7 @@ function Tartozasok({ gyulekezetId, showGyulekezetNev }: { gyulekezetId: string;
                 }}
               >
                 <div>
-                  <Link to={`/szemelyek/${d.personId}`} style={{ fontWeight: 700 }}>
+                  <Link to={`/szemelyek/${d.personId}`} state={{ vissza }} style={{ fontWeight: 700 }}>
                     {d.nev}
                   </Link>
                   {showGyulekezetNev && <span style={{ color: "var(--color-text-muted)" }}> — {d.gyulekezetNev}</span>}
@@ -454,6 +460,8 @@ interface LedgerEntry {
 }
 
 function Ledger({ gyulekezetId, kind }: { gyulekezetId: string; kind: "dues" | "donation" }) {
+  const hely = useLocation();
+  const vissza = hely.pathname + hely.search;
   const [ev, setEv] = useState(String(CURRENT_YEAR));
   const [entries, setEntries] = useState<LedgerEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -498,7 +506,7 @@ function Ledger({ gyulekezetId, kind }: { gyulekezetId: string; kind: "dues" | "
           {entries.map((e) => (
             <div key={e.id} className="card row" style={{ justifyContent: "space-between" }}>
               <div>
-                <Link to={`/szemelyek/${e.personId}`} style={{ fontWeight: 700 }}>
+                <Link to={`/szemelyek/${e.personId}`} state={{ vissza }} style={{ fontWeight: 700 }}>
                   {e.nev}
                 </Link>
                 <div style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-sm)" }}>
